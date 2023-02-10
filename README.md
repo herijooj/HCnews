@@ -1,5 +1,5 @@
-# HC news
-the HC version of JRMU news.
+# HC News
+the HC version of JRMUNEWS.
 
 everyday since 2021 I've been sharing the JRMUNEWS to a group of friends of mine. it is a big text with the holidays that are celebrated that day, news, stock market, sports and etc... kinda like a RSS feed but worse
 
