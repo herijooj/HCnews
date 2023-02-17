@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+source ./shortening.sh
+
 # this function converts a date in RSS format to unix
 # RFC 2822 example: Fri, 03 Feb 2023 16:00:00 +0000
 date_rss_to_unix () {
@@ -74,10 +76,12 @@ get_news_RSS () {
     while read -r line; do
         DATE=$(echo "$line" | cut -d "|" -f 1)
         TITLE=$(echo "$line" | cut -d "|" -f 2)
+        LINK=$(echo "$line" | cut -d "|" -f 3)
 
         # compare the date with the timestamp
         if [ "$(compare_dates_rss "$DATE" "$TIMESTAMP")" -eq 1 ]; then
             echo "📰 $TITLE"
+            echo "$(shorten_url_isgd "$LINK")"
         fi
     done <<< "$NEWS"
 }
