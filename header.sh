@@ -1,84 +1,79 @@
 #!/usr/bin/env bash
 
-# this function returns the date in a pretty format
-# example: Segunda-feira, 10 de Abril de 2023
-pretty_date () {
-    # adds "-feira" if it's not Saturday or Sunday
-    if [ $(date +%A) != "Sábado" ] && [ $(date +%A) != "Domingo" ]; then
-        DATE=$(date +%A) 
-        DATE+="-feira, "
-    else
-        DATE=$(date +%A)
-        DATE+=", "
-    fi
+# Returns the current date in a pretty format.
+# Usage: pretty_date
+# Example output: "Segunda-feira, 10 de Abril de 2023"
 
-    DATE+=$(date +%d)
-    DATE+=" de " # add "de"
-    DATE+=$(date +%B) # get the month
-    DATE+=" de " # add "de"
-    DATE+=$(date +%Y) # get the year
+function pretty_date {
+  local date=$(date +%A)
+  local day=$(date +%d)
+  local month=$(date +%B)
+  local year=$(date +%Y)
 
-    # return the date
-    echo $DATE
+  # Add "-feira" if it's not Saturday or Sunday
+  if [[ $date != "sábado" && $date != "domingo" ]]; then
+    date+="feira"
+  fi
+
+  # Return the date in a pretty format
+  echo "${date}, ${day} ${month} ${year}"
 }
 
 # calculates the HERIPOCH (the HCnews epoch)
 # the start of the project was in 07/10/2021
-heripoch_date () {
-
-    START_DATE=$(date -d "2021-10-07" +%s)
-    CURRENT_DATE=$(date +%s)
-    DIFFERENCE=$(($CURRENT_DATE - $START_DATE))
-    DAYS_SINCE=$(($DIFFERENCE / 86400))
-
-    # return the number of days since the start of the project
-    echo $DAYS_SINCE
+function heripoch_date() {
+    local start_date="2021-10-07"
+    local current_date=$(date +%s)
+    local difference=$((current_date - $(date -d "$start_date" +%s)))
+    local days_since=$((difference / 86400))
+    echo "$days_since"
 }
 
 # this function returns the moon phase from https://www.invertexto.com/fase-lua-hoje
-moon_phase () {
+function moon_phase () {
 
     # grep all the lines with <span> and </span>
-    MOON_PHASE=$(curl -s https://www.invertexto.com/fase-lua-hoje | grep -oP '(?<=<span>).*(?=</span>)')
+    moon_phase=$(curl -s https://www.invertexto.com/fase-lua-hoje | grep -oP '(?<=<span>).*(?=</span>)')
     
-    MOON_PHASE=$(echo $MOON_PHASE | sed 's/%/% de Visibilidade/')
-    MOON_PHASE=$(echo $MOON_PHASE | sed 's/km/km de Distância/')
-    MOON_PHASE=$(echo $MOON_PHASE | sed 's/$/ de Idade/')
+    moon_phase=$(echo $moon_phase | sed 's/%/% de Visibilidade/')
+    # moon_phase=$(echo $moon_phase | sed 's/km/km de Distância/')
+    # moon_phase=$(echo $moon_phase | sed 's/$/ de Idade/')
 
     # return the moon phase
-    echo $MOON_PHASE
+    echo $moon_phase
 }
 
 # this function returns the day quote from "motivate"
-day_quote () {
+function day_quote () {
 
-    DAY_QUOTE=$(motivate | sed 's/\[[0-9;]*m//g')
+    day_quote=$(motivate | sed 's/\[[0-9;]*m//g')
 
     # return the quote
-    echo $DAY_QUOTE
+    echo $day_quote
 }
 
 # this function is used to write the header of the news file
-write_header () {
+function write_header () {
 
-    FILE_PATH=$1
+    file_path=$1
+    file_name=$2
 
-    DATE=$(pretty_date)
-    EDITION=$(heripoch_date)
-    DAYS_SINCE=$(date +%j)
-    MOON_PHASE=$(moon_phase)
-    DAY_QUOTE=$(day_quote)
+    date=$(pretty_date)
+    edition=$(heripoch_date)
+    days_since=$(date +%j)
+    moon_phase=$(moon_phase)
+    day_quote=$(day_quote)
 
     # write the header
-    echo "📰 HCNews, Edição $EDITION 🗞" > $FILE_PATH
-    echo "📌 De Araucária Paraná 🇧🇷" >> $FILE_PATH
-    echo "🗺 Notícias do Brasil e do Mundo 🌎" >> $FILE_PATH
-    echo "📅 $DATE" >> $FILE_PATH
-    echo "⏳ $DAYS_SINCEº dia do ano" >> $FILE_PATH
-    echo "🌔 Lua: $MOON_PHASE" >> $FILE_PATH
-    echo "" >> $FILE_PATH
-    echo "📝 Frase do dia:" >> $FILE_PATH
-    echo "$DAY_QUOTE" >> $FILE_PATH
-    echo "" >> $FILE_PATH
+    echo "📰 HCNews, Edição $edition 🗞" > $file_path
+    echo "📌 De Araucária Paraná 🇧🇷" >> $file_path
+    echo "🗺 Notícias do Brasil e do Mundo 🌎" >> $file_path
+    echo "📅 $date" >> $file_path
+    echo "⏳ $days_sinceº dia do ano" >> $file_path
+    echo "🌔 Lua: $moon_phase" >> $file_path
+    echo "" >> $file_path
+    echo "📝 Frase do dia:" >> $file_path
+    echo "$day_quote" >> $file_path
+    echo "" >> $file_path
     
 }

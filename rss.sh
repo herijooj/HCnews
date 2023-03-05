@@ -76,6 +76,34 @@ get_news_RSS () {
     while read -r line; do
         DATE=$(echo "$line" | cut -d "|" -f 1)
         TITLE=$(echo "$line" | cut -d "|" -f 2)
+
+        # compare the date with the timestamp
+        if [ "$(compare_dates_rss "$DATE" "$TIMESTAMP")" -eq 1 ]; then
+            echo "📰 $TITLE"
+        fi
+    done <<< "$NEWS"
+}
+
+# this function returns the news from an RSS feed
+# it receives the feed as an argument
+# we use the xmlstarlet to parse the XML
+# this function returns the shortened URL
+get_news_RSS_linked () {
+
+    RSS_FEED=$1
+
+    # get the timestamp for 24 hours ago in Unix format
+    export LC_ALL=en_US.UTF-8
+    TIMESTAMP=$(get_date_24_hours_rss)
+    export LC_ALL=C
+
+    # fetch the RSS feed and extract the date, title and link
+    NEWS=$(curl -s "$RSS_FEED" | xmlstarlet sel -t -m "/rss/channel/item" -v "pubDate" -o "|" -v "title" -o "|" -v "link" -n)
+    
+    # loop through the news
+    while read -r line; do
+        DATE=$(echo "$line" | cut -d "|" -f 1)
+        TITLE=$(echo "$line" | cut -d "|" -f 2)
         LINK=$(echo "$line" | cut -d "|" -f 3)
 
         # compare the date with the timestamp
@@ -88,6 +116,7 @@ get_news_RSS () {
 
 write_news () {
 
+    ARGS=("$@")
     FILE_PATH=$1
     RSS_FEED=$2
 
@@ -96,6 +125,10 @@ write_news () {
     # write the news to the file
     echo "📰 $PORTAL 📰" >> $FILE_PATH
     echo "" >> $FILE_PATH
-    echo "$(get_news_RSS "$RSS_FEED")" >> $FILE_PATH
+    # if the program is called with the -l argument, return the shortened URL
+    if [ "${ARGS[2]}" == "-l" ]; then
+        get_news_RSS_linked "$RSS_FEED" >> $FILE_PATH
+    else
+        get_news_RSS "$RSS_FEED" >> $FILE_PATH
+    fi
 }
-

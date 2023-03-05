@@ -1,18 +1,30 @@
 #!/usr/bin/env bash
 
-# this function is used to generate the news file
-new_file () {
+# This function is used to generate the news file.
+new_file() {
+    local news_file_name=$1
+    local news_file_path=$2
 
-    DATE=$1
-    NEWS_FILE_NAME=$2
-    NEWS_FILE_PATH=$3
+    # If the directory doesn't exist, create it.
+    if [[ ! -d "./news" ]]; then
+        mkdir news
+    fi
 
-    # if [ -f $news_file_path ]; then
-    #     echo "The news file $news_file_path already exists."
-    #     echo "Please remove it before generating a new one."
-    #     exit 1
-    # fi
-
-    touch $NEWS_FILE_PATH
-    echo "The news file $NEWS_FILE_PATH was created."
+    # If the file already exists, ask the user if they want to overwrite it.
+    if [[ -f "$news_file_path" ]]; then
+        echo "The news file $news_file_name already exists."
+        read -p "Do you want to overwrite it? [y/n] " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            touch "$news_file_path"
+            echo "The news file $news_file_path was overwritten."
+        else
+            # If the user doesn't want to overwrite the file, exit the script.
+            echo "Exiting the script."
+            exit 1
+        fi
+    else
+        touch "$news_file_path"
+        echo "The news file $news_file_path was created."
+    fi
 }

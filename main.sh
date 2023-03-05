@@ -1,37 +1,47 @@
 #!/usr/bin/env bash
 
-# include the other scripts
+# Include the other scripts
 source ./file.sh
 source ./header.sh
+source ./saints.sh
 source ./holidays.sh
 source ./rss.sh
 
-# variables
-DATE=$(date +%Y%m%d)
-echo $DATE
-NEWS_FILE_NAME=$DATE.news
-echo $NEWS_FILE_NAME
-NEWS_FILE_PATH=./news/$NEWS_FILE_NAME
-echo $NEWS_FILE_PATH
+# Define main function
+main() {
 
-# main function
-main () {
-    
-    FEED_1=https://opopularpr.com.br/feed/
-    FEED_2=http://g1.globo.com/dynamo/pr/parana/rss2.xml
+    # Define variables
+    date=$(date +%Y%m%d)
 
-    new_file $DATE $NEWS_FILE_PATH $NEWS_FILE_NAME
-    write_header $NEWS_FILE_PATH
-    #write_holidays $NEWS_FILE_PATH
-    write_news $NEWS_FILE_PATH $FEED_1
-    echo "" >> $NEWS_FILE_PATH 
-    write_news $NEWS_FILE_PATH $FEED_2
+    # Define paths
+    news_file_name="$date.news"
+    news_file_path="./news/$news_file_name"
+    holidays_file_path=holidays.md
 
-    # echo the date and the date rss format
-    echo "The date is: $(date)"
-    echo "The date 24 hours ago was: $(get_date_24_hours_rss)"
+    # RSS feeds
+    feed_1=https://opopularpr.com.br/feed/
+    feed_2=https://g1.globo.com/rss/g1/
+    feed_3=https://feeds.folha.uol.com.br/mundo/rss091.xml
 
+    # Create the holiday table
+    # get_holiday_table "$holidays_file_path"
+
+    # Create the news file
+    new_file "$news_file_name" "$news_file_path"
+
+    # Write the header
+    write_header "$news_file_path" "$news_file_name"
+
+    # Write the saint(s) of the day
+    write_saints "$news_file_path"
+
+    # write_holidays "$news_file_path"
+    write_news "$news_file_path" "$feed_1"
+    echo "" >> "$news_file_path"
+    write_news "$news_file_path" "$feed_2"
+    echo "" >> "$news_file_path"
+    write_news "$news_file_path" "$feed_3"
 }
 
-# call the main function
+# Call the main function
 main
