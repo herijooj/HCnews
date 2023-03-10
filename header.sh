@@ -12,11 +12,11 @@ function pretty_date {
 
   # Add "-feira" if it's not Saturday or Sunday
   if [[ $date != "sábado" && $date != "domingo" ]]; then
-    date+="feira"
+    date+="-feira"
   fi
 
   # Return the date in a pretty format
-  echo "${date}, ${day} ${month} ${year}"
+  echo "${date}, ${day} de ${month} de ${year}"
 }
 
 # calculates the HERIPOCH (the HCnews epoch)

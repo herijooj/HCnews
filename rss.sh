@@ -115,20 +115,20 @@ get_news_RSS_linked () {
 }
 
 write_news () {
-
-    ARGS=("$@")
     FILE_PATH=$1
     RSS_FEED=$2
+    linked=$3
+
 
     PORTAL=$(echo "$RSS_FEED" | cut -d "/" -f 3)
 
     # write the news to the file
     echo "📰 $PORTAL 📰" >> $FILE_PATH
     echo "" >> $FILE_PATH
-    # if the program is called with the -l argument, return the shortened URL
-    if [ "${ARGS[2]}" == "-l" ]; then
+    if [ "$linked" = true ]; then
         get_news_RSS_linked "$RSS_FEED" >> $FILE_PATH
     else
         get_news_RSS "$RSS_FEED" >> $FILE_PATH
     fi
+    echo "" >> $FILE_PATH
 }

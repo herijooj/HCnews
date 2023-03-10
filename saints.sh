@@ -2,6 +2,7 @@
 
 # Get the saint(s) of the day from the Vatican website.
 # https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
+# This function prints the name(s) and the description of the saint(s).
 get_saints_of_the_day_verbose () {
     # Get the current month and day.
     local month
@@ -29,6 +30,9 @@ get_saints_of_the_day_verbose () {
     done <<< "$names"
 }
 
+# Get the saint(s) of the day from the Vatican website.
+# https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
+# This function only prints the name of the saint(s).
 get_saints_of_the_day () {
     # Get the current month and day.
     local month
@@ -51,8 +55,13 @@ get_saints_of_the_day () {
 
 write_saints () {
     local news_file_path=$1
+    local saints_verbose=$2
 
     echo "🙏 Santos do dia 💒" >> "$news_file_path"
-    get_saints_of_the_day >> "$news_file_path"
+    if [[ "$saints_verbose" == "true" ]]; then
+        get_saints_of_the_day_verbose >> "$news_file_path"
+    else
+        get_saints_of_the_day >> "$news_file_path"
+    fi
     echo "" >> "$news_file_path"
 }
