@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+# this project is licensed under the GPL. See the LICENSE file for more information
+
 # Include the other scripts
 source ./file.sh
 source ./header.sh
