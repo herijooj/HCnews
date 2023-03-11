@@ -46,6 +46,7 @@ chmod +x hcnews
 sudo apt install date curl motivate xmlstarlet pup
 ```
 you may need to install `pup` from source, i use arch (btw) so i just installed it from the AUR.
+
 2. Clone this repository:
 ```sh
 git clone
