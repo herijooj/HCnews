@@ -24,7 +24,7 @@ HCNEWS requires the following dependencies:
 ```sh
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 ```
-2. 2. Install the dependencies using Homebrew:
+2. Install the dependencies using Homebrew:
 ```sh
 brew install date curl motivate xmlstarlet pup
 ```
