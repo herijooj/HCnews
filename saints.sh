@@ -54,14 +54,58 @@ get_saints_of_the_day () {
 }
 
 write_saints () {
-    local news_file_path=$1
-    local saints_verbose=$2
+    local saints_verbose=$1
 
-    echo "🙏 Santos do dia 💒" >> "$news_file_path"
+    echo "🙏 Santos do dia 💒"
     if [[ "$saints_verbose" == "true" ]]; then
-        get_saints_of_the_day_verbose >> "$news_file_path"
+        get_saints_of_the_day_verbose
     else
-        get_saints_of_the_day >> "$news_file_path"
+        get_saints_of_the_day
     fi
-    echo "" >> "$news_file_path"
+    echo ""
 }
+
+# -------------------------------- Running locally --------------------------------
+
+# help function
+# Usage: ./saints.sh [options]
+# Options:
+#   -h, --help: show the help
+#   -v, --verbose: show the verbose description of the saints
+show_help() {
+    echo "Usage: ./saints.sh [options]"
+    echo "Options:"
+    echo "  -h, --help: show the help"
+    echo "  -v, --verbose: show the verbose description of the saints"
+}
+
+# this function will receive the arguments
+get_arguments() {
+    # Define variables
+    saints_verbose=false
+
+    # Get the arguments
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                show_help
+                exit 0
+                ;;
+            -v|--verbose)
+                saints_verbose=true
+                shift
+                ;;
+            *)
+                echo "Invalid argument: $1"
+                show_help
+                exit 1
+                ;;
+        esac
+    done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # run the script
+    get_arguments "$@"
+    write_saints "$saints_verbose"
+fi

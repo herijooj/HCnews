@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 
+source ./quote.sh
+
 # Returns the current date in a pretty format.
 # Usage: pretty_date
 # Example output: "Segunda-feira, 10 de Abril de 2023"
-
 function pretty_date {
   local date=$(date +%A)
   local day=$(date +%d)
@@ -43,37 +44,63 @@ function moon_phase () {
     echo $moon_phase
 }
 
-# this function returns the day quote from "motivate"
-function day_quote () {
-
-    day_quote=$(motivate | sed 's/\[[0-9;]*m//g')
-
-    # return the quote
-    echo $day_quote
-}
-
 # this function is used to write the header of the news file
 function write_header () {
-
-    file_path=$1
-    file_name=$2
 
     date=$(pretty_date)
     edition=$(heripoch_date)
     days_since=$(date +%j)
     moon_phase=$(moon_phase)
-    day_quote=$(day_quote)
+    day_quote=$(quote)
 
     # write the header
-    echo "📰 HCNews, Edição $edition 🗞" > $file_path
-    echo "📌 De Araucária Paraná 🇧🇷" >> $file_path
-    echo "🗺 Notícias do Brasil e do Mundo 🌎" >> $file_path
-    echo "📅 $date" >> $file_path
-    echo "⏳ $days_sinceº dia do ano" >> $file_path
-    echo "🌔 Lua: $moon_phase" >> $file_path
-    echo "" >> $file_path
-    echo "📝 Frase do dia:" >> $file_path
-    echo "$day_quote" >> $file_path
-    echo "" >> $file_path
+    echo "📰 HCNews, Edição $edition 🗞"
+    echo "📌 De Araucária Paraná 🇧🇷" 
+    echo "🗺 Notícias do Brasil e do Mundo 🌎" 
+    echo "📅 $date" 
+    echo "⏳ $days_sinceº dia do ano" 
+    echo "🌔 Lua: $moon_phase" 
+    echo "" 
+    echo "📝 Frase do dia:" 
+    echo "$day_quote" 
+    echo ""
     
 }
+
+# -------------------------------- Running locally --------------------------------
+
+# help function
+# Usage: ./header.sh [options]
+# Options:
+#   -h, --help: show the help
+show_help() {
+  echo "Usage: ./header.sh [options]"
+  echo "The header of the news file will be printed to the console."
+  echo "Options:"
+  echo "  -h, --help: show the help"
+}
+
+# this function will receive the arguments
+get_arguments() {
+  # Get the arguments
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)
+        show_help
+        exit 0
+        ;;
+      *)
+        echo "Invalid argument: $1"
+        show_help
+        exit 1
+        ;;
+    esac
+  done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  # run the script
+  get_arguments "$@"
+  write_header
+fi
+

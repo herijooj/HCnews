@@ -12,11 +12,10 @@ Everyday since 2021 I've been sharing the JRMUNEWS to a group of friends of mine
 
 HCNEWS requires the following dependencies:
 
-- `date` you probably already have it, but if you don't you can find it [here](https://www.gnu.org/software/coreutils/manual/html_node/date-invocation.html)
-- `curl` you probably already have it too, but if you don't you can find it [here](https://curl.se/)
-- `motivate` you can find it [here](https://github.com/AlfredEVOL/motivate)
 - `xmlstarlet` you can find it [here](https://xmlstar.sourceforge.net/)
 - `pup` you can find it [here](https://github.com/ericchiang/pup)
+- `date` you probably already have it, but if you don't you can find it [here](https://www.gnu.org/software/coreutils/manual/html_node/date-invocation.html)
+- `curl` you probably already have it too, but if you don't you can find it [here](https://curl.se/)
 
 ## Installation
 ### macOS
@@ -26,7 +25,7 @@ HCNEWS requires the following dependencies:
 ```
 2. Install the dependencies using Homebrew:
 ```sh
-brew install date curl motivate xmlstarlet pup
+brew install xmlstarlet pup date curl 
 ```
 3. Clone this repository:
 ```sh
@@ -43,7 +42,7 @@ chmod +x hcnews
 ### Linux
 1. Install the dependencies using your package manager:
 ```sh
-sudo apt install date curl motivate xmlstarlet pup
+sudo apt install xmlstarlet pup date curl 
 ```
 you may need to install `pup` from source, i use arch (btw) so i just installed it from the AUR.
 

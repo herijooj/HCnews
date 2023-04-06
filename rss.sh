@@ -115,20 +115,59 @@ get_news_RSS_linked () {
 }
 
 write_news () {
-    FILE_PATH=$1
-    RSS_FEED=$2
-    linked=$3
-
+    RSS_FEED=$1
+    linked=$2
 
     PORTAL=$(echo "$RSS_FEED" | cut -d "/" -f 3)
 
     # write the news to the file
-    echo "📰 $PORTAL 📰" >> $FILE_PATH
-    echo "" >> $FILE_PATH
+    echo "📰 $PORTAL 📰"
+    echo ""
     if [ "$linked" = true ]; then
-        get_news_RSS_linked "$RSS_FEED" >> $FILE_PATH
+        get_news_RSS_linked "$RSS_FEED"
     else
-        get_news_RSS "$RSS_FEED" >> $FILE_PATH
+        get_news_RSS "$RSS_FEED"
     fi
-    echo "" >> $FILE_PATH
+    echo ""
 }
+
+# -------------------------------- Running locally --------------------------------
+
+# help function
+# Usage: ./rss.sh [options]
+# Options:
+#   -h, --help      Show this help message and exit
+#   -l, --linked    Show the news with the shortened URL
+#   -f, --feed      Show the news from a specific feed
+help () {
+    echo "Usage: ./rss.sh [options]"
+    echo "Options:"
+    echo "  -h, --help      Show this help message and exit"
+    echo "  -l, --linked    Show the news with the shortened URL"
+    echo "  -f, --feed      Show the news from a specific feed"
+}
+
+# this function will receive the arguments
+get_arguments () {
+    while [ "$1" != "" ]; do
+        case $1 in
+            -h | --help )           help
+                                    exit
+                                    ;;
+            -l | --linked )         LINKED=true
+                                    ;;
+            -f | --feed )           shift
+                                    FEED_URL=$1
+                                    ;;
+            * )                     help
+                                    exit 1
+        esac
+        shift
+    done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # run the script
+    get_arguments "$@"
+    write_news "$FEED_URL" "$LINKED"
+fi
