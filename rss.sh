@@ -147,7 +147,7 @@ help () {
     echo "  -f, --feed      Show the news from a specific feed"
 }
 
-# this function will receive the arguments
+# this function will receive the arguments, and trown an error if the url is not valid
 get_arguments () {
     while [ "$1" != "" ]; do
         case $1 in
@@ -169,5 +169,11 @@ get_arguments () {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # run the script
     get_arguments "$@"
+
+    if [ "$FEED_URL" = "" ]; then
+        echo "The feed was not specified"
+        help
+        exit 1
+    fi
     write_news "$FEED_URL" "$LINKED"
 fi

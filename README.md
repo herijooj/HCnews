@@ -14,6 +14,7 @@ HCNEWS requires the following dependencies:
 
 - `xmlstarlet` you can find it [here](https://xmlstar.sourceforge.net/)
 - `pup` you can find it [here](https://github.com/ericchiang/pup)
+- `jq` you can find it [here](https://github.com/stedolan/jq)
 - `date` you probably already have it, but if you don't you can find it [here](https://www.gnu.org/software/coreutils/manual/html_node/date-invocation.html)
 - `curl` you probably already have it too, but if you don't you can find it [here](https://curl.se/)
 
@@ -25,7 +26,7 @@ HCNEWS requires the following dependencies:
 ```
 2. Install the dependencies using Homebrew:
 ```sh
-brew install xmlstarlet pup date curl 
+brew install xmlstarlet pup jq date curl 
 ```
 3. Clone this repository:
 ```sh
@@ -42,7 +43,7 @@ chmod +x hcnews
 ### Linux
 1. Install the dependencies using your package manager:
 ```sh
-sudo apt install xmlstarlet pup date curl 
+sudo apt install xmlstarlet pup jq date curl 
 ```
 you may need to install `pup` from source, i use arch (btw) so i just installed it from the AUR.
 

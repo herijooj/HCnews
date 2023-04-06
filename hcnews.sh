@@ -7,6 +7,7 @@ source ./file.sh
 source ./header.sh
 source ./saints.sh
 source ./rss.sh
+source ./exchange.sh
 
 # help function
 # usage: ./hcnews.sh [options]
@@ -89,3 +90,6 @@ write_saints "$saints_verbose" >> "$news_file_path"
 for feed in "${feeds[@]}"; do
     write_news "$feed" "$news_shortened" >> "$news_file_path" 
 done
+
+# Write the exchange rates
+write_exchange >> "$news_file_path"

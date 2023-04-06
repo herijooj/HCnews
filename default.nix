@@ -4,5 +4,6 @@ pkgs.mkShell {
   buildInputs = [
     pkgs.pup
     pkgs.xmlstarlet
+    pkgs.jq
   ];
 }
