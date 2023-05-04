@@ -1,13 +1,18 @@
 #!/usr/bin/env bash
-
 # this project is licensed under the GPL. See the LICENSE file for more information
 
-# Include the other scripts
+# Includes ========================================================================
 source ./file.sh
 source ./header.sh
 source ./saints.sh
 source ./rss.sh
 source ./exchange.sh
+source ./UFPR/ferias.sh
+source ./UFPR/ru.sh
+
+# ==================================================================================
+
+# Functions ========================================================================
 
 # help function
 # usage: ./hcnews.sh [options]
@@ -59,6 +64,9 @@ get_arguments() {
         esac
     done
 }
+# ==================================================================================
+
+# Main =============================================================================
 
 # Get the arguments
 get_arguments "$@"
@@ -93,3 +101,13 @@ done
 
 # Write the exchange rates
 write_exchange >> "$news_file_path"
+
+# UFPR 
+echo "🎓 UFPR 🎓" >> "$news_file_path"
+echo ""
+
+# time to vacation
+write_ferias >> "$news_file_path"
+
+# menu of the day
+write_menu >> "$news_file_path"
