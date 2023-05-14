@@ -9,6 +9,8 @@ source ./rss.sh
 source ./exchange.sh
 source ./UFPR/ferias.sh
 source ./UFPR/ru.sh
+source ./musicchart.sh
+source ./weather.sh
 
 # ==================================================================================
 
@@ -64,6 +66,17 @@ get_arguments() {
         esac
     done
 }
+
+
+# this function will ask for help
+# 🤝 Quer contribuir com o HCNEWS? 🙋
+# ✨https://github.com/herijooj/HCnews✨
+function help_hcnews {
+    echo "🤝 Quer contribuir com o HCNEWS? 🙋"
+    echo "✨ https://github.com/herijooj/HCnews ✨"
+    echo ""
+}
+
 # ==================================================================================
 
 # Main =============================================================================
@@ -73,6 +86,7 @@ get_arguments "$@"
 
 # Define Variables
 date=$(date +%Y%m%d)
+city="Curitiba"
 
 # Define paths
 news_file_name="$date.news"
@@ -80,8 +94,11 @@ news_file_path="./news/$news_file_name"
 
 # RSS feeds
 feed_1=https://opopularpr.com.br/feed/
-feed_2=https://g1.globo.com/rss/g1/
+feed_2=https://www.newyorker.com/feed/magazine/rss
 feed_3=https://feeds.folha.uol.com.br/mundo/rss091.xml
+feed_4=https://www.formula1.com/content/fom-website/en/latest/all.xml
+feed_5=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
+
 # put this in an array
 feeds=("$feed_1" "$feed_2" "$feed_3")
 
@@ -94,18 +111,33 @@ write_header >> "$news_file_path"
 # Write the saint(s) of the day
 write_saints "$saints_verbose" >> "$news_file_path"
 
+# Write the exchange rates
+write_exchange >> "$news_file_path"
+
+# Help HCNEWS
+help_hcnews >> "$news_file_path"
+
+# Write the music chart
+write_music_chart >> "$news_file_path"
+
+# Write the weather
+write_weather "$city" "false" >> "$news_file_path"
+
 # Write the news
 for feed in "${feeds[@]}"; do
     write_news "$feed" "$news_shortened" >> "$news_file_path" 
 done
 
-# Write the exchange rates
-write_exchange >> "$news_file_path"
+# Write the F1 news
+echo "🏎️ F1 🏎️" >> "$news_file_path"
+write_news "$feed_4" "$news_shortened" >> "$news_file_path"
+
+# Write the tech news
+echo "🤖 Tech 🤖" >> "$news_file_path"
+write_news "$feed_5" "$news_shortened" >> "$news_file_path"
 
 # UFPR 
 echo "🎓 UFPR 🎓" >> "$news_file_path"
-echo ""
-
 # time to vacation
 write_ferias >> "$news_file_path"
 
