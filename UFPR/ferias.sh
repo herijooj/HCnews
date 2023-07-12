@@ -10,6 +10,12 @@ function write_ferias () {
     # pick the first <title
     TITLE=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "title" -n | head -n 1)
 
+    # if the title is empty, we are in vacation
+    if [[ -z "$TITLE" ]]; then
+        echo "🏝️  Estamos de férias!"
+        exit 1
+    fi
+
     # return the title and add the emoji
     echo "🏖️  $TITLE"
     echo ""
