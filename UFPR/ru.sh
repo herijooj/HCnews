@@ -79,6 +79,12 @@ function get_menu () {
     # delete all the lines until "<p><strong>" and all the lines after "<p></p>"
     URL=$(curl -s "$URL" | sed -n '/<p><strong>/,$p' | sed -n '/<p><\/p>/q;p')
 
+    # if the URL is empty, the RU is closed or the menu is special
+    if [[ "$URL" == "" ]]; then
+        echo "O RU está fechado ou o cardápio é especial."
+        exit 1
+    fi
+
     # only keep the contents inside the tags and break lines after each tag, then delete the empty lines
     URL=$(echo "$URL" | sed 's/<[^>]*>/\n&/g' | sed '/^$/d')
 
