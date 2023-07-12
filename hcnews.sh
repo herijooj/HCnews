@@ -11,6 +11,7 @@ source ./UFPR/ferias.sh
 source ./UFPR/ru.sh
 source ./musicchart.sh
 source ./weather.sh
+source ./didyouknow.sh
 
 # ==================================================================================
 
@@ -123,6 +124,9 @@ write_music_chart >> "$news_file_path"
 # Write the weather
 write_weather "$city" "false" >> "$news_file_path"
 
+# Write "Did you know?"
+write_did_you_know >> "$news_file_path"
+
 # Write the news
 for feed in "${feeds[@]}"; do
     write_news "$feed" "$news_shortened" >> "$news_file_path" 
@@ -138,6 +142,7 @@ write_news "$feed_5" "$news_shortened" >> "$news_file_path"
 
 # UFPR 
 echo "🎓 UFPR 🎓" >> "$news_file_path"
+
 # time to vacation
 write_ferias >> "$news_file_path"
 
