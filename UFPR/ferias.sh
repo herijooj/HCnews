@@ -13,13 +13,14 @@ function write_ferias () {
     # if the title is empty, we are in vacation
     if [[ -z "$TITLE" ]]; then
         echo "🏝️  Estamos de férias!"
-        exit 1
+        echo ""
+        break
+    else
+        # if the title is not empty, we are not in vacation
+        # return the title and add the emoji
+        echo "🏖️  $TITLE"
+        echo ""
     fi
-
-    # return the title and add the emoji
-    echo "🏖️  $TITLE"
-    echo ""
-
 }
 
 

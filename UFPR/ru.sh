@@ -82,36 +82,36 @@ function get_menu () {
     # if the URL is empty, the RU is closed or the menu is special
     if [[ "$URL" == "" ]]; then
         echo "O RU está fechado ou o cardápio é especial."
-        exit 1
+        break
+    else
+        # only keep the contents inside the tags and break lines after each tag, then delete the empty lines
+        URL=$(echo "$URL" | sed 's/<[^>]*>/\n&/g' | sed '/^$/d')
+
+        # change the images to emojis
+        # URL=$(echo "$URL" | while read -r line; do
+        #     echo "$(menu_to_emoji "$line")"
+        # done)
+
+        #clean the lines deleting the tags
+        URL=$(echo "$URL" | while read -r line; do
+            echo "$(get_inside_tags "$line")"
+        done)
+
+        # delete the empty lines
+        URL=$(echo "$URL" | sed '/^$/d')
+
+        # change the lines that are meals to emojis, add a break line after each meal
+        URL=$(echo "$URL" | while read -r line; do
+            if [[ "$(is_meal "$line")" != "" ]]; then
+                echo "$(is_meal "$line")"
+            else
+                echo "$line"
+            fi
+        done)
+
+        echo "$URL"
+        echo ""
     fi
-
-    # only keep the contents inside the tags and break lines after each tag, then delete the empty lines
-    URL=$(echo "$URL" | sed 's/<[^>]*>/\n&/g' | sed '/^$/d')
-
-    # change the images to emojis
-    # URL=$(echo "$URL" | while read -r line; do
-    #     echo "$(menu_to_emoji "$line")"
-    # done)
-
-    #clean the lines deleting the tags
-    URL=$(echo "$URL" | while read -r line; do
-        echo "$(get_inside_tags "$line")"
-    done)
-
-    # delete the empty lines
-    URL=$(echo "$URL" | sed '/^$/d')
-
-    # change the lines that are meals to emojis, add a break line after each meal
-    URL=$(echo "$URL" | while read -r line; do
-        if [[ "$(is_meal "$line")" != "" ]]; then
-            echo "$(is_meal "$line")"
-        else
-            echo "$line"
-        fi
-    done)
-
-    echo "$URL"
-    echo ""
 }
 
 # this function will write the menu to the console
@@ -120,7 +120,6 @@ function write_menu () {
     MENU=$(get_menu)
 
     echo "🍽️ Cardápio do dia 🍽️"
-    echo ""
     echo "$MENU"
 }
 
