@@ -9,13 +9,11 @@ function quote {
     # get the quote from the RSS feed
     URL="http://feeds.feedburner.com/theysaidso/qod"
 
-    # pick the first <quote and <author
-    QUOTE=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "quote" -n | head -n 1)
-    AUTHOR=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "author" -n | head -n 1)
+    # pick the second description tag
+    QUOTE=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "description" -n | sed -n 2p)
 
     # return the quote
-    echo "$QUOTE - $AUTHOR"
-
+    echo "$QUOTE"
 }
 
 # -------------------------------- Running locally --------------------------------
