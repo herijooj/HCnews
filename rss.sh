@@ -122,7 +122,6 @@ write_news () {
 
     # write the news to the file
     echo "📰 $PORTAL 📰"
-    echo ""
     if [ "$linked" = true ]; then
         get_news_RSS_linked "$RSS_FEED"
     else

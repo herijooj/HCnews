@@ -17,7 +17,6 @@ write_exchange () {
     OUT=$(get_exchange_JSON)
     
     echo "📈 Cotação 🪙"
-    echo ""
     echo "$OUT"
     echo ""
 }

@@ -30,7 +30,6 @@ function write_weather () {
 
     # write the weather to the console
     echo "🌧️ Previsão do tempo ⛅"
-    echo ""
     echo "$WEATHER"
     echo "📌 $CITY"
     echo ""
