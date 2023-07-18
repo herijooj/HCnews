@@ -12,6 +12,7 @@ source ./UFPR/ru.sh
 source ./musicchart.sh
 source ./weather.sh
 source ./didyouknow.sh
+source ./holidays.sh
 
 # ==================================================================================
 
@@ -117,6 +118,9 @@ write_exchange >> "$news_file_path"
 
 # Help HCNEWS
 help_hcnews >> "$news_file_path"
+
+# Write the holidays
+write_holidays >> "$news_file_path"
 
 # Write the music chart
 write_music_chart >> "$news_file_path"
