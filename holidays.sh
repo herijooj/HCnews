@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+SCRIPT_DIR=$(dirname "$0")
 
 # get holidays
 # the holidays are in the holidays.csv file
@@ -18,7 +19,7 @@ function get_holidays() {
     fi
 
     # get the holidays
-    local holidays=$(cat holidays.csv | grep "$month,$day" | cut -d "," -f 3)
+    local holidays=$(cat "$SCRIPT_DIR/holidays.csv" | grep "^$month,$day" | cut -d ',' -f 3)
     echo "$holidays"
 }
 

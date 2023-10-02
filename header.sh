@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR=$(dirname "$0")
 
-source ./quote.sh
+source "$SCRIPT_DIR/quote.sh"
 
 # Returns the current date in a pretty format.
 # Usage: pretty_date

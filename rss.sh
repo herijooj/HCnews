@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
+SCRIPT_DIR=$(dirname "$0")
 
-source ./shortening.sh
+source "$SCRIPT_DIR/shortening.sh"
 
 # this function converts a date in RSS format to unix
 # RFC 2822 example: Fri, 03 Feb 2023 16:00:00 +0000
