@@ -121,6 +121,7 @@ function write_menu () {
 
     echo "🍽️ Cardápio do dia 🍽️"
     echo "$MENU"
+    echo ""
 }
 
 # -------------------------------- Running locally --------------------------------
