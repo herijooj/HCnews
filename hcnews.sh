@@ -87,6 +87,17 @@ function help_hcnews {
     echo ""
 }
 
+# Função para imprimir o footer
+function footer {
+    echo "🤝 Quer contribuir com o HCNEWS? 🙋"
+    echo "O HCNEWS é gerado automaticamente todos os dias 🤖 "
+    echo "Tecnologias usadas: RSS 📰 Bash 🚀 Python 🐍 Nix 💻"
+    echo "✨ https://github.com/herijooj/HCnews ✨"
+    echo "Que Deus abençoe a todos! 🙏"
+    echo ""
+}
+
+
 function output {
 
     # Define variables
@@ -143,13 +154,15 @@ function output {
 
     # UFPR 
     echo "🎓 UFPR 🎓"
-    echo ""
     
     # time to vacation
     #write_ferias
 
     # menu of the day
     write_menu
+
+    # Write the footer
+    footer
 }
 
 # Main =============================================================================
