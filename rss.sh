@@ -138,42 +138,42 @@ write_news () {
 # Options:
 #   -h, --help      Show this help message and exit
 #   -l, --linked    Show the news with the shortened URL
-#   -f, --feed      Show the news from a specific feed
 help () {
-    echo "Usage: ./rss.sh [options]"
+    echo "Usage: ./rss.sh [options] [url]"
     echo "Options:"
     echo "  -h, --help      Show this help message and exit"
     echo "  -l, --linked    Show the news with the shortened URL"
-    echo "  -f, --feed      Show the news from a specific feed"
 }
 
-# this function will receive the arguments, and trown an error if the url is not valid
+# this function will receive the arguments, and throw an error if the URL is not valid
 get_arguments () {
-    while [ "$1" != "" ]; do
-        case $1 in
-            -h | --help )           help
-                                    exit
-                                    ;;
-            -l | --linked )         LINKED=true
-                                    ;;
-            -f | --feed )           shift
-                                    FEED_URL=$1
-                                    ;;
-            * )                     help
-                                    exit 1
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                help
+                exit 0
+                ;;
+            -l|--linked)
+                LINKED=true
+                ;;
+            *)
+                FEED_URL="$1"
+                ;;
         esac
         shift
     done
+
+    # Check if FEED_URL is empty
+    if [ -z "$FEED_URL" ]; then
+        echo "The feed URL was not specified"
+        help
+        exit 1
+    fi
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # run the script
     get_arguments "$@"
-
-    if [ "$FEED_URL" = "" ]; then
-        echo "The feed was not specified"
-        help
-        exit 1
-    fi
     write_news "$FEED_URL" "$LINKED"
 fi
