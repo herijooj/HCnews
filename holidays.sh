@@ -27,7 +27,7 @@ function write_holidays() {
     fi
 
     # write the holidays
-    echo "📅 Hoje é dia de:"
+    echo "📅 Hoje é:"
     echo "$holidays"
     echo ""
 }
