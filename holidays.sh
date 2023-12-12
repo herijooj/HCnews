@@ -3,39 +3,33 @@ SCRIPT_DIR=$(dirname "$0")
 
 # get holidays
 # the holidays are in the holidays.csv file
-# the file is in the format: "month,day,holiday"
-# example: "1,1,Ano Novo"
+# the file is in the format: "month day holiday"
+# example: 01	01	🎉 Ano Novo
 function get_holidays() {
     # get the date from arguments
     local month=$1
     local day=$2
-
-    # if the date is not passed, use the current date
-    if [[ -z $month ]]; then
-        month=$(date +%m)
-    fi
-    if [[ -z $day ]]; then
-        day=$(date +%d)
-    fi
-
     # get the holidays
-    local holidays=$(cat "$SCRIPT_DIR/holidays.csv" | grep "^$month,$day" | cut -d ',' -f 3)
+    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' holidays.csv)
     echo "$holidays"
 }
 
 # write the holidays
 function write_holidays() {
     # get the holidays
-    local holidays=$(get_holidays "$@")
+    local holidays=$(get_holidays "$1" "$2")
 
-    # if there are no holidays, exit
+    # if there are no holidays, print a message
     if [[ -z $holidays ]]; then
-        exit 0
+        echo "📅 Sem feriados hoje..."
+        echo ""
+        return
     fi
 
     # write the holidays
     echo "📅 Hoje é dia de:"
     echo "$holidays"
+    echo ""
 }
 
 # -------------------------------- Running locally --------------------------------
@@ -53,26 +47,31 @@ show_help() {
 }
 
 # this function will receive the arguments
-# Usage: get_arguments [month] [day]
 get_arguments() {
-  # Get the arguments
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-        -h|--help)
-            show_help
-            exit 0
-            ;;
-        *)
-            echo "Invalid argument: $1"
-            show_help
-            exit 1
-            ;;
-        esac
-    done
+  # current date
+  month=$(date +%m)
+  day=$(date +%d)
+
+  # get the arguments
+  while [[ $# -gt 0 ]]; do
+    case $1 in
+      -h | --help)
+        show_help
+        exit
+        ;;
+      *)
+        # get the month and day from the arguments
+        month=$1
+        day=$2
+        break
+        ;;
+    esac
+    shift
+  done
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   # run the script
   get_arguments "$@"
-  write_holidays "$@"
+  write_holidays "$month" "$day"
 fi
