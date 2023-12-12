@@ -105,15 +105,15 @@ function output {
     news_shortened=$3
     
     # RSS feeds
-    feed_1=https://opopularpr.com.br/feed/
-    feed_2=https://www.newyorker.com/feed/magazine/rss
-    feed_3=https://feeds.folha.uol.com.br/mundo/rss091.xml
-    feed_4=https://www.formula1.com/content/fom-website/en/latest/all.xml
-    feed_5=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
+    o_popular=https://opopularpr.com.br/feed/
+    newyorker=https://www.newyorker.com/feed/magazine/rss
+    folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
+    g1=https://g1.globo.com/rss/g1/pr/parana/
+    formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
+    bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
 
     # put this in an array
-    feeds=("$feed_1" "$feed_2" "$feed_3")
-
+    feeds=("$o_popular")
 
     # Write the header
     write_header
@@ -128,7 +128,7 @@ function output {
     help_hcnews
 
     # Write the holidays
-    #write_holidays
+    write_holidays "$month" "$day"
 
     # Write the music chart
     write_music_chart
@@ -144,13 +144,13 @@ function output {
         write_news "$feed" "$news_shortened" 
     done
 
-    # Write the F1 news
-    echo "🏎️ F1 🏎️"
-    write_news "$feed_4" "$news_shortened"
+    # # Write the F1 news
+    # echo "🏎️ F1 🏎️"
+    # write_news "$formula1" "$news_shortened"
 
-    # Write the tech news
-    echo "🤖 Tech 🤖"
-    write_news "$feed_5" "$news_shortened"
+    # # Write the tech news
+    # echo "🤖 Tech 🤖"
+    # write_news "$bcc" "$news_shortened"
 
     # UFPR 
     echo "🎓 UFPR 🎓"
@@ -172,6 +172,8 @@ get_arguments "$@"
 
 # Define Variables
 date=$(date +%Y%m%d)
+month=$(date +%m)
+day=$(date +%d)
 city="Curitiba"
 
 # if the output will be to a file
