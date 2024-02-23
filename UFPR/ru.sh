@@ -46,11 +46,11 @@ function is_meal () {
     # 🍝ALMOÇO🍝
     # 🍛JANTAR🍛
     if [[ "$LINE" == *"CAFÉ DA MANHÃ"* ]]; then
-        echo "🥪CAFÉ DA MANHÃ🥪"
+        echo "🥪 CAFÉ DA MANHÃ 🥪"
     elif [[ "$LINE" == *"ALMOÇO"* ]]; then
-        echo "🍝ALMOÇO🍝"
+        echo "🍝 ALMOÇO 🍝"
     elif [[ "$LINE" == *"JANTAR"* ]]; then
-        echo "🍛JANTAR🍛"
+        echo "🍛 JANTAR 🍛"
     else
         echo ""
     fi
@@ -85,7 +85,7 @@ function get_menu () {
         break
     else
         # only keep the contents inside the tags and break lines after each tag, then delete the empty lines
-        URL=$(echo "$URL" | sed 's/<[^>]*>/\n&/g' | sed '/^$/d')
+        URL=$(echo "$URL" | sed 's/<[^>]*>/\n&/g')
 
         # change the images to emojis
         # URL=$(echo "$URL" | while read -r line; do
@@ -100,10 +100,13 @@ function get_menu () {
         # delete the empty lines
         URL=$(echo "$URL" | sed '/^$/d')
 
-        # change the lines that are meals to emojis, add a break line after each meal
         URL=$(echo "$URL" | while read -r line; do
             if [[ "$(is_meal "$line")" != "" ]]; then
+                echo ""
                 echo "$(is_meal "$line")"
+            elif [[ "$line" =~ [0-9] ]]; then
+                echo ""
+                echo "📅 $line"
             else
                 echo "$line"
             fi
