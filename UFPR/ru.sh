@@ -150,6 +150,7 @@ function write_menu () {
     fi
 
     echo "$MENU"
+    echo ""
 }
 
 # -------------------------------- Running locally --------------------------------
