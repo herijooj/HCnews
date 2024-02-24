@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Nitter WAS a free and open source alternative Twitter(x) front-end focused on privacy.
+# it got nuked by Twitter(x), so this doesn't work anymore...
+
 # this function returns the first title from the RSS feed
 # https://nitter.net/feriasufpr/rss
 function write_ferias () {
@@ -22,7 +25,6 @@ function write_ferias () {
         echo ""
     fi
 }
-
 
 # -------------------------------- Running locally --------------------------------
 
