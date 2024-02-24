@@ -45,14 +45,26 @@ function is_meal () {
     # 🥪CAFÉ DA MANHÃ🥪
     # 🍝ALMOÇO🍝
     # 🍛JANTAR🍛
-    if [[ "$LINE" == *"CAFÉ DA MANHÃ"* ]]; then
-        echo "🥪 CAFÉ DA MANHÃ 🥪"
-    elif [[ "$LINE" == *"ALMOÇO"* ]]; then
-        echo "🍝 ALMOÇO 🍝"
-    elif [[ "$LINE" == *"JANTAR"* ]]; then
-        echo "🍛 JANTAR 🍛"
+    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+        if [[ "$LINE" == *"CAFÉ DA MANHÃ"* ]]; then
+            echo "🥪 CAFÉ DA MANHÃ 🥪"
+        elif [[ "$LINE" == *"ALMOÇO"* ]]; then
+            echo "🍝 ALMOÇO 🍝"
+        elif [[ "$LINE" == *"JANTAR"* ]]; then
+            echo "🍛 JANTAR 🍛"
+        else
+            echo ""
+        fi
     else
-        echo ""
+        if [[ "$LINE" == *"CAFÉ DA MANHÃ"* ]]; then
+            echo "🥪 *CAFÉ DA MANHÃ* 🥪"
+        elif [[ "$LINE" == *"ALMOÇO"* ]]; then
+            echo "🍝 *ALMOÇO* 🍝"
+        elif [[ "$LINE" == *"JANTAR"* ]]; then
+            echo "🍛 *JANTAR* 🍛"
+        else
+            echo ""
+        fi
     fi
 }
 
@@ -81,7 +93,11 @@ function get_menu () {
 
     # if the URL is empty, the RU is closed or the menu is special
     if [[ "$URL" == "" ]]; then
-        echo "O RU está fechado ou o cardápio é especial."
+        if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+            echo "O RU está fechado ou o cardápio é especial."
+        else
+            echo "O RU está *fechado* ou o cardápio é *especial*."
+        fi
         break
     else
         # only keep the contents inside the tags and break lines after each tag, then delete the empty lines
@@ -106,9 +122,13 @@ function get_menu () {
                 echo "$(is_meal "$line")"
             elif [[ "$line" =~ [0-9] ]]; then
                 echo ""
-                echo "📅 $line"
+                if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+                    echo "📅 $line"
+                else
+                    echo "📅 *$line*"
+                fi
             else
-                echo "$line"
+                echo "- $line"
             fi
         done)
 
@@ -122,9 +142,14 @@ function write_menu () {
     # get the menu
     MENU=$(get_menu)
 
-    echo "🍽️ Cardápio do dia 🍽️"
+    # if the function was called from the command line, print the string withouth the quotes
+    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+        echo "🍽️ Cardápio do dia 🍽️"
+    else
+        echo "🍽️ *Cardápio do dia* 🍽️"
+    fi
+
     echo "$MENU"
-    echo ""
 }
 
 # -------------------------------- Running locally --------------------------------
