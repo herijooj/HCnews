@@ -1,36 +1,26 @@
-#!/usr/bin/env bash
-
-# this function returns a random fact from "https://pt.wikipedia.org/wiki/Wikip%C3%A9dia:Sabia_que"
-function get_didyouknow () {
+function get_didyouknow() {
     local URL="https://pt.wikipedia.org/wiki/Wikip%C3%A9dia:Sabia_que"
 
     # get the HTML
     HTML=$(curl -s "$URL")
 
-    # extract the <tbody><tr>...</tr></tbody> section
-    HTML=$(echo "$HTML" | pup 'tbody tr')
+    # extract the second <p> tag
+    FACT=$(echo "$HTML" | pup 'p:nth-of-type(2) text{}')
 
-    # <li>...</li> section
-    HTML=$(echo "$HTML" | pup 'li')
+    # delete the break lines and multiple spaces
+    FACT=$(echo "$FACT" | tr -s '\n' ' ' | tr -s ' ')
 
-    # keep everthing inside the first <li>...</li> section
-    HTML=$(echo "$HTML" | pup 'li:first-child')
+    # delete the spaces before and after pontuation (.,;:?!)
+    FACT=$(echo "$FACT" | sed 's/\s\([.,;:?!]\)/\1/g')
 
-    # remove tags
-    HTML=$(echo "$HTML" | pup 'text{}')
+    # delete everything after the second …
+    FACT=$(echo "$FACT" | sed 's/\(.*…\).*/\1/')
 
-    # remove break lines and tabs
-    HTML=$(echo "$HTML" | tr -d '\n\t')
-
-    # all spaces will be replaced by a single space
-    HTML=$(echo "$HTML" | tr -s ' ')
-
-    # return the result
-    echo "$HTML"
+    # return the fact
+    echo "$FACT"
 }
 
-function write_did_you_know () {
-
+function write_did_you_know() {
     # get the fact
     FACT=$(get_didyouknow)
 
