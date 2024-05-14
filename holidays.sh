@@ -10,7 +10,7 @@ function get_holidays() {
     local month=$1
     local day=$2
     # get the holidays
-    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' holidays.csv)
+    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$SCRIPT_DIR/holidays.csv")
     echo "$holidays"
 }
 
