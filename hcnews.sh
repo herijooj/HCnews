@@ -113,7 +113,7 @@ function output {
     bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
 
     # put this in an array
-    feeds=("$o_popular")
+    feeds=("$o_popular" "$newyorker" "$g1")
 
     # Write the header
     write_header
@@ -139,6 +139,14 @@ function output {
     # Write "Did you know?"
     write_did_you_know
 
+    # UFPR 
+
+    # time to vacation
+    #write_ferias
+
+    # menu of the day
+    write_menu
+
     # Write the news
     for feed in "${feeds[@]}"; do
         write_news "$feed" "$news_shortened" 
@@ -151,15 +159,6 @@ function output {
     # # Write the tech news
     # echo "🤖 Tech 🤖"
     # write_news "$bcc" "$news_shortened"
-
-    # UFPR 
-    echo "🎓 UFPR 🎓"
-    
-    # time to vacation
-    #write_ferias
-
-    # menu of the day
-    write_menu
 
     # Write the footer
     footer
