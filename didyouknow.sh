@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+
 function get_didyouknow() {
     local URL="https://pt.wikipedia.org/wiki/Wikip%C3%A9dia:Sabia_que"
 
@@ -10,11 +12,14 @@ function get_didyouknow() {
     # delete the break lines and multiple spaces
     FACT=$(echo "$FACT" | tr -s '\n' ' ' | tr -s ' ')
 
-    # delete the spaces before and after pontuation (.,;:?!)
+    # delete the spaces before and after punctuation (.,;:?!)
     FACT=$(echo "$FACT" | sed 's/\s\([.,;:?!]\)/\1/g')
 
     # delete everything after the second …
     FACT=$(echo "$FACT" | sed 's/\(.*…\).*/\1/')
+
+    # remove or replace non-ASCII characters
+    FACT=$(echo "$FACT" | iconv -f utf-8 -t ascii//TRANSLIT)
 
     # return the fact
     echo "$FACT"
