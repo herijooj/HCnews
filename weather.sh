@@ -23,9 +23,9 @@ function write_weather () {
     WEATHER=$(get_weather "$CITY")
 
     if [[ "$TERMINAL" == "false" ]]; then
-        #clean up the string
-        # remove "[38;5;226m" "[0m" "[38;5;154m" "[38;5;190m" "[1m" from the string
-        WEATHER=$(echo "$WEATHER" | sed 's/\x1b\[[0-9;]*m//g')
+        # clean up the string
+        # remove all ANSI escape sequences from the string
+        WEATHER=$(echo "$WEATHER" | sed "s/\x1B\[[0-9;]*[a-zA-Z]//g")
     fi
 
     # write the weather to the console
