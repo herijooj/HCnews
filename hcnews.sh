@@ -97,6 +97,11 @@ function footer {
     echo ""
 }
 
+function hcseguidor {
+    echo "Quer ser um HCseguidor? 🤖"
+    echo "💬 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y 📱"
+    echo ""
+}
 
 function output {
 
@@ -124,8 +129,8 @@ function output {
     # Write the exchange rates
     write_exchange
 
-    # Help HCNEWS
-    help_hcnews
+    # Ask to enter the Whatsapp Channel
+    hcseguidor
 
     # Write the holidays
     write_holidays "$month" "$day"
@@ -143,6 +148,10 @@ function output {
 
     # time to vacation
     #write_ferias
+    
+    # Help HCNEWS
+    help_hcnews
+
 
     # menu of the day
     write_menu
