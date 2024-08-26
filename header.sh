@@ -7,6 +7,9 @@ source "$SCRIPT_DIR/quote.sh"
 # Usage: pretty_date
 # Example output: "Segunda-feira, 10 de Abril de 2023"
 function pretty_date {
+  # set the locale to pt_BR
+  export LC_TIME=pt_BR.UTF-8
+
   local date=$(date +%A)
   local day=$(date +%d)
   local month=$(date +%B)
@@ -16,6 +19,9 @@ function pretty_date {
   if [[ $date != "sábado" && $date != "domingo" ]]; then
     date+="-feira"
   fi
+
+  # revert the locale to the default
+  export LC_TIME=C
 
   # Return the date in a pretty format
   echo "${date}, ${day} de ${month} de ${year}"
