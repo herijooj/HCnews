@@ -12,6 +12,9 @@ function quote {
     # pick the second description tag
     QUOTE=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "description" -n | sed -n 2p)
 
+    # convert the quote to ASCII and decode HTML entities
+    QUOTE=$(echo "$QUOTE" | iconv -f utf-8 -t ascii//TRANSLIT | sed -e "s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/\"/g; s/&#039;/'/g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&#[0-9]\+;//g")
+
     # return the quote
     echo "$QUOTE"
 }
