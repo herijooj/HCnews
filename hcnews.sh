@@ -101,8 +101,8 @@ function footer {
 function output {
 
     # Define variables
-    saints_verbose=$2
-    news_shortened=$3
+    saints_verbose=$1
+    news_shortened=$2
     
     # RSS feeds
     o_popular=https://opopularpr.com.br/feed/
