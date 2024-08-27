@@ -15,6 +15,8 @@ source "$SCRIPT_DIR/musicchart.sh"
 source "$SCRIPT_DIR/weather.sh"
 source "$SCRIPT_DIR/didyouknow.sh"
 source "$SCRIPT_DIR/holidays.sh"
+source "$SCRIPT_DIR/bicho.sh"
+source "$SCRIPT_DIR/states.sh"
 
 # ==================================================================================
 
@@ -135,6 +137,9 @@ function output {
     # Write the holidays
     write_holidays "$month" "$day"
 
+    # Write the states birthdays
+    write_states_birthdays "$month" "$day"
+
     # Write the music chart
     write_music_chart
 
@@ -144,6 +149,9 @@ function output {
     # Write "Did you know?"
     write_did_you_know
 
+    # Write the palpite of the day
+    write_bicho
+
     # UFPR 
 
     # time to vacation
@@ -151,7 +159,6 @@ function output {
     
     # Help HCNEWS
     help_hcnews
-
 
     # menu of the day
     write_menu
