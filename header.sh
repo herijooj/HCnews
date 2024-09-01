@@ -66,7 +66,7 @@ function write_header () {
     echo "🗺 Notícias do Brasil e do Mundo 🌎" 
     echo "📅 $date" 
     echo "⏳ $days_sinceº dia do ano" 
-    echo "🌔 Lua $moon_phase" 
+    echo "🌔 $moon_phase" 
     echo "" 
     echo "📝 Frase do dia:" 
     echo "$day_quote" 
