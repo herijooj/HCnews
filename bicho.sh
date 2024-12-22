@@ -15,7 +15,7 @@ function get_bicho_data {
     D = stripped
     group = int((D - 1) / 4 + 1)
     
-    animals = "Avestruz 🦃 Águia 🦅 Burro 🐀 Borboleta 🦋 Cachorro 🐶 Cabra 🐐 Carneiro 🐑 Camelo 🐫 Cobra 🐍 Coelho 🐇 Cavalo 🐎 Elefante 🐘 Galo 🐓 Gato 🐈 Jacaré 🐊 Leão 🦁 Macaco 🐒 Porco 🐖 Pavão 🦚 Peru 🦃 Touro 🐂 Tigre 🐅 Urso 🐻 Veado 🦌 Vaca 🐄"
+    animals = "Avestruz 🦩 Águia 🦅 Burro 🐴 Borboleta 🦋 Cachorro 🐶 Cabra 🐐 Carneiro 🐑 Camelo 🐫 Cobra 🐍 Coelho 🐇 Cavalo 🐎 Elefante 🐘 Galo 🐓 Gato 🐈 Jacaré 🐊 Leão 🦁 Macaco 🐒 Porco 🐖 Pavão 🦚 Peru 🦃 Touro 🐂 Tigre 🐅 Urso 🐻 Veado 🦌 Vaca 🐄"
     split(animals, animal_array, " ")
     return animal_array[(group - 1) * 2 + 1] " " animal_array[(group - 1) * 2 + 2]
   }
