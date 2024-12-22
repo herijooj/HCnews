@@ -18,12 +18,17 @@ generate_exchange_CMC() {
   local API_KEY=$CoinMarketCap_API_KEY
   local API_URL="https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
 
-  # Array of precious metal codes and their corresponding CoinMarketCap IDs
+  # Array of cryptocurrency and precious metal codes and their corresponding CoinMarketCap IDs
   declare -A currencies=(
-    [XAU]=3575  # Gold Troy Ounce
-    [XAG]=3574  # Silver Troy Ounce
-    #[XPT]=3577  # Platinum Ounce
-    #[XPD]=3576  # Palladium Ounce
+      [BTC]=1       # Bitcoin
+      [ETH]=1027    # Ethereum
+      [SOL]=5426    # Solana
+      [DOGE]=74     # Dogecoin
+      [BCH]=1831    # Bitcoin Cash
+      [LTC]=2       # Litecoin
+      [XMR]=328     # Monero
+      [XAU]=3575    # Gold Troy Ounce
+      [XAG]=3574    # Silver Troy Ounce
   )
 
   # Loop through all currencies and fetch their exchange data
@@ -41,7 +46,7 @@ generate_exchange_CMC() {
 }
 
 write_exchange () {
-  echo "📈 Cotação 🪙"
+  echo "📈 *Cotação* 🪙"
   get_exchange_BC
   echo ""
   generate_exchange_CMC

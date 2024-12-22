@@ -23,7 +23,7 @@ function write_states_birthdays() {
     fi
     
     # write the states
-    echo "Estados com aniversário hoje:"
+    echo "📅 *Estados com aniversário hoje:*"
     echo "$states"
     echo ""
 }

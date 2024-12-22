@@ -61,14 +61,14 @@ function write_header () {
     day_quote=$(quote)
 
     # write the header
-    echo "📰 HCNews, Edição $edition 🗞"
+    echo "📰 *HCNews*, Edição $edition 🗞"
     echo "📌 De Araucária Paraná 🇧🇷" 
     echo "🗺 Notícias do Brasil e do Mundo 🌎" 
     echo "📅 $date" 
     echo "⏳ $days_sinceº dia do ano" 
     echo "🌔 $moon_phase" 
     echo "" 
-    echo "📝 Frase do dia:" 
+    echo "📝 *Frase do dia:*" 
     echo "$day_quote" 
     echo ""
     

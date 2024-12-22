@@ -77,7 +77,7 @@ get_arguments () {
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   get_arguments "$@"
-  echo "🔮 Horóscopo do dia 🔮"
+  echo "🔮 *Horóscopo do dia* 🔮"
   if [[ -z "$SIGN" ]]; then
     SIGNS=("aries" "peixes" "aquario" "capricornio" "sagitario" "escorpiao" "libra" "virgem" "leao" "cancer" "gemeos" "touro")
     for SIGN in "${SIGNS[@]}"; do

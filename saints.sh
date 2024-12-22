@@ -56,7 +56,7 @@ get_saints_of_the_day () {
 write_saints () {
     local saints_verbose=$1
 
-    echo "🙏 Santos do dia 💒"
+    echo "🙏 *Santos do dia* 💒"
     if [[ "$saints_verbose" == "true" ]]; then
         get_saints_of_the_day_verbose
     else
