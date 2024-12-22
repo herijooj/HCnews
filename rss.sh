@@ -70,8 +70,17 @@ get_news_RSS () {
     TIMESTAMP=$(get_date_24_hours_rss)
     export LC_ALL=C
 
-    # fetch the RSS feed and extract the date, title and link
-    NEWS=$(curl -s "$RSS_FEED" | xmlstarlet sel -t -m "/rss/channel/item" -v "pubDate" -o "|" -v "title" -o "|" -v "link" -n)
+    # fetch the RSS feed and check if it's valid XML
+    FEED_CONTENT=$(curl -s "$RSS_FEED")
+    if ! echo "$FEED_CONTENT" | xmlstarlet val - >/dev/null 2>&1; then
+        return
+    fi
+
+    # extract the date, title and link
+    NEWS=$(echo "$FEED_CONTENT" | xmlstarlet sel -t -m "/rss/channel/item" -v "pubDate" -o "|" -v "title" -o "|" -v "link" -n)
+    if [ -z "$NEWS" ]; then
+        return
+    fi
     
     # loop through the news
     while read -r line; do
@@ -98,8 +107,17 @@ get_news_RSS_linked () {
     TIMESTAMP=$(get_date_24_hours_rss)
     export LC_ALL=C
 
-    # fetch the RSS feed and extract the date, title and link
-    NEWS=$(curl -s "$RSS_FEED" | xmlstarlet sel -t -m "/rss/channel/item" -v "pubDate" -o "|" -v "title" -o "|" -v "link" -n)
+    # fetch the RSS feed and check if it's valid XML
+    FEED_CONTENT=$(curl -s "$RSS_FEED")
+    if ! echo "$FEED_CONTENT" | xmlstarlet val - >/dev/null 2>&1; then
+        return
+    fi
+
+    # extract the date, title and link
+    NEWS=$(echo "$FEED_CONTENT" | xmlstarlet sel -t -m "/rss/channel/item" -v "pubDate" -o "|" -v "title" -o "|" -v "link" -n)
+    if [ -z "$NEWS" ]; then
+        return
+    fi
     
     # loop through the news
     while read -r line; do
@@ -121,14 +139,19 @@ write_news () {
 
     PORTAL=$(echo "$RSS_FEED" | cut -d "/" -f 3)
 
-    # write the news to the file
-    echo "📰 $PORTAL 📰"
+    # Get the news first
     if [ "$linked" = true ]; then
-        get_news_RSS_linked "$RSS_FEED"
+        NEWS_OUTPUT=$(get_news_RSS_linked "$RSS_FEED")
     else
-        get_news_RSS "$RSS_FEED"
+        NEWS_OUTPUT=$(get_news_RSS "$RSS_FEED")
     fi
-    echo ""
+
+    # Only write the portal header and news if there are any news items
+    if [ -n "$NEWS_OUTPUT" ]; then
+        echo "📰 $PORTAL 📰"
+        echo "$NEWS_OUTPUT"
+        echo ""
+    fi
 }
 
 # -------------------------------- Running locally --------------------------------
