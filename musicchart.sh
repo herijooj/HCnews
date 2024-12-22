@@ -3,36 +3,34 @@
 # this function will get the top 10 songs from the music chart
 # https://genius.com/#top-songs
 function get_music_chart () {
-    # get the html
-    HTML=$(curl -s https://genius.com/#top-songs)
+  # get the html
+  HTML=$(curl -s https://genius.com/#top-songs)
+  
+  # extract components using pup
+  TITLES=$(echo "$HTML" | pup 'div.ChartSong-desktop-sc-f118d7af-3.bCJrjW text{}')
+  ARTISTS=$(echo "$HTML" | pup 'h4.ChartSong-desktop-sc-f118d7af-5.kFNpGr text{}'| head -10)
 
-    # get only <div class="PageGriddesktop-hg04e9-0 bvLPlx">...</div>
-    TOP_10=$(echo "$HTML" | grep -oP '(?<=<div class="PageGriddesktop-hg04e9-0 bvLPlx">).*(?=</div>)')
-
-    # save the title of the songs, <h3 class="ChartSongdesktop__TitleAndLyrics-sc-18658hh-2 dCmTwE" ...>...</h3>
-    TITLE=$(echo "$TOP_10" | pup 'h3[class="ChartSongdesktop__TitleAndLyrics-sc-18658hh-2 dCmTwE"] text{}')
-    # delete every line with "Lyrics"
-    TITLE=$(echo "$TITLE" | grep -v "Lyrics")
-    # add an dash to the beginning of each line
-    TITLE=$(echo "$TITLE" | while read -r line; do
-        echo " - $line"
-    done)
-
-    # print the top 10 songs
-    echo "$TITLE"
+  # format the top 10 songs
+  for i in {0..9}; do
+    # get the title and artist
+    TITLE=$(echo "$TITLES" | sed -n "$((i+1))p")
+    ARTIST=$(echo "$ARTISTS" | sed -n "$((i+1))p")
+    # print the formatted song
+    echo "  $((i+1)). $TITLE - $ARTIST"
+  done
 }
 
 # this function will write the music chart to the file
 function write_music_chart () {
-    # get the top 10 songs
-    TOP_10=$(get_music_chart)
+  # get the formatted top 10 songs
+  TOP_10=$(get_music_chart)
 
-    # write the header
-    echo "🎵 Top 10 Músicas 🎵"
-    # write the top 10 songs
-    echo "$TOP_10"
-    echo "📌 De Genius.com/#top-songs"
-    echo ""
+  # write the header
+  echo "🎵 *Top 10 Músicas* 🎵"
+  # write the formatted list
+  echo "$TOP_10"
+  echo "📌 De Genius.com/#top-songs"
+  echo ""
 }
 
 # -------------------------------- Running locally --------------------------------
@@ -51,18 +49,18 @@ show_help() {
 get_arguments() {
   # Get the arguments
   while [ "$1" != "" ]; do
-    case $1 in
-      -h | --help)
-        show_help
-        exit
-        ;;
-      *)
-        echo "Invalid argument"
-        show_help
-        exit 1
-        ;;
-    esac
-    shift
+  case $1 in
+    -h | --help)
+    show_help
+    exit
+    ;;
+    *)
+    echo "Invalid argument"
+    show_help
+    exit 1
+    ;;
+  esac
+  shift
   done
 }
 
