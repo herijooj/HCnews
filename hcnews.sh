@@ -121,6 +121,7 @@ function output {
     g1=https://g1.globo.com/rss/g1/pr/parana/
     formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
     bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
+    g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
 
     # put this in an array
     feeds=("$o_popular" "$newyorker" "$g1")
@@ -168,8 +169,13 @@ function output {
 
     # Write the news
     for feed in "${feeds[@]}"; do
-        write_news "$feed" "$news_shortened" 
+        write_news "$feed" "$news_shortened" true
     done
+
+    # cinema
+    echo "🎬 G1 Cinema 🎬"
+    write_news "$g1cinema" "$news_shortened" "-n"
+
 
     # # Write the F1 news
     # echo "🏎️ F1 🏎️"
