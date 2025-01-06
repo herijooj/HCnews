@@ -21,6 +21,8 @@ logger = logging.getLogger(__name__)
 NEWS_DIR = "news"
 DEFAULT_SEND_TIME = "07:00"
 SCHEDULE_FILE = "schedules.json"
+ZODIAC_SIGNS = ["aries", "peixes", "aquario", "capricornio", "sagitario", 
+                "escorpiao", "libra", "virgem", "leao", "cancer", "gemeos", "touro"]
 
 # Utility Functions
 def ensure_news_directory():
@@ -41,6 +43,36 @@ def generate_news_file(force_generation: bool) -> str:
             logger.error("Failed to generate news file: %s", result.stderr.decode())
             return ""
     return filename if os.path.exists(filename) else ""
+
+def generate_horoscope(force_generation: bool = False, sign: str = None) -> str:
+    """Generate horoscope using the bash script and cache it."""
+    ensure_news_directory()
+    today = datetime.now().strftime("%Y%m%d")
+    filename = f"{NEWS_DIR}/{today}.hrcp"
+
+    if force_generation or not os.path.exists(filename):
+        cmd = ['bash', 'horoscopo.sh', '-s']
+        if sign:
+            cmd.append(sign)
+        result = run(cmd, stdout=PIPE, stderr=PIPE, text=True)
+        if result.returncode != 0:
+            logger.error("Failed to generate horoscope: %s", result.stderr)
+            return ""
+    
+    if not sign:
+        return filename if os.path.exists(filename) else ""
+        
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+            lines = content.split('\n')
+            for i, line in enumerate(lines):
+                if f"📌 {sign}" in line.lower():
+                    return f"{lines[i-1]}\n{line}"
+            return ""
+    except FileNotFoundError:
+        logger.error(f"Horoscope file not found: {filename}")
+        return ""
 
 def load_schedules() -> dict:
     """Load scheduled times from file."""
@@ -89,6 +121,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     user = update.effective_user
     buttons = [
         [InlineKeyboardButton("Enviar Notícias", callback_data="send_news")],
+        [InlineKeyboardButton("Horóscopo", callback_data="horoscope")],
         [InlineKeyboardButton("Ajuda", callback_data="help")]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -104,6 +137,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "/start - Mostra a mensagem de boas-vindas e opções.\n"
         "/help - Exibe esta mensagem de ajuda.\n"
         "/send [force] - Gera e envia o arquivo de notícias de hoje. Use 'force' para regenerar o arquivo.\n"
+        "/horoscope - Mostra o horóscopo do dia.\n"
         "/schedule - Mostra horários agendados\n"
         "/schedule HH:MM - Adiciona novo horário de envio\n"
         "/schedule remove HH:MM - Remove horário específico\n"
@@ -127,11 +161,54 @@ async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
 
     try:
         with open(filename, "rb") as f:
+            await update.message.reply_text("📰 Notícias do dia")
             await update.message.reply_document(document=f, filename=f"{datetime.now().strftime('%Y%m%d')}.txt")
             logger.info(f"News file sent successfully: {filename}")
     except Exception as e:
         logger.error(f"Error sending news file: {str(e)}")
         await update.message.reply_text("Erro ao enviar o arquivo de notícias.")
+
+async def show_horoscope_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show the horoscope selection menu."""
+    buttons = []
+    row = []
+    for i, sign in enumerate(ZODIAC_SIGNS, 1):
+        row.append(InlineKeyboardButton(sign.capitalize(), callback_data=f"horoscope_{sign}"))
+        if i % 3 == 0:  # Create rows of 3 buttons
+            buttons.append(row)
+            row = []
+    if row:  # Add any remaining buttons
+        buttons.append(row)
+    buttons.append([InlineKeyboardButton("Todos os signos", callback_data="horoscope_all")])
+    
+    keyboard = InlineKeyboardMarkup(buttons)
+    message = "Escolha um signo:"
+    
+    # Handle both direct commands and callback queries
+    if update.callback_query:
+        await update.callback_query.message.reply_text(message, reply_markup=keyboard)
+    else:
+        await update.message.reply_text(message, reply_markup=keyboard)
+
+async def horoscope_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send daily horoscope menu or specific sign."""
+    if context.args:
+        sign = context.args[0].lower()
+        force = "force" in context.args
+        if sign in ZODIAC_SIGNS:
+            horoscope_text = generate_horoscope(force, sign)
+        else:
+            await update.message.reply_text("Signo inválido. Use o menu para selecionar um signo.")
+            await show_horoscope_menu(update, context)
+            return
+    else:
+        await show_horoscope_menu(update, context)
+        return
+
+    if horoscope_text:
+        await update.message.reply_text(horoscope_text, parse_mode='Markdown')
+    else:
+        await update.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Schedule daily news sending at specified times."""
@@ -218,6 +295,10 @@ async def scheduled_send_news(context: ContextTypes.DEFAULT_TYPE) -> None:
             return
 
         with open(filename, "rb") as f:
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text="📰 Notícias do dia"
+            )
             await context.bot.send_document(
                 chat_id=chat_id, 
                 document=f, 
@@ -239,6 +320,7 @@ async def send_news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE)
         return
 
     with open(filename, "rb") as f:
+        await update.callback_query.message.reply_text("📰 Notícias do dia")
         await update.callback_query.message.reply_document(
             document=f, 
             filename=f"{datetime.now().strftime('%Y%m%d')}.txt"
@@ -264,6 +346,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await send_news_callback(update, context)
     elif query.data == "help":
         await help_command_callback(update, context)
+    elif query.data == "horoscope":
+        await show_horoscope_menu(update, context)
+    elif query.data.startswith("horoscope_"):
+        sign = query.data.split("_")[1]
+        if sign == "all":
+            filename = generate_horoscope()
+            if filename:
+                with open(filename, "rb") as f:
+                    await query.message.reply_text("🔮 Horóscopo do dia para todos os signos")
+                    await query.message.reply_document(
+                        document=f,
+                        filename=f"horoscopo_{datetime.now().strftime('%Y%m%d')}.txt"
+                    )
+            else:
+                await query.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
+        else:
+            horoscope_text = generate_horoscope(sign=sign)
+            if horoscope_text:
+                await query.message.reply_text(horoscope_text, parse_mode='Markdown')
+            else:
+                await query.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
 
 # Main Function
 def main() -> None:
@@ -302,6 +405,7 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("send", send_news))
+    application.add_handler(CommandHandler("horoscope", horoscope_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
     application.add_handler(CallbackQueryHandler(button_handler))
 
