@@ -9,6 +9,7 @@ Everyday since 2021 I've been sharing the JRMUNEWS to a group of friends of mine
 
 
 ![Screenshot](./scr/Screenshot.png)
+![WhatsApp](./scr/zap.png)
 
 ## Dependencies
 
@@ -29,6 +30,8 @@ the requirements are:
 - `python-telegram-bot` 
 - `schedule`
 - `httpx`
+
+if i missed something, take a look into the `default.nix` file, i'm using nix to manage my dependencies.
 
 ## Installation
 
@@ -69,13 +72,55 @@ chmod +x hcnews
       -n, --news: show the news with the shortened link
       -f, --file: if the output will be to a file"
 ```
+![Example](./scr/example.png)
+
+```plaintext
+...
+📅 *Hoje é:*
+  👑 Dia de Reis
+  🙏 Dia da Gratidão
+
+📅 Sem estados com aniversário hoje...
+
+🎵 *Top 10 Músicas* 🎵
+  1. BOKeTE - Bad Bunny
+  2. DtMF - Bad Bunny
+  3. BAILE INoLVIDABLE - Bad Bunny
+  4. TURiSTA - Bad Bunny
+  5. NUEVAYoL - Bad Bunny
+  6. KLOuFRENS - Bad Bunny
+  7. VeLDÁ - Bad Bunny, Omar Courtz &amp; Dei V
+  8. VOY A LLeVARTE PA PR - Bad Bunny
+  9. KETU TeCRÉ - Bad Bunny
+  10. WELTiTA - Bad Bunny &amp; Chuwi
+📌 De Genius.com/#top-songs
+
+🌧️ *Previsão do tempo* ⛅
+     \  /       Parcialmente encoberto
+   _ /"".-.     +23(24) °C     
+     \_(   ).   ↗ 8 km/h       
+     /(___(__)  10 km          
+                0.0 mm         
+📌 Curitiba
+
+📚 *Você sabia?* 🤔
+... apenas cinco mulheres disputaram ate hoje corridas oficiais da Formula 1 e apenas uma pontuou? ...
+
+🎲 *Palpites do Jogo do Bicho* 🐾
+🔢 Grupo: 3 (Avestruz 🦩) 8 (Águia 🦅) 12 (Burro 🐴) 17 (Cachorro 🐶) 22 (Cabra 🐐) 
+🔟 Dezena: 06 21 46 61 91
+💯 Centena: 061 397 511 604 935
+🏆 Milhar: 0712 3930 5304 6478 8189
+...
+```
+
+Remember, **HCNews** is supposed to be **FUN!**
 
 # Contributing
 If you want to contribute to this project, you can do so by opening a pull request or an issue. If you want to open a pull request, if you can, please open an issue first so we can discuss the changes you want to make.
 
 # License
 This project is licensed under the GNU General Public License - see the [LICENSE](LICENSE) file for details
-
 
 # Credits
 - [JRMUNEWS](https://www.instagram.com/jrmunews/) for the inspiration
@@ -85,4 +130,3 @@ you can find about the sites that i use to get the data on the script itself.
 # Contact
 - [Instagram | heric_camargo](https://www.instagram.com/heric_camargo/)
 - [Twitter | herijooj](https://twitter.com/herijooj)
-
