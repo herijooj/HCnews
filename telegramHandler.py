@@ -35,7 +35,8 @@ def generate_news_file(force_generation: bool) -> str:
     filename = f"{NEWS_DIR}/{today}.news"
 
     if force_generation or not os.path.exists(filename):
-        result = run(['bash', 'hcnews.sh', '-f', '-sa'], stdout=PIPE, stderr=PIPE)
+        # Add -y flag to run in non-interactive mode
+        result = run(['bash', 'hcnews.sh', '-f', '-sa', '-s'], stdout=PIPE, stderr=PIPE)
         if result.returncode != 0:
             logger.error("Failed to generate news file: %s", result.stderr.decode())
             return ""
@@ -112,16 +113,25 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
 
 async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send the news file or generate it if missing."""
-    args = update.message.text.split()[1:] if update.message and update.message.text else []
-    force_generation = "force" in args
+    force_generation = False
+    
+    # Check if command has arguments
+    if context.args and "force" in context.args:
+        force_generation = True
+        logger.info("Force generation requested")
 
     filename = generate_news_file(force_generation)
     if not filename:
         await update.message.reply_text("Não foi possível criar o arquivo de notícias. Verifique os logs para mais detalhes.")
         return
 
-    with open(filename, "rb") as f:
-        await update.message.reply_document(document=f, filename=f"{datetime.now().strftime('%Y%m%d')}.txt")
+    try:
+        with open(filename, "rb") as f:
+            await update.message.reply_document(document=f, filename=f"{datetime.now().strftime('%Y%m%d')}.txt")
+            logger.info(f"News file sent successfully: {filename}")
+    except Exception as e:
+        logger.error(f"Error sending news file: {str(e)}")
+        await update.message.reply_text("Erro ao enviar o arquivo de notícias.")
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Schedule daily news sending at specified times."""
