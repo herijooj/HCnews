@@ -3,12 +3,14 @@ from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMar
 from telegram.ext import (
     Application, CommandHandler, ContextTypes, MessageHandler, filters, JobQueue, CallbackQueryHandler
 )
+import telegram.error  # Add this import
 import os
 from subprocess import PIPE, run
 from datetime import datetime, timezone
 from tokens import TOKEN  # Add this import
 import json
 import pytz  # Add this import
+import re  # Add this import
 
 # Enable logging
 logging.basicConfig(
@@ -23,6 +25,21 @@ DEFAULT_SEND_TIME = "07:00"
 SCHEDULE_FILE = "schedules.json"
 ZODIAC_SIGNS = ["aries", "peixes", "aquario", "capricornio", "sagitario", 
                 "escorpiao", "libra", "virgem", "leao", "cancer", "gemeos", "touro"]
+MESSAGE_TYPES = {
+    "news": "Notícias",
+    "horoscope": "Horóscopo",
+    "weather": "Previsão do Tempo",
+    "exchange": "Cotações",
+    "bicho": "Jogo do Bicho"
+}
+MAX_MESSAGE_SIZE = 4000  # Using 4000 to have some safety margin
+SCHEDULE_MESSAGES = {
+    "news": "📰 Notícias diárias",
+    "horoscope": "🔮 Horóscopo do dia",
+    "weather": "🌤️ Previsão do tempo",
+    "exchange": "💱 Cotações",
+    "bicho": "🎲 Palpites do jogo do bicho"
+}
 
 # Utility Functions
 def ensure_news_directory():
@@ -82,27 +99,31 @@ def load_schedules() -> dict:
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def save_schedule(chat_id: int, time: str) -> None:
-    """Save scheduled time for a chat."""
+def save_schedule(chat_id: int, time: str, msg_type: str = "news") -> None:
+    """Save scheduled time and message type for a chat."""
     schedules = load_schedules()
     chat_id_str = str(chat_id)
     if chat_id_str not in schedules:
         schedules[chat_id_str] = []
-    if time not in schedules[chat_id_str]:
-        schedules[chat_id_str].append(time)
+    schedule_entry = {"time": time, "type": msg_type}
+    if schedule_entry not in schedules[chat_id_str]:
+        schedules[chat_id_str].append(schedule_entry)
     with open(SCHEDULE_FILE, 'w') as f:
         json.dump(schedules, f)
 
-def remove_schedule(chat_id: int, time: str = None) -> None:
+def remove_schedule(chat_id: int, time: str = None, msg_type: str = None) -> None:
     """Remove scheduled time(s) for a chat."""
     schedules = load_schedules()
     chat_id_str = str(chat_id)
     if chat_id_str in schedules:
         if time is None:
             del schedules[chat_id_str]
-        elif time in schedules[chat_id_str]:
-            schedules[chat_id_str].remove(time)
-            if not schedules[chat_id_str]:  # Remove chat_id if no schedules left
+        else:
+            schedules[chat_id_str] = [
+                s for s in schedules[chat_id_str] 
+                if s["time"] != time or (msg_type and s["type"] != msg_type)
+            ]
+            if not schedules[chat_id_str]:
                 del schedules[chat_id_str]
         with open(SCHEDULE_FILE, 'w') as f:
             json.dump(schedules, f)
@@ -115,6 +136,38 @@ def convert_to_utc(time_str: str) -> datetime.time:
     utc_dt = local_dt.astimezone(pytz.UTC)
     return utc_dt.time()
 
+def clean_ansi(text: str) -> str:
+    """Remove ANSI escape codes from text."""
+    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_escape.sub('', text)
+
+def split_long_message(text: str) -> list[str]:
+    """Split message into chunks respecting message size limit and line breaks."""
+    if not text or len(text) <= MAX_MESSAGE_SIZE:
+        return [text] if text else []
+    
+    messages = []
+    current_msg = ""
+    
+    for line in text.split('\n'):
+        # Check if adding this line would exceed limit
+        if len(current_msg) + len(line) + 1 > MAX_MESSAGE_SIZE:
+            if current_msg:
+                messages.append(current_msg.strip())
+                current_msg = line + '\n'
+            else:
+                # Single line is too long, force split it
+                while line:
+                    messages.append(line[:MAX_MESSAGE_SIZE])
+                    line = line[MAX_MESSAGE_SIZE:]
+        else:
+            current_msg += line + '\n'
+    
+    if current_msg:
+        messages.append(current_msg.strip())
+    
+    return messages
+
 # Command Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a welcome message with available options."""
@@ -122,6 +175,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     buttons = [
         [InlineKeyboardButton("Enviar Notícias", callback_data="send_news")],
         [InlineKeyboardButton("Horóscopo", callback_data="horoscope")],
+        [InlineKeyboardButton("Previsão do Tempo", callback_data="weather")],
+        [InlineKeyboardButton("Cotações", callback_data="exchange")],
+        [InlineKeyboardButton("Jogo do Bicho", callback_data="bicho")],
         [InlineKeyboardButton("Ajuda", callback_data="help")]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -211,7 +267,7 @@ async def horoscope_command(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         await update.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
 
 async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Schedule daily news sending at specified times."""
+    """Schedule messages at specified times."""
     if not update.message:
         return
         
@@ -220,16 +276,17 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     if len(context.args) == 0:
         # Show current schedules
         schedules = load_schedules()
-        times = schedules.get(str(chat_id), [])
-        if times:
-            times_str = "\n".join(sorted(times))
-            await update.message.reply_text(f"Horários agendados:\n{times_str}")
+        entries = schedules.get(str(chat_id), [])
+        if entries:
+            schedule_text = "📅 *Horários Agendados*\n\n"
+            for entry in sorted(entries, key=lambda x: x["time"]):
+                schedule_text += f"• {entry['time']} - {MESSAGE_TYPES[entry['type']]}\n"
+            await update.message.reply_text(schedule_text, parse_mode='Markdown')
         else:
-            await update.message.reply_text("Nenhum horário agendado.")
+            await update.message.reply_text("📅 Nenhum horário agendado.\n\nUse /schedule HH:MM tipo para agendar.")
         return
     
     if context.args[0].lower() == "off":
-        # Remove all schedules for this chat
         remove_schedule(chat_id)
         current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
         for job in current_jobs:
@@ -238,13 +295,17 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     if context.args[0].lower() == "remove":
-        if len(context.args) != 2:
-            await update.message.reply_text("Uso: /schedule remove HH:MM")
+        if len(context.args) < 2:
+            await update.message.reply_text("Uso: /schedule remove HH:MM [tipo]")
             return
         try:
             time_to_remove = datetime.strptime(context.args[1], "%H:%M").strftime("%H:%M")
-            remove_schedule(chat_id, time_to_remove)
-            current_jobs = context.job_queue.get_jobs_by_name(f"{chat_id}_{time_to_remove}")
+            msg_type = context.args[2] if len(context.args) > 2 else None
+            if msg_type and msg_type not in MESSAGE_TYPES:
+                await update.message.reply_text(f"Tipo de mensagem inválido. Opções: {', '.join(MESSAGE_TYPES.keys())}")
+                return
+            remove_schedule(chat_id, time_to_remove, msg_type)
+            current_jobs = context.job_queue.get_jobs_by_name(f"{chat_id}_{time_to_remove}_{msg_type if msg_type else ''}")
             for job in current_jobs:
                 job.schedule_removal()
             await update.message.reply_text(f"Agendamento para {time_to_remove} removido.")
@@ -252,23 +313,34 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             await update.message.reply_text("Formato de horário inválido. Use HH:MM")
         return
 
+    if len(context.args) < 2:
+        await update.message.reply_text(f"Uso: /schedule HH:MM tipo\nTipos disponíveis: {', '.join(MESSAGE_TYPES.keys())}")
+        return
+
     try:
         local_time = datetime.strptime(context.args[0], "%H:%M")
         time_str = local_time.strftime("%H:%M")
+        msg_type = context.args[1].lower()
+
+        if msg_type not in MESSAGE_TYPES:
+            await update.message.reply_text(f"Tipo de mensagem inválido. Opções: {', '.join(MESSAGE_TYPES.keys())}")
+            return
+
         utc_time = convert_to_utc(time_str)
         
         # Add new job
         job = context.job_queue.run_daily(
-            scheduled_send_news, 
+            scheduled_send_message, 
             time=utc_time,
-            chat_id=chat_id, 
-            name=f"{chat_id}_{time_str}"
+            chat_id=chat_id,
+            name=f"{chat_id}_{time_str}_{msg_type}",
+            data={"type": msg_type}
         )
         
         if job:
-            save_schedule(chat_id, time_str)
-            logger.info(f"Scheduled new job for chat {chat_id} at {time_str} (UTC: {utc_time})")
-            await update.message.reply_text(f"Envio diário de notícias agendado para {time_str}.")
+            save_schedule(chat_id, time_str, msg_type)
+            logger.info(f"Scheduled new {msg_type} job for chat {chat_id} at {time_str} (UTC: {utc_time})")
+            await update.message.reply_text(f"Envio diário de {MESSAGE_TYPES[msg_type]} agendado para {time_str}.")
         else:
             await update.message.reply_text("Não foi possível agendar o envio. Tente novamente.")
             
@@ -278,10 +350,64 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             "Formato de horário inválido.\n"
             "Uso:\n"
             "/schedule - mostra horários agendados\n"
-            "/schedule HH:MM - adiciona novo horário\n"
-            "/schedule remove HH:MM - remove horário específico\n"
+            f"/schedule HH:MM tipo - adiciona novo horário ({', '.join(MESSAGE_TYPES.keys())})\n"
+            "/schedule remove HH:MM [tipo] - remove horário específico\n"
             "/schedule off - remove todos os horários"
         )
+
+async def scheduled_send_message(context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send scheduled message based on type."""
+    try:
+        chat_id = context.job.chat_id
+        msg_type = context.job.data["type"]
+        logger.info(f"Running scheduled {msg_type} job for chat {chat_id}")
+
+        if msg_type == "news":
+            filename = generate_news_file(force_generation=False)
+            if filename:
+                with open(filename, "r") as f:
+                    content = f.read()
+                    # First try to send as message(s)
+                    messages = split_long_message(content)
+                    if len(messages) <= 3:  # Only send as messages if it splits into 3 or fewer parts
+                        await context.bot.send_message(chat_id=chat_id, text=f"{SCHEDULE_MESSAGES[msg_type]}")
+                        for msg in messages:
+                            if msg:  # Avoid sending empty messages
+                                await context.bot.send_message(chat_id=chat_id, text=msg)
+                    else:  # If too long, send as file
+                        with open(filename, "rb") as doc:
+                            await context.bot.send_message(chat_id=chat_id, text=f"{SCHEDULE_MESSAGES[msg_type]}")
+                            await context.bot.send_document(chat_id=chat_id, document=doc)
+        elif msg_type == "horoscope":
+            filename = generate_horoscope()
+            if filename:
+                with open(filename, "r") as f:
+                    content = f.read()
+                    messages = split_long_message(content)
+                    if len(messages) <= 3:
+                        await context.bot.send_message(chat_id=chat_id, text=f"{SCHEDULE_MESSAGES[msg_type]}")
+                        for msg in messages:
+                            if msg:
+                                await context.bot.send_message(chat_id=chat_id, text=msg)
+                    else:
+                        with open(filename, "rb") as doc:
+                            await context.bot.send_message(chat_id=chat_id, text=f"{SCHEDULE_MESSAGES[msg_type]}")
+                            await context.bot.send_document(chat_id=chat_id, document=doc)
+        elif msg_type == "weather":
+            weather_info = await get_weather_info()
+            if weather_info:
+                await context.bot.send_message(chat_id=chat_id, text=weather_info, parse_mode='Markdown')
+        elif msg_type == "exchange":
+            exchange_info = await get_exchange_rates()
+            if exchange_info:
+                await context.bot.send_message(chat_id=chat_id, text=exchange_info, parse_mode='Markdown')
+        elif msg_type == "bicho":
+            bicho_info = await get_bicho_info()
+            if bicho_info:
+                await context.bot.send_message(chat_id=chat_id, text=bicho_info, parse_mode='Markdown')
+
+    except Exception as e:
+        logger.error(f"Error in scheduled_send_message: {str(e)}")
 
 async def scheduled_send_news(context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send news daily as per the scheduled time."""
@@ -337,6 +463,30 @@ async def help_command_callback(update: Update, context: ContextTypes.DEFAULT_TY
     )
     await update.callback_query.message.reply_text(help_text)
 
+async def get_weather_info() -> str:
+    """Get weather information from weather.sh script."""
+    result = run(['bash', 'weather.sh'], stdout=PIPE, stderr=PIPE, text=True)
+    if result.returncode != 0:
+        logger.error("Failed to get weather info: %s", result.stderr)
+        return ""
+    return clean_ansi(result.stdout)
+
+async def get_exchange_rates() -> str:
+    """Get exchange rates from exchange.sh script."""
+    result = run(['bash', 'exchange.sh'], stdout=PIPE, stderr=PIPE, text=True)
+    if result.returncode != 0:
+        logger.error("Failed to get exchange rates: %s", result.stderr)
+        return ""
+    return result.stdout
+
+async def get_bicho_info() -> str:
+    """Get jogo do bicho information from bicho.sh script."""
+    result = run(['bash', 'bicho.sh'], stdout=PIPE, stderr=PIPE, text=True)
+    if result.returncode != 0:
+        logger.error("Failed to get bicho info: %s", result.stderr)
+        return ""
+    return result.stdout
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle inline keyboard button clicks."""
     query = update.callback_query
@@ -348,6 +498,27 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await help_command_callback(update, context)
     elif query.data == "horoscope":
         await show_horoscope_menu(update, context)
+    elif query.data == "weather":
+        weather_info = await get_weather_info()
+        if weather_info:
+            try:
+                await query.message.reply_text(weather_info, parse_mode='MarkdownV2')
+            except telegram.error.BadRequest:
+                await query.message.reply_text(weather_info)
+        else:
+            await query.message.reply_text("Não foi possível obter a previsão do tempo.")
+    elif query.data == "exchange":
+        exchange_info = await get_exchange_rates()
+        if exchange_info:
+            await query.message.reply_text(exchange_info, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("Não foi possível obter as cotações.")
+    elif query.data == "bicho":
+        bicho_info = await get_bicho_info()
+        if bicho_info:
+            await query.message.reply_text(bicho_info, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("Não foi possível obter os palpites do jogo do bicho.")
     elif query.data.startswith("horoscope_"):
         sign = query.data.split("_")[1]
         if sign == "all":
@@ -380,22 +551,25 @@ def main() -> None:
 
     # Load all scheduled jobs
     schedules = load_schedules()
-    for chat_id, times in schedules.items():
-        for time_str in times:
+    for chat_id, entries in schedules.items():
+        for entry in entries:
             try:
+                time_str = entry["time"]
+                msg_type = entry.get("type", "news")  # Default to news for backward compatibility
                 utc_time = convert_to_utc(time_str)
                 job = application.job_queue.run_daily(
-                    scheduled_send_news,
+                    scheduled_send_message,
                     time=utc_time,
                     chat_id=int(chat_id),
-                    name=f"{chat_id}_{time_str}"
+                    name=f"{chat_id}_{time_str}_{msg_type}",
+                    data={"type": msg_type}
                 )
                 if job:
-                    logger.info(f"Loaded scheduled job for chat {chat_id} at {time_str} (UTC: {utc_time})")
+                    logger.info(f"Loaded scheduled {msg_type} job for chat {chat_id} at {time_str}")
                 else:
-                    logger.error(f"Failed to load job for chat {chat_id} at {time_str}")
+                    logger.error(f"Failed to load {msg_type} job for chat {chat_id} at {time_str}")
             except ValueError as e:
-                logger.error(f"Failed to load schedule for chat {chat_id} at {time_str}: {e}")
+                logger.error(f"Failed to load schedule for chat {chat_id}: {e}")
 
     # Schedule default news sending
     default_utc_time = convert_to_utc(DEFAULT_SEND_TIME)
@@ -405,6 +579,17 @@ def main() -> None:
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("send", send_news))
+    application.add_handler(CommandHandler("horoscope", horoscope_command))
+    application.add_handler(CommandHandler("schedule", schedule_command))
+    application.add_handler(CallbackQueryHandler(button_handler))
+
+    # Run the bot
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
+    application.add_handler(CommandHandler("send", send_news))
+
+if __name__ == "__main__":
+    main()
+
     application.add_handler(CommandHandler("horoscope", horoscope_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
     application.add_handler(CallbackQueryHandler(button_handler))
