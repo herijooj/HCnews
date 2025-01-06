@@ -11,26 +11,7 @@ new_file() {
         mkdir news
     fi
 
-    # If the file already exists, ask the user if they want to overwrite it.
-    # if the program is running silently, the file will be overwritten.
-    if [[ -f "$news_file_path" ]]; then
-        if [[ $silent == true ]]; then
-            touch "$news_file_path"
-            return
-        fi
-        echo "The news file $news_file_name already exists."
-        read -p "Do you want to overwrite it? [y/n] " -n 1 -r
-        echo
-        if [[ $REPLY =~ ^[Yy]$ ]]; then
-            touch "$news_file_path"
-            echo "The news file $news_file_path was overwritten."
-        else
-            # If the user doesn't want to overwrite the file, exit the script.
-            echo "Exiting the script."
-            exit 1
-        fi
-    else
-        touch "$news_file_path"
-        echo "The news file $news_file_path was created."
-    fi
+    # Always overwrite the file without asking for user confirmation.
+    touch "$news_file_path"
+    echo "The news file $news_file_path was created or overwritten."
 }

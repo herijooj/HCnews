@@ -209,8 +209,8 @@ if [[ $file == true ]]; then
     # Create the news file
     new_file "$news_file_name" "$news_file_path" "$silent"
 
-    # Output to the file
-    output "$saints_verbose" "$news_shortened" >> "$news_file_path"
+    # Output to the file (overwrite mode)
+    output "$saints_verbose" "$news_shortened" > "$news_file_path"
     exit 0
 else
     # Output to the terminal
