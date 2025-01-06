@@ -48,7 +48,6 @@ generate_exchange_CMC() {
 write_exchange () {
   echo "📈 *Cotação* 🪙"
   get_exchange_BC
-  echo ""
   generate_exchange_CMC
   echo ""
 }
