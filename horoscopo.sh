@@ -51,21 +51,35 @@ function write_horoscopo {
 # The command will be printed to the console.
 # Options:
 #   -h, --help: show the help
+#   -s, --save: save the output to a file (YYYYMMDD.hrcp)
 help () {
     echo "Usage: ./horoscopo.sh [options] <sign>"
     echo "The command will be printed to the console."
     echo "Options:"
     echo "  -h, --help: show the help"
+    echo "  -s, --save: save the output to a file (YYYYMMDD.hrcp)"
+}
+
+save_to_file() {
+    local content="$1"
+    local filename="$2"
+    printf "%b" "$content" > "$filename"
+    echo "✅ Saved to $filename"
 }
 
 # this function will receive the arguments
 get_arguments () {
+    SAVE_TO_FILE=false
     # Get the arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
                 help
                 exit 0
+                ;;
+            -s|--save)
+                SAVE_TO_FILE=true
+                shift
                 ;;
             *)
                 SIGN="$1"
@@ -76,14 +90,30 @@ get_arguments () {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  get_arguments "$@"
-  echo "🔮 *Horóscopo do dia* 🔮"
-  if [[ -z "$SIGN" ]]; then
-    SIGNS=("aries" "peixes" "aquario" "capricornio" "sagitario" "escorpiao" "libra" "virgem" "leao" "cancer" "gemeos" "touro")
-    for SIGN in "${SIGNS[@]}"; do
-      write_horoscopo "$SIGN"
-    done
-  else
-    write_horoscopo "$SIGN"
-  fi
+    get_arguments "$@"
+    output="🔮 *Horóscopo do dia* 🔮\\n\\n"
+    
+    # Set default directory to news if -s flag is used
+    if [[ "$SAVE_TO_FILE" = true ]]; then
+        mkdir -p "news"
+        filename="news/$(date +%Y%m%d).hrcp"
+    fi
+
+    if [[ -z "$SIGN" ]]; then
+        SIGNS=("aries" "peixes" "aquario" "capricornio" "sagitario" "escorpiao" "libra" "virgem" "leao" "cancer" "gemeos" "touro")
+        for SIGN in "${SIGNS[@]}"; do
+            HOROSCOPO=$(get_horoscopo "$SIGN")
+            EMOJI=$(sign_to_emoji "$SIGN")
+            output+="$HOROSCOPO\\n📌 $SIGN $EMOJI\\n\\n"
+        done
+    else
+        HOROSCOPO=$(get_horoscopo "$SIGN")
+        EMOJI=$(sign_to_emoji "$SIGN")
+        output+="$HOROSCOPO\\n📌 $SIGN $EMOJI\\n\\n"
+    fi
+
+    if [[ "$SAVE_TO_FILE" = true ]]; then
+        save_to_file "$output" "$filename"
+    fi
+    printf "%b" "$output"
 fi
