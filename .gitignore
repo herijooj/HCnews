@@ -2,6 +2,10 @@
 tokens.py
 tokens.sh
 
+# new files
+news/
+*.news
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

@@ -9,5 +9,6 @@ pkgs.mkShell {
     pkgs.python311Packages.python-telegram-bot
     pkgs.python311Packages.schedule
     pkgs.python311Packages.httpx
+    pkgs.python311Packages.pytz
   ];
 }

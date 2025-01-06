@@ -91,12 +91,15 @@ function help_hcnews {
 
 # Função para imprimir o footer
 function footer {
+    time=$(date +"%H:%M:%S")
+    file_name=$(basename "$0")
     echo "🤝 Quer contribuir com o HCNEWS? 🙋"
     echo "O HCNEWS é gerado automaticamente todos os dias 🤖 "
     echo "Tecnologias usadas: RSS 📰 Bash 🚀 Python 🐍 Nix 💻"
     echo "✨ https://github.com/herijooj/HCnews ✨"
     echo "Que Deus abençoe a todos! 🙏"
     echo ""
+    echo "🤖 Gerado automaticamente em: $time 🤖"
 }
 
 function hcseguidor {
@@ -161,7 +164,7 @@ function output {
     help_hcnews
 
     # menu of the day
-    write_menu
+    #write_menu
 
     # Write the news
     for feed in "${feeds[@]}"; do
