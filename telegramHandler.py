@@ -115,13 +115,13 @@ def load_schedules() -> dict:
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def save_schedule(chat_id: int, time: str, msg_type: str = "news") -> None:
+def save_schedule(chat_id: int, time: str, msg_type: str = "news", **kwargs) -> None:
     """Save scheduled time and message type for a chat."""
     schedules = load_schedules()
     chat_id_str = str(chat_id)
     if chat_id_str not in schedules:
         schedules[chat_id_str] = []
-    schedule_entry = {"time": time, "type": msg_type}
+    schedule_entry = {"time": time, "type": msg_type, **kwargs}
     if schedule_entry not in schedules[chat_id_str]:
         schedules[chat_id_str].append(schedule_entry)
     with open(SCHEDULE_FILE, 'w') as f:
@@ -346,12 +346,18 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         if entries:
             schedule_text = "📅 *Horários Agendados*\n\n"
             for entry in sorted(entries, key=lambda x: x["time"]):
-                schedule_text += f"• {entry['time']} - {MESSAGE_TYPES[entry['type']]}\n"
+                msg_type = entry['type']
+                time = entry['time']
+                if msg_type == "ru":
+                    location = entry.get('location', 'politecnico')
+                    schedule_text += f"• {time} - {MESSAGE_TYPES[msg_type]} ({RU_LOCATIONS[location]})\n"
+                else:
+                    schedule_text += f"• {time} - {MESSAGE_TYPES[msg_type]}\n"
             await update.message.reply_text(schedule_text, parse_mode='Markdown')
         else:
-            await update.message.reply_text("📅 Nenhum horário agendado.\n\nUse /schedule HH:MM tipo para agendar.")
+            await update.message.reply_text("📅 Nenhum horário agendado.\n\nUse /schedule HH:MM tipo [local] para agendar.")
         return
-    
+
     if context.args[0].lower() == "off":
         remove_schedule(chat_id)
         current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
@@ -380,33 +386,62 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
         return
 
     if len(context.args) < 2:
-        await update.message.reply_text(f"Uso: /schedule HH:MM tipo\nTipos disponíveis: {', '.join(MESSAGE_TYPES.keys())}")
+        await update.message.reply_text(
+            f"Uso: /schedule HH:MM tipo [local]\n"
+            f"Tipos disponíveis: {', '.join(MESSAGE_TYPES.keys())}\n"
+            f"Para cardápio RU, especifique o local: {', '.join(RU_LOCATIONS.keys())}"
+        )
         return
 
     try:
         local_time = datetime.strptime(context.args[0], "%H:%M")
         time_str = local_time.strftime("%H:%M")
         msg_type = context.args[1].lower()
+        location = None
 
         if msg_type not in MESSAGE_TYPES:
             await update.message.reply_text(f"Tipo de mensagem inválido. Opções: {', '.join(MESSAGE_TYPES.keys())}")
             return
 
+        # Handle RU location parameter
+        if msg_type == "ru":
+            if len(context.args) < 3:
+                await update.message.reply_text(
+                    f"Para agendar cardápio RU, especifique o local:\n{', '.join(RU_LOCATIONS.keys())}"
+                )
+                return
+            location = context.args[2].lower()
+            if location not in RU_LOCATIONS:
+                await update.message.reply_text(f"Local inválido. Opções: {', '.join(RU_LOCATIONS.keys())}")
+                return
+
         utc_time = convert_to_utc(time_str)
         
-        # Add new job
+        # Add new job with location data if it's an RU job
+        job_data = {"type": msg_type}
+        if location:
+            job_data["location"] = location
+
         job = context.job_queue.run_daily(
             scheduled_send_message, 
             time=utc_time,
             chat_id=chat_id,
             name=f"{chat_id}_{time_str}_{msg_type}",
-            data={"type": msg_type}
+            data=job_data
         )
         
         if job:
-            save_schedule(chat_id, time_str, msg_type)
+            # Save schedule with location if it's an RU job
+            if location:
+                save_schedule(chat_id, time_str, msg_type, location=location)
+            else:
+                save_schedule(chat_id, time_str, msg_type)
+
+            location_text = f" ({RU_LOCATIONS[location]})" if location else ""
             logger.info(f"Scheduled new {msg_type} job for chat {chat_id} at {time_str} (UTC: {utc_time})")
-            await update.message.reply_text(f"Envio diário de {MESSAGE_TYPES[msg_type]} agendado para {time_str}.")
+            await update.message.reply_text(
+                f"Envio diário de {MESSAGE_TYPES[msg_type]}{location_text} agendado para {time_str}."
+            )
         else:
             await update.message.reply_text("Não foi possível agendar o envio. Tente novamente.")
             
@@ -417,6 +452,7 @@ async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -
             "Uso:\n"
             "/schedule - mostra horários agendados\n"
             f"/schedule HH:MM tipo - adiciona novo horário ({', '.join(MESSAGE_TYPES.keys())})\n"
+            "/schedule HH:MM ru local - agenda cardápio RU\n"
             "/schedule remove HH:MM [tipo] - remove horário específico\n"
             "/schedule off - remove todos os horários"
         )
@@ -684,14 +720,20 @@ def main() -> None:
         for entry in entries:
             try:
                 time_str = entry["time"]
-                msg_type = entry.get("type", "news")  # Default to news for backward compatibility
+                msg_type = entry.get("type", "news")
+                job_data = {"type": msg_type}
+                
+                # Add location data for RU jobs
+                if msg_type == "ru" and "location" in entry:
+                    job_data["location"] = entry["location"]
+
                 utc_time = convert_to_utc(time_str)
                 job = application.job_queue.run_daily(
                     scheduled_send_message,
                     time=utc_time,
                     chat_id=int(chat_id),
                     name=f"{chat_id}_{time_str}_{msg_type}",
-                    data={"type": msg_type}
+                    data=job_data
                 )
                 if job:
                     logger.info(f"Loaded scheduled {msg_type} job for chat {chat_id} at {time_str}")
