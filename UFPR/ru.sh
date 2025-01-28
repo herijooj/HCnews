@@ -1,17 +1,10 @@
 #!/usr/bin/env bash
-
 # not implemented yet
+# Function to convert menu image URLs to emojis
 function menu_to_emoji () {
     URL="$1"
 
-    # https://pra.ufpr.br/ru/files/2022/02/Simbolo-vegano.jpg          -> 🌱
-    # https://pra.ufpr.br/ru/files/2022/01/Origem-animal-site.png      -> 🐄
-    # https://pra.ufpr.br/ru/files/2022/01/Gluten-site.png             -> 🌾
-    # https://pra.ufpr.br/ru/files/2022/01/Leite-e-derivados-site.png  -> 🥛
-    # https://pra.ufpr.br/ru/files/2022/01/Ovo-site.jpg                -> 🥚
-    # https://pra.ufpr.br/ru/files/2022/01/Alergenicos-site.png        -> 🥜
-    # https://pra.ufpr.br/ru/files/2022/02/Simbolo-mel-1.jpg           -> 🍯
-    # https://pra.ufpr.br/ru/files/2022/02/Simbolo-pimenta.png         -> 🌶️
+    # Mapping of image URLs to emojis
     if [[ "$URL" == *"Simbolo-vegano.jpg"* ]]; then
         echo "🌱"
     elif [[ "$URL" == *"Origem-animal-site.png"* ]]; then
@@ -29,38 +22,31 @@ function menu_to_emoji () {
     elif [[ "$URL" == *"Simbolo-pimenta.png"* ]]; then
         echo "🌶️"
     else
-        # dont change the line
-        echo "$URL"
+        echo "$URL" # Return the original URL if no match is found
     fi
 }
 
-# this function checks if the line is a meal
-# it will receive an String and return an String
-# if the line is a meal, it will return the meal
-# if the line is not a meal, it will return nothing
+# Function to identify meal times
 function is_meal () {
     LINE="$1"
 
-    # check if the line is a meal
-    # 🥪CAFÉ DA MANHÃ🥪
-    # 🍝ALMOÇO🍝
-    # 🍛JANTAR🍛
+    # Check if the line indicates a meal time
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-        if [[ "$LINE" == *"CAFÉ DA MANHÃ"* ]]; then
+        if [[ "$LINE" == *"Café da manhã"* ]]; then
             echo "🥪 CAFÉ DA MANHÃ 🥪"
-        elif [[ "$LINE" == *"ALMOÇO"* ]]; then
+        elif [[ "$LINE" == *"Almoço"* ]]; then
             echo "🍝 ALMOÇO 🍝"
-        elif [[ "$LINE" == *"JANTAR"* ]]; then
+        elif [[ "$LINE" == *"Jantar"* ]]; then
             echo "🍛 JANTAR 🍛"
         else
             echo ""
         fi
     else
-        if [[ "$LINE" == *"CAFÉ DA MANHÃ"* ]]; then
+        if [[ "$LINE" == *"Café da manhã"* ]]; then
             echo "🥪 *CAFÉ DA MANHÃ* 🥪"
-        elif [[ "$LINE" == *"ALMOÇO"* ]]; then
+        elif [[ "$LINE" == *"Almoço"* ]]; then
             echo "🍝 *ALMOÇO* 🍝"
-        elif [[ "$LINE" == *"JANTAR"* ]]; then
+        elif [[ "$LINE" == *"Jantar"* ]]; then
             echo "🍛 *JANTAR* 🍛"
         else
             echo ""
@@ -68,114 +54,147 @@ function is_meal () {
     fi
 }
 
-# this function receives a line and returns everthing inside the the tags
-# it will receive an String and return an String
+# Function to extract text content within HTML tags
 function get_inside_tags () {
     LINE="$1"
-
-    # check if the line contains any tag
-    if [[ "$LINE" == *"<"* ]]; then
-        # get the content inside the tags
-        LINE=$(echo "$LINE" | sed 's/<[^>]*>//g')
-    fi
-
-    echo "$LINE"
+    echo "$LINE" | sed 's/<[^>]*>//g' # Remove HTML tags using sed
 }
 
-# this function returns the menu from https://pra.ufpr.br/ru/ru-centro-politecnico/
+# Define available RU locations
+declare -A RU_LOCATIONS=(
+    ["politecnico"]="https://pra.ufpr.br/ru/ru-centro-politecnico/"
+    ["agrarias"]="https://pra.ufpr.br/ru/cardapio-ru-agrarias/"
+    ["botanico"]="https://pra.ufpr.br/ru/cardapio-ru-jardim-botanico/"
+    ["central"]="https://pra.ufpr.br/ru/ru-central/"
+    ["toledo"]="https://pra.ufpr.br/ru/6751-2/"
+    ["mirassol"]="https://pra.ufpr.br/ru/cardapio-ru-mirassol/"
+    ["jandaia"]="https://pra.ufpr.br/ru/cardapio-ru-jandaia-do-sul/"
+    ["palotina"]="https://pra.ufpr.br/ru/cardapio-ru-palotina/"
+    ["cem"]="https://pra.ufpr.br/ru/cardapio-ru-cem/"
+    ["matinhos"]="https://pra.ufpr.br/ru/cardapio-ru-matinhos/"
+)
+
+# Default location
+SELECTED_LOCATION="politecnico"
+
+function list_locations() {
+    echo "Available RU locations:"
+    for loc in "${!RU_LOCATIONS[@]}"; do
+        echo "  - $loc"
+    done
+}
+
+# Function to retrieve the menu from the website
 function get_menu () {
+    URL="${RU_LOCATIONS[$SELECTED_LOCATION]}"
 
-    # get the menu from the website
-    URL="https://pra.ufpr.br/ru/ru-centro-politecnico/"
+    # Fetch the webpage content and extract the relevant section
+    CONTENT=$(curl -s "$URL" | pup 'div#conteudo')
 
-    # delete all the lines until "<p><strong>" and all the lines after "<p></p>"
-    URL=$(curl -s "$URL" | sed -n '/<p><strong>/,$p' | sed -n '/<p><\/p>/q;p')
-
-    # if the URL is empty, the RU is closed or the menu is special
-    if [[ "$URL" == "" ]]; then
+    # Check if the content is empty (RU closed or special menu)
+    if [[ -z "$CONTENT" ]]; then
         if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             echo "O RU está fechado ou o cardápio é especial."
         else
             echo "O RU está *fechado* ou o cardápio é *especial*."
         fi
-        break
-    else
-        # only keep the contents inside the tags and break lines after each tag, then delete the empty lines
-        URL=$(echo "$URL" | sed 's/<[^>]*>/\n&/g')
-
-        # change the images to emojis
-        # URL=$(echo "$URL" | while read -r line; do
-        #     echo "$(menu_to_emoji "$line")"
-        # done)
-
-        #clean the lines deleting the tags
-        URL=$(echo "$URL" | while read -r line; do
-            echo "$(get_inside_tags "$line")"
-        done)
-
-        # delete the empty lines
-        URL=$(echo "$URL" | sed '/^$/d')
-
-        URL=$(echo "$URL" | while read -r line; do
-            if [[ "$(is_meal "$line")" != "" ]]; then
-                echo ""
-                echo "$(is_meal "$line")"
-            elif [[ "$line" =~ [0-9] ]]; then
-                echo ""
-                if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-                    echo "📅 $line"
-                else
-                    echo "📅 *$line*"
-                fi
-            else
-                echo "- $line"
-            fi
-        done)
-
-        echo "$URL"
-        echo ""
+        return
     fi
+
+    # Process the content: remove unnecessary lines, convert images to emojis, and clean up HTML
+    MENU=$(echo "$CONTENT" | 
+        sed '/<hr>/d' | 
+        sed '/class="wp-block-table"/d' |
+        sed '/class="has-fixed-layout"/d' |
+        sed '/<tbody>/d' |
+        sed '/<\/tbody>/d' |
+        sed '/<figure>/d' |
+        sed '/<\/figure>/d' |
+        sed 's/<img[^>]*src="\\([^"]*\\)"[^>]*>/\\n\\1/g' |
+        while read -r line; do
+          if [[ "$line" == http* ]]; then
+            echo "$(menu_to_emoji "$line")"
+          else
+            echo "$line"
+          fi
+        done |
+        sed 's/<br \/>//g' |
+        while read -r line; do
+            echo "$(get_inside_tags "$line")"
+        done |
+        sed '/^$/d')
+    
+    # delete everthing afer "SENHOR USUÁRIO"
+    MENU=$(echo "$MENU" | sed -n '/SENHOR USUÁRIO/q;p')
+    # if the line has only ")" it should go to the previous line
+    MENU=$(echo "$MENU" | sed ':a;N;$!ba;s/\n)/)/g')
+    # add emojis to the start and end of the first line
+    MENU=$(echo "$MENU" | sed '1s/^/🍽️  /')
+    # Format the menu output
+    OUTPUT=""
+    PREVIOUS_LINE=""
+    while read -r line; do
+        if [[ "$(is_meal "$line")" != "" ]]; then
+            OUTPUT+=$'\n'"$(is_meal "$line")"$'\n'
+        elif [[ "$line" == *"feira"* ]]; then
+            OUTPUT+=$'\n'"📅 *$line*"$'\n'
+        elif [[ ! -z "$line" ]]; then
+            # Check if this line is a continuation of the previous line
+            if [[ "$line" == "e "* || "$line" == "("* ]]; then
+                OUTPUT="${OUTPUT%$'\n'} $line"$'\n'
+            else
+                OUTPUT+="- $line"$'\n'
+            fi
+        fi
+        PREVIOUS_LINE="$line"
+    done <<< "$MENU"
+
+    echo -e "$OUTPUT"
 }
 
-# this function will write the menu to the console
+# Function to display the menu
 function write_menu () {
-    # get the menu
     MENU=$(get_menu)
-
-    # if the function was called from the command line, print the string withouth the quotes
-    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-        echo "🍽️ Cardápio do dia 🍽️"
-    else
-        echo "🍽️ *Cardápio do dia* 🍽️"
-    fi
 
     echo "$MENU"
     echo ""
 }
 
-# -------------------------------- Running locally --------------------------------
-
-# help function
-# Usage: ./ferias.sh [options]
-# the command will be printed to the console.
-# Options:
-#   -h, --help: show the help
-
+# Help function
 help () {
-    echo "Usage: ./ferias.sh [options]"
-    echo "The command will be printed to the console."
+    echo "Usage: $0 [options]"
+    echo "Prints the RU menu to the console."
     echo "Options:"
-    echo "  -h, --help: show the help"
+    echo "  -h, --help: show this help message"
+    echo "  -l, --list: list available RU locations"
+    echo "  -r, --ru LOCATION: select RU location (default: politecnico)"
 }
 
-# this function will receive the arguments
+# Argument parsing function
 get_arguments () {
-    # Get the arguments
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
                 help
                 exit 0
+                ;;
+            -l|--list)
+                list_locations
+                exit 0
+                ;;
+            -r|--ru)
+                if [ -z "$2" ]; then
+                    echo "Error: RU location not specified"
+                    exit 1
+                fi
+                if [[ -v "RU_LOCATIONS[$2]" ]]; then
+                    SELECTED_LOCATION="$2"
+                else
+                    echo "Error: Invalid RU location '$2'"
+                    list_locations
+                    exit 1
+                fi
+                shift
                 ;;
             *)
                 echo "Invalid argument: $1"
@@ -183,12 +202,12 @@ get_arguments () {
                 exit 1
                 ;;
         esac
+        shift
     done
 }
 
+# Main script execution
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # run the script
     get_arguments "$@"
-    
     write_menu
 fi
