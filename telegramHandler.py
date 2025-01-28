@@ -21,6 +21,7 @@ logger = logging.getLogger(__name__)
 
 # Initialize constants
 NEWS_DIR = "news"
+RU_CACHE_FORMAT = "{date}_{location}.ru"  # Add this
 DEFAULT_SEND_TIME = "07:00"
 SCHEDULE_FILE = "schedules.json"
 ZODIAC_SIGNS = ["aries", "peixes", "aquario", "capricornio", "sagitario", 
@@ -30,7 +31,8 @@ MESSAGE_TYPES = {
     "horoscope": "Horóscopo",
     "weather": "Previsão do Tempo",
     "exchange": "Cotações",
-    "bicho": "Jogo do Bicho"
+    "bicho": "Jogo do Bicho",
+    "ru": "Cardápio RU"
 }
 MAX_MESSAGE_SIZE = 4000  # Using 4000 to have some safety margin
 SCHEDULE_MESSAGES = {
@@ -41,6 +43,19 @@ SCHEDULE_MESSAGES = {
     "bicho": "🎲 Palpites do jogo do bicho"
 }
 DEFAULT_SEND_AS_MESSAGE = True  # Default to sending as message instead of file
+
+RU_LOCATIONS = {
+    "politecnico": "Politécnico",
+    "agrarias": "Agrárias",
+    "botanico": "Jardim Botânico",
+    "central": "Central",
+    "toledo": "Toledo",
+    "mirassol": "Mirassol",
+    "jandaia": "Jandaia do Sul",
+    "palotina": "Palotina",
+    "cem": "CEM",
+    "matinhos": "Matinhos"
+}
 
 # Utility Functions
 def ensure_news_directory():
@@ -169,6 +184,36 @@ def split_long_message(text: str) -> list[str]:
     
     return messages
 
+async def get_ru_menu(location: str = "politecnico") -> str:
+    """Get RU menu from ru.sh script with caching."""
+    ensure_news_directory()
+    today = datetime.now().strftime("%Y%m%d")
+    cache_file = os.path.join(NEWS_DIR, RU_CACHE_FORMAT.format(date=today, location=location))
+
+    # Check if we have a cached version for today
+    if os.path.exists(cache_file):
+        try:
+            with open(cache_file, 'r', encoding='utf-8') as f:
+                return f.read()
+        except Exception as e:
+            logger.error(f"Error reading RU cache file: {e}")
+            # Continue to generate new menu if cache read fails
+    
+    # Generate new menu
+    result = run(['bash', './UFPR/ru.sh', '-r', location], stdout=PIPE, stderr=PIPE, text=True)
+    if result.returncode != 0:
+        logger.error("Failed to get RU menu: %s", result.stderr)
+        return ""
+
+    # Cache the result
+    try:
+        with open(cache_file, 'w', encoding='utf-8') as f:
+            f.write(result.stdout)
+    except Exception as e:
+        logger.error(f"Error writing RU cache file: {e}")
+    
+    return result.stdout
+
 # Command Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Send a welcome message with available options."""
@@ -179,6 +224,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
         [InlineKeyboardButton("Previsão do Tempo", callback_data="weather")],
         [InlineKeyboardButton("Cotações", callback_data="exchange")],
         [InlineKeyboardButton("Jogo do Bicho", callback_data="bicho")],
+        [InlineKeyboardButton("Cardápio RU", callback_data="ru")],
         [InlineKeyboardButton("Ajuda", callback_data="help")]
     ]
     keyboard = InlineKeyboardMarkup(buttons)
@@ -197,7 +243,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
         "  • force: Força geração de novo arquivo\n"
         "  • file: Envia como arquivo em vez de mensagem\n"
         "/horoscope [sign] [file] - Mostra o horóscopo.\n"
-        "/schedule - Gerencia agendamentos"
+        "/ru [location] - Mostra o cardápio do RU.\n"
+        "/schedule - Gerencia agendamentos\n\n"
+        f"RUs disponíveis: {', '.join(RU_LOCATIONS.values())}"
     )
     await update.message.reply_text(help_text)
 
@@ -378,6 +426,7 @@ async def scheduled_send_message(context: ContextTypes.DEFAULT_TYPE) -> None:
     try:
         chat_id = context.job.chat_id
         msg_type = context.job.data["type"]
+        location = context.job.data.get("location", "politecnico")  # Default to Politecnico
         logger.info(f"Running scheduled {msg_type} job for chat {chat_id}")
 
         if msg_type == "news":
@@ -422,6 +471,17 @@ async def scheduled_send_message(context: ContextTypes.DEFAULT_TYPE) -> None:
                             filename=f"horoscopo_{datetime.now().strftime('%Y%m%d')}.txt",
                             caption="📎 Arquivo completo do horóscopo"
                         )
+
+        elif msg_type == "ru":
+            menu = await get_ru_menu(location)
+            if menu:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"🍽️ Cardápio RU {RU_LOCATIONS[location]}\n\n{menu}",
+                    parse_mode='Markdown'
+                )
+            else:
+                logger.error(f"Failed to get RU menu for chat {chat_id}")
 
         # ... rest of the message types remain unchanged ...
 
@@ -506,6 +566,26 @@ async def get_bicho_info() -> str:
         return ""
     return result.stdout
 
+async def show_ru_menu_locations(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Show the RU location selection menu."""
+    buttons = []
+    row = []
+    for code, name in RU_LOCATIONS.items():
+        row.append(InlineKeyboardButton(name, callback_data=f"ru_{code}"))
+        if len(row) == 2:  # Create rows of 2 buttons
+            buttons.append(row)
+            row = []
+    if row:  # Add any remaining buttons
+        buttons.append(row)
+    
+    keyboard = InlineKeyboardMarkup(buttons)
+    message = "📍 Escolha um restaurante universitário:"
+    
+    if update.callback_query:
+        await update.callback_query.message.reply_text(message, reply_markup=keyboard)
+    else:
+        await update.message.reply_text(message, reply_markup=keyboard)
+
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle inline keyboard button clicks."""
     query = update.callback_query
@@ -538,6 +618,16 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             await query.message.reply_text(bicho_info, parse_mode='Markdown')
         else:
             await query.message.reply_text("Não foi possível obter os palpites do jogo do bicho.")
+    elif query.data == "ru":
+        await show_ru_menu_locations(update, context)
+    elif query.data.startswith("ru_"):
+        location = query.data.split("_")[1]
+        menu = await get_ru_menu(location)
+        if menu:
+            await query.message.reply_text(f"🍽️ Cardápio RU {RU_LOCATIONS[location]}")
+            await query.message.reply_text(menu, parse_mode='Markdown')
+        else:
+            await query.message.reply_text("Não foi possível obter o cardápio do RU.")
     elif query.data.startswith("horoscope_"):
         sign = query.data.split("_")[1]
         if sign == "all":
@@ -557,6 +647,26 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 await query.message.reply_text(horoscope_text, parse_mode='Markdown')
             else:
                 await query.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
+
+async def ru_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Send RU menu for specified location or show location selection."""
+    if context.args:
+        location = context.args[0].lower()
+        if location in RU_LOCATIONS:
+            menu = await get_ru_menu(location)
+            if menu:
+                await update.message.reply_text(
+                    f"🍽️ Cardápio RU {RU_LOCATIONS[location]}\n\n{menu}",
+                    parse_mode='Markdown'
+                )
+            else:
+                await update.message.reply_text("Não foi possível obter o cardápio do RU.")
+        else:
+            await update.message.reply_text(
+                f"Local inválido. RUs disponíveis: {', '.join(RU_LOCATIONS.keys())}"
+            )
+    else:
+        await show_ru_menu_locations(update, context)
 
 # Main Function
 def main() -> None:
@@ -600,6 +710,7 @@ def main() -> None:
     application.add_handler(CommandHandler("send", send_news))
     application.add_handler(CommandHandler("horoscope", horoscope_command))
     application.add_handler(CommandHandler("schedule", schedule_command))
+    application.add_handler(CommandHandler("ru", ru_command))
     application.add_handler(CallbackQueryHandler(button_handler))
 
     # Run the bot
