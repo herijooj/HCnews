@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
+
 SCRIPT_DIR=$(dirname "$0")
+HOLIDAY_FILE="$SCRIPT_DIR/data/holidays.csv"
 
 # get holidays
 # the holidays are in the holidays.csv file
@@ -10,7 +12,7 @@ function get_holidays() {
     local month=$1
     local day=$2
     # get the holidays
-    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$SCRIPT_DIR/holidays.csv")
+    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$HOLIDAY_FILE")
     echo "$holidays"
 }
 

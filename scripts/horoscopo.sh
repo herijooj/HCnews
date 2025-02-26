@@ -93,10 +93,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     get_arguments "$@"
     output="🔮 *Horóscopo do dia* 🔮\\n\\n"
     
-    # Set default directory to news if -s flag is used
+    # Set default directory to data/news if -s flag is used
     if [[ "$SAVE_TO_FILE" = true ]]; then
-        mkdir -p "news"
-        filename="news/$(date +%Y%m%d).hrcp"
+        mkdir -p "data/news"
+        filename="data/news/$(date +%Y%m%d).hrcp"
     fi
 
     if [[ -z "$SIGN" ]]; then

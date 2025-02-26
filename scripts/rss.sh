@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$(dirname "$0")
 
-source "$SCRIPT_DIR/shortening.sh"
+source "$SCRIPT_DIR/scripts/shortening.sh"
 
 # Add this new function to validate RSS dates
 is_valid_rss_date() {

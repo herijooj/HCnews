@@ -4,19 +4,19 @@
 # Includes ========================================================================
 SCRIPT_DIR=$(dirname "$0")
 
-source "$SCRIPT_DIR/file.sh"
-source "$SCRIPT_DIR/header.sh"
-source "$SCRIPT_DIR/saints.sh"
-source "$SCRIPT_DIR/rss.sh"
-source "$SCRIPT_DIR/exchange.sh"
-source "$SCRIPT_DIR/UFPR/ferias.sh"
-source "$SCRIPT_DIR/UFPR/ru.sh"
-source "$SCRIPT_DIR/musicchart.sh"
-source "$SCRIPT_DIR/weather.sh"
-source "$SCRIPT_DIR/didyouknow.sh"
-source "$SCRIPT_DIR/holidays.sh"
-source "$SCRIPT_DIR/bicho.sh"
-source "$SCRIPT_DIR/states.sh"
+source "$SCRIPT_DIR/scripts/file.sh"
+source "$SCRIPT_DIR/scripts/header.sh"
+source "$SCRIPT_DIR/scripts/saints.sh"
+source "$SCRIPT_DIR/scripts/rss.sh"
+source "$SCRIPT_DIR/scripts/exchange.sh"
+source "$SCRIPT_DIR/scripts/UFPR/ferias.sh"
+source "$SCRIPT_DIR/scripts/UFPR/ru.sh"
+source "$SCRIPT_DIR/scripts/musicchart.sh"
+source "$SCRIPT_DIR/scripts/weather.sh"
+source "$SCRIPT_DIR/scripts/didyouknow.sh"
+source "$SCRIPT_DIR/scripts/holidays.sh"
+source "$SCRIPT_DIR/scripts/bicho.sh"
+source "$SCRIPT_DIR/scripts/states.sh"
 
 # ==================================================================================
 
@@ -204,7 +204,7 @@ city="Curitiba"
 if [[ $file == true ]]; then
     # Define paths
     news_file_name="$date.news"
-    news_file_path="./news/$news_file_name"
+    news_file_path="./data/news/$news_file_name"
 
     # Create the news file
     new_file "$news_file_name" "$news_file_path" "$silent"

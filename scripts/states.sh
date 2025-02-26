@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$(dirname "$0")
-
+STATES_FILE="$SCRIPT_DIR/data/states.csv"
 function get_states() {
     # get the date from arguments
     local month=$1
     local day=$2
     # get the states
-    local states=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$SCRIPT_DIR/states.csv")
+    local states=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$STATES_FILE")
     echo "$states"
 }
 
