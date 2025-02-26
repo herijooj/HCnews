@@ -1,11 +1,15 @@
+import logging
 import os
 import subprocess
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
-from utils.text_utils import split_message
 from config.constants import SCRIPT_PATHS
 from config.keyboard import get_news_menu, get_return_button
+from utils.text_utils import clean_ansi, split_message
+from utils.rss_utils import get_rss_feed
+
+logger = logging.getLogger(__name__)
 
 async def generate_news_file(force: bool = False) -> tuple[bool, str]:
     """Generate news file using hcnews.sh script"""
@@ -73,8 +77,11 @@ async def send_news_as_message(update: Update, context: ContextTypes.DEFAULT_TYP
     )
 
 async def handle_news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show news menu with options"""
-    await update.callback_query.edit_message_text(
-        "📰 Como você deseja receber as notícias?",
+    """Handle the news menu"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.message.edit_text(
+        "📰 Notícias\n\nEscolha uma opção:",
         reply_markup=get_news_menu()
     )

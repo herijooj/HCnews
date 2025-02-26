@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 SCRIPT_DIR=$(dirname "$0")
 
-source "$SCRIPT_DIR/scripts/shortening.sh"
+#source "$SCRIPT_DIR/shortening.sh"
 
 # Add this new function to validate RSS dates
 is_valid_rss_date() {
@@ -81,10 +81,11 @@ compare_dates_rss () {
     fi
 }
 
-# Replace both get_news_RSS and get_news_RSS_linked with a single function
+# Replace get_news_RSS_combined with this updated version
 get_news_RSS_combined() {
     local RSS_FEED=$1
     local LINKED=$2
+    local FULL_URL=$3
 
     export LC_ALL=en_US.UTF-8
     local TIMESTAMP
@@ -112,7 +113,11 @@ get_news_RSS_combined() {
         if [ "$(compare_dates_rss "$DATE" "$TIMESTAMP")" -eq 1 ]; then
             echo "📰 $TITLE"
             if [ "$LINKED" = true ]; then
-                echo "$(shorten_url_isgd "$LINK")"
+                if [ "$FULL_URL" = true ]; then
+                    echo "$LINK"
+                else
+                    echo "$(shorten_url_isgd "$LINK")"
+                fi
             fi
         fi
     done <<< "$NEWS"
@@ -122,11 +127,12 @@ write_news() {
     local RSS_FEED=$1
     local LINKED=$2
     local SHOW_HEADER=$3
+    local FULL_URL=$4
     local PORTAL
     PORTAL=$(echo "$RSS_FEED" | cut -d "/" -f 3)
 
     local NEWS_OUTPUT
-    NEWS_OUTPUT=$(get_news_RSS_combined "$RSS_FEED" "$LINKED")
+    NEWS_OUTPUT=$(get_news_RSS_combined "$RSS_FEED" "$LINKED" "$FULL_URL")
 
     if [ -n "$NEWS_OUTPUT" ]; then
         if [ "$SHOW_HEADER" = true ]; then
@@ -137,25 +143,25 @@ write_news() {
     fi
 }
 
-# -------------------------------- Running locally --------------------------------
-
-# help function
-# Usage: ./rss.sh [options]
-# Options:
-#   -h, --help      Show this help message and exit
-#   -l, --linked    Show the news with the shortened URL
-#   -n, --no-header Do not show the portal header
+# Update help function with clearer instructions
 help () {
     echo "Usage: ./rss.sh [options] [url]"
     echo "Options:"
     echo "  -h, --help      Show this help message and exit"
-    echo "  -l, --linked    Show the news with the shortened URL"
+    echo "  -l, --linked    Show the news with URLs"
+    echo "  -f, --full-url  Use full URLs instead of shortened ones (requires -l)"
     echo "  -n, --no-header Do not show the portal header"
+    echo ""
+    echo "Examples:"
+    echo "  ./rss.sh -l <url>          # Show news with shortened URLs"
+    echo "  ./rss.sh -l -f <url>       # Show news with full URLs"
 }
 
-# this function will receive the arguments, and throw an error if the URL is not valid
+# Update get_arguments function to warn about -f without -l
 get_arguments () {
     SHOW_HEADER=true
+    FULL_URL=false
+    LINKED=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
@@ -164,6 +170,9 @@ get_arguments () {
                 ;;
             -l|--linked)
                 LINKED=true
+                ;;
+            -f|--full-url)
+                FULL_URL=true
                 ;;
             -n|--no-header)
                 SHOW_HEADER=false
@@ -174,6 +183,13 @@ get_arguments () {
         esac
         shift
     done
+
+    # Check if -f is used without -l
+    if [ "$FULL_URL" = true ] && [ "$LINKED" = false ]; then
+        echo "Warning: -f/--full-url requires -l/--linked to show URLs"
+        echo "Use -h or --help for usage examples"
+        FULL_URL=false
+    fi
 
     # Check if FEED_URL is empty
     if [ -z "$FEED_URL" ]; then
@@ -186,5 +202,5 @@ get_arguments () {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # run the script
     get_arguments "$@"
-    write_news "$FEED_URL" "$LINKED" "$SHOW_HEADER"
+    write_news "$FEED_URL" "$LINKED" "$SHOW_HEADER" "$FULL_URL"
 fi

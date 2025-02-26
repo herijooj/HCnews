@@ -13,7 +13,8 @@ MESSAGE_TYPES = {
     'weather': '🌤️ Previsão do Tempo',
     'exchange': '💱 Cotações',
     'bicho': '🎲 Jogo do Bicho',
-    'ru': '🍽️ Cardápio RU'
+    'ru': '🍽️ Cardápio RU',
+    'rss': '🌐 RSS Feed'
 }
 
 RU_LOCATIONS = {

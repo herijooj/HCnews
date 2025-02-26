@@ -5,6 +5,7 @@ from telegram.ext import ContextTypes, ConversationHandler, JobQueue
 from config.constants import MESSAGE_TYPES, RU_LOCATIONS, TIMEZONE
 from config.keyboard import get_return_button, get_schedule_menu
 from utils.schedule_utils import load_schedules, add_schedule, remove_schedule, save_schedules  # Added save_schedules
+from utils.rss_utils import get_rss_feeds
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +15,7 @@ SELECTING_TYPE = 1
 SELECTING_LOCATION = 2
 SELECTING_TIME = 3
 CUSTOM_TIME = 4
+SELECTING_RSS_FEED = 5
 
 # Predefined times
 PRESET_TIMES = ["06:00", "07:00", "08:00", "10:00", "11:00", "12:00", "16:00", "17:00", "18:00", "Custom"]
@@ -22,7 +24,12 @@ def get_type_keyboard() -> InlineKeyboardMarkup:
     """Create message type selection keyboard"""
     keyboard = []
     row = []
-    for type_id, type_name in MESSAGE_TYPES.items():
+    
+    # Add RSS to MESSAGE_TYPES for display
+    message_types = MESSAGE_TYPES.copy()
+    message_types['rss'] = '🌐 RSS Feed'
+    
+    for type_id, type_name in message_types.items():
         row.append(InlineKeyboardButton(type_name, callback_data=f"schedule_type_{type_id}"))
         if len(row) == 2:
             keyboard.append(row)
@@ -106,8 +113,48 @@ async def handle_location_selection(update: Update, context: ContextTypes.DEFAUL
             reply_markup=InlineKeyboardMarkup(keyboard)
         )
         return SELECTING_LOCATION
+    elif msg_type == 'rss':
+        # Show RSS feed selection
+        chat_id = update.effective_chat.id
+        feeds = get_rss_feeds(chat_id)
+        
+        if not feeds:
+            await query.message.edit_text(
+                "❌ Nenhum feed RSS configurado. Configure um RSS primeiro.",
+                reply_markup=get_schedule_menu()
+            )
+            return ConversationHandler.END
+            
+        keyboard = []
+        for name in feeds.keys():
+            keyboard.append([InlineKeyboardButton(
+                f"📲 {name}",
+                callback_data=f"schedule_feed_{name}"
+            )])
+        keyboard.append([InlineKeyboardButton("↩️ Voltar", callback_data="schedule_menu")])
+        
+        await query.message.edit_text(
+            "📱 Selecione o feed RSS:",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+        return SELECTING_RSS_FEED
     
-    # Skip location selection for other types
+    # Skip location/feed selection for other types
+    await query.message.edit_text(
+        "🕒 Selecione o horário:",
+        reply_markup=get_time_keyboard()
+    )
+    return SELECTING_TIME
+
+async def handle_rss_feed_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """Handle RSS feed selection for scheduling"""
+    query = update.callback_query
+    feed_name = query.data.replace("schedule_feed_", "")
+    
+    # Store the selected feed name
+    context.user_data['schedule_feed'] = feed_name
+    
+    # Show time selection
     await query.message.edit_text(
         "🕒 Selecione o horário:",
         reply_markup=get_time_keyboard()
@@ -117,6 +164,19 @@ async def handle_location_selection(update: Update, context: ContextTypes.DEFAUL
 async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Handle time selection"""
     query = update.callback_query
+    
+    if query.data.startswith("schedule_loc_"):
+        # Store location selection for RU
+        location = query.data.replace("schedule_loc_", "")
+        context.user_data['schedule_location'] = location
+        
+        # Show time selection
+        await query.message.edit_text(
+            "🕒 Selecione o horário:",
+            reply_markup=get_time_keyboard()
+        )
+        return SELECTING_TIME
+    
     data = query.data.replace("schedule_time_", "")
     
     if data == "custom":
@@ -129,12 +189,21 @@ async def handle_time_selection(update: Update, context: ContextTypes.DEFAULT_TY
         return CUSTOM_TIME
     
     # Add schedule with selected time
-    success = add_schedule(
-        update.effective_chat.id,
-        data,
-        context.user_data['schedule_type'],
-        context.user_data.get('schedule_location')
-    )
+    if context.user_data['schedule_type'] == 'rss' and 'schedule_feed' in context.user_data:
+        # For RSS feeds, add the feed name to the location field
+        success = add_schedule(
+            update.effective_chat.id,
+            data,
+            context.user_data['schedule_type'],
+            context.user_data.get('schedule_feed')
+        )
+    else:
+        success = add_schedule(
+            update.effective_chat.id,
+            data,
+            context.user_data['schedule_type'],
+            context.user_data.get('schedule_location')
+        )
     
     if success:
         await query.message.edit_text(

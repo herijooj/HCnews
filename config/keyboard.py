@@ -17,7 +17,10 @@ def get_main_menu() -> InlineKeyboardMarkup:
             InlineKeyboardButton(MESSAGE_TYPES['ru'], callback_data="ru")
         ],
         [
-            InlineKeyboardButton("⏰ Agendamentos", callback_data="schedule"),
+            InlineKeyboardButton(MESSAGE_TYPES['rss'], callback_data="rss"),
+            InlineKeyboardButton("⏰ Agendamentos", callback_data="schedule")
+        ],
+        [
             InlineKeyboardButton("⚙️ Configurações", callback_data="settings")
         ]
     ]
@@ -34,6 +37,21 @@ def get_news_menu() -> InlineKeyboardMarkup:
             InlineKeyboardButton("🔄 Forçar atualização", callback_data="news_force"),
             InlineKeyboardButton("🏠 Menu Principal", callback_data="main_menu")
         ]
+    ]
+    return InlineKeyboardMarkup(keyboard)
+
+def get_rss_menu() -> InlineKeyboardMarkup:
+    """Return the RSS feed menu keyboard markup"""
+    keyboard = [
+        [
+            InlineKeyboardButton("📱 Ver feed RSS", callback_data="rss_message"),
+            InlineKeyboardButton("📎 Baixar feed RSS", callback_data="rss_file")
+        ],
+        [
+            InlineKeyboardButton("🌐 Definir RSS Feed", callback_data="rss_set"),
+            InlineKeyboardButton("🗑️ Limpar RSS Feed", callback_data="rss_clear")
+        ],
+        [InlineKeyboardButton("🏠 Menu Principal", callback_data="main_menu")]
     ]
     return InlineKeyboardMarkup(keyboard)
 

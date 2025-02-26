@@ -14,10 +14,17 @@ from handlers.exchange_handler import send_exchange
 from handlers.bicho_handler import send_bicho
 from handlers.horoscope_handler import send_horoscope, handle_horoscope_selection
 from handlers.ru_handler import send_ru_menu, handle_ru_selection
+from handlers.rss_handler import (
+    handle_rss_menu, handle_set_rss, handle_url_input, handle_clear_rss,
+    handle_remove_feed, handle_feed_name_input, handle_view_feed,
+    send_rss_as_message, send_rss_as_file, send_specific_rss_as_message,
+    send_specific_rss_as_file,  # Added the missing import
+    WAITING_FOR_URL, WAITING_FOR_FEED_NAME, SELECTING_FEED
+)
 from handlers.schedule_handler import (
-    SELECTING_ACTION, SELECTING_TYPE, SELECTING_LOCATION, SELECTING_TIME, CUSTOM_TIME,
-    handle_schedule_menu, handle_type_selection, handle_location_selection,
-    handle_time_selection, handle_custom_time, handle_remove_schedule, handle_remove_selection
+    SELECTING_ACTION, SELECTING_TYPE, SELECTING_LOCATION, SELECTING_TIME, CUSTOM_TIME, SELECTING_RSS_FEED,
+    handle_schedule_menu, handle_type_selection, handle_location_selection, handle_time_selection,
+    handle_custom_time, handle_remove_schedule, handle_remove_selection, handle_rss_feed_selection
 )
 
 # Configure logging
@@ -46,6 +53,10 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if query.data.startswith("schedule"):
         return
     
+    # Don't handle RSS-related callbacks that need conversation
+    if query.data in ["rss_set", "rss_clear"]:
+        return
+    
     if query.data == "settings":
         await query.message.reply_text(
             "⚙️ Configurações ainda não implementadas.",
@@ -62,7 +73,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif query.data == "news_force":
         # First notify the user we're updating
         await query.message.reply_text("🔄 Forçando atualização das notícias...")
-        success, result = await generate_news_file(force=True)
+        success, result = await generate_news_file(force(True))
         if success:
             # Send in the same format that was last used (file or message)
             if query.message.reply_markup.inline_keyboard[0][0].callback_data == "news_message":
@@ -71,6 +82,12 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 await send_news_as_file(update, context)
         else:
             await query.message.reply_text(f"❌ Falha ao atualizar as notícias: {result}")
+    elif query.data == "rss":
+        await handle_rss_menu(update, context)
+    elif query.data == "rss_message":
+        await send_rss_as_message(update, context)
+    elif query.data == "rss_file":
+        await send_rss_as_file(update, context)
     elif query.data == "horoscope":
         await send_horoscope(update, context)
     elif query.data.startswith("horoscope_"):
@@ -113,6 +130,39 @@ def main() -> None:
     # Add the start command handler
     application.add_handler(CommandHandler("start", start))
     
+    # Add conversation handler for RSS operations
+    rss_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_set_rss, pattern="^rss_set$"),
+            CallbackQueryHandler(handle_clear_rss, pattern="^rss_clear$"),
+            CallbackQueryHandler(handle_remove_feed, pattern="^rss_delete_"),
+            CallbackQueryHandler(handle_view_feed, pattern="^rss_view_"),
+            CallbackQueryHandler(send_specific_rss_as_message, pattern="^rss_message_"),
+            CallbackQueryHandler(send_specific_rss_as_file, pattern="^rss_file_"),
+        ],
+        states={
+            WAITING_FOR_URL: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url_input),
+                CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            ],
+            WAITING_FOR_FEED_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feed_name_input),
+                CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            ],
+            SELECTING_FEED: [
+                CallbackQueryHandler(handle_remove_feed, pattern="^rss_delete_"),
+                CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            ],
+        },
+        fallbacks=[
+            CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            CallbackQueryHandler(button_callback, pattern="^main_menu$"),
+            MessageHandler(filters.COMMAND, lambda u, c: ConversationHandler.END),
+        ],
+        per_message=False,
+        name="rss_conversation"
+    )
+    
     # Add conversation handler for scheduling
     schedule_handler = ConversationHandler(
         entry_points=[
@@ -131,6 +181,10 @@ def main() -> None:
             ],
             SELECTING_LOCATION: [
                 CallbackQueryHandler(handle_time_selection, pattern="^schedule_loc_"),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
+            ],
+            SELECTING_RSS_FEED: [  # Add RSS feed selection state
+                CallbackQueryHandler(handle_rss_feed_selection, pattern="^schedule_feed_"),
                 CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
             ],
             SELECTING_TIME: [
@@ -152,7 +206,8 @@ def main() -> None:
         name="schedule_conversation"  # Add a name for debugging
     )
     
-    # Important: Add schedule handler BEFORE the general callback handler
+    # Important: Add handlers before the general callback handler
+    application.add_handler(rss_handler)
     application.add_handler(schedule_handler)
     application.add_handler(CallbackQueryHandler(button_callback))
     

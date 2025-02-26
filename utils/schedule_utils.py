@@ -29,6 +29,7 @@ async def send_scheduled_message(context):
     from handlers.bicho_handler import send_bicho
     from handlers.horoscope_handler import send_horoscope
     from handlers.ru_handler import send_ru_menu, handle_ru_selection
+    from handlers.rss_handler import send_specific_rss_as_message
 
     # Create proper mock objects for the handlers
     class MockMessage:
@@ -47,6 +48,9 @@ async def send_scheduled_message(context):
 
         async def edit_message_text(self, *args, **kwargs):
             await context.bot.send_message(chat_id=self.message.chat_id, *args, **kwargs)
+            
+        async def answer(self, *args, **kwargs):
+            pass
 
     class MockUpdate:
         def __init__(self, chat_id):
@@ -68,6 +72,10 @@ async def send_scheduled_message(context):
             await send_bicho(mock_update, context)
         elif msg_type == 'horoscope':
             await send_horoscope(mock_update, context)
+        elif msg_type == 'rss':
+            # For RSS, location contains the feed name
+            feed_name = location
+            await send_specific_rss_as_message(mock_update, context, feed_name)
         elif msg_type == 'ru' and location:
             await handle_ru_selection(mock_update, context, f"ru_{location}")
     except Exception as e:
