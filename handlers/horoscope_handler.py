@@ -62,7 +62,7 @@ def generate_horoscope(sign: str = None) -> tuple[bool, str]:
     if not os.path.exists(filename):
         logger.debug(f"Horoscope file {filename} does not exist, generating...")
         try:
-            subprocess.run([SCRIPT_PATHS['horoscope'], "-s"], check=True)
+            subprocess.run(f"bash {SCRIPT_PATHS['horoscope']} -s", shell=True, check=True)
         except subprocess.CalledProcessError as e:
             logger.error(f"Failed to generate horoscope: {e}")
             return False, "Erro ao gerar horóscopo"
