@@ -1,39 +1,81 @@
-import subprocess
 import logging
+import subprocess
 from telegram import Update
 from telegram.ext import ContextTypes
 from config.constants import SCRIPT_PATHS
 from config.keyboard import get_return_button
-from utils.text_utils import clean_ansi  # Add this import
+from utils.text_utils import clean_ansi
 
 logger = logging.getLogger(__name__)
 
-async def send_weather(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Execute weather script and send forecast"""
+async def send_weather(update: Update, context: ContextTypes.DEFAULT_TYPE, city: str = "Curitiba") -> None:
+    """Send weather information"""
+    query = update.callback_query
+    if query:
+        await query.answer()
+        message = query.message
+    else:
+        message = update.message
+
+    # Show typing indicator
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
+
     try:
+        # Execute the weather script with city parameter
+        logger.info(f"Getting weather for city: '{city}'")
+        
+        # Use default city if an empty string was passed
+        if not city.strip():
+            city = "Curitiba"
+            logger.info(f"Using default city: {city}")
+        
+        # Add a status message to show we're processing
+        status_msg = await message.reply_text(f"🔍 Buscando previsão do tempo para {city}...")
+        
+        # Construct command with explicit arguments
+        command = [SCRIPT_PATHS['weather']]
+        if city:
+            command.append(city)
+        command.append("--telegram")
+        
+        logger.info(f"Running command: {' '.join(command)}")
+        
         result = subprocess.run(
-            ['bash', SCRIPT_PATHS['weather']],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            command,
+            capture_output=True,
+            text=True,
+            check=False  # Don't raise exception, handle it manually
         )
+        
+        # Log the output for debugging
+        logger.info(f"Weather script stdout: {result.stdout[:200]}...")
+        if result.stderr:
+            logger.info(f"Weather script stderr: {result.stderr}")
+        
+        # Delete the status message
+        await status_msg.delete()
         
         if result.returncode != 0:
-            logger.error("Failed to get weather info: %s", result.stderr)
-            raise subprocess.CalledProcessError(result.returncode, SCRIPT_PATHS['weather'])
-        
-        # Clean ANSI escape codes from the output
-        clean_output = clean_ansi(result.stdout)
-        logger.debug(f"Cleaned weather output: {clean_output}")
-        
-        await update.callback_query.edit_message_text(
-            text=clean_output,
-            reply_markup=get_return_button(),
-            parse_mode='html'
+            error_msg = clean_ansi(result.stderr) if result.stderr else "Erro desconhecido"
+            # Also check stdout for error messages
+            if "❌ Erro:" in result.stdout:
+                error_msg = clean_ansi(result.stdout)
+            await message.reply_text(
+                f"{error_msg}\n\nTente outra cidade.",
+                reply_markup=get_return_button()
+            )
+            return
+            
+        weather_text = clean_ansi(result.stdout)
+        await message.reply_text(
+            text=weather_text,
+            parse_mode='Markdown',
+            reply_markup=get_return_button()
         )
-    except subprocess.CalledProcessError as e:
-        logger.error("Weather script execution failed: %s", str(e))
-        await update.callback_query.edit_message_text(
-            text="❌ Não foi possível obter a previsão do tempo.",
+        logger.info("Weather info sent successfully")
+    except Exception as e:
+        logger.error(f"Unexpected error in send_weather: {str(e)}")
+        await message.reply_text(
+            f"❌ Erro inesperado ao buscar previsão do tempo: {str(e)}",
             reply_markup=get_return_button()
         )

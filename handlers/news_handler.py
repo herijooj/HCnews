@@ -45,6 +45,11 @@ async def send_news_as_file(update: Update, context: ContextTypes.DEFAULT_TYPE) 
         
     date_str = datetime.now().strftime("%Y%m%d")
     with open(result, 'rb') as f:
+        # Send a confirmation message first
+        await update.effective_message.reply_text(
+            "📤 Enviando arquivo de notícias...",
+        )
+        # Then send the document
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=f,

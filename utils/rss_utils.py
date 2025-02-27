@@ -129,9 +129,9 @@ def get_rss_cache_path(url: str) -> str:
     url_hash = get_url_hash(url)
     
     # Ensure directory exists
-    os.makedirs('news', exist_ok=True)
+    os.makedirs('data/news', exist_ok=True)
     
-    return f'news/{today}_rss_{url_hash}.txt'
+    return f'data/news/{today}_rss_{url_hash}.txt'
 
 def generate_rss_content(url: str, force: bool = False) -> Tuple[bool, str]:
     """Generate RSS feed content from URL"""

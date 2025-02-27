@@ -22,15 +22,15 @@ from handlers.rss_handler import (
     WAITING_FOR_URL, WAITING_FOR_FEED_NAME, SELECTING_FEED
 )
 from handlers.schedule_handler import (
-    SELECTING_ACTION, SELECTING_TYPE, SELECTING_LOCATION, SELECTING_TIME, CUSTOM_TIME, SELECTING_RSS_FEED,
+    SELECTING_ACTION, SELECTING_TYPE, SELECTING_LOCATION, SELECTING_TIME, CUSTOM_TIME, SELECTING_RSS_FEED, ENTERING_CITY,
     handle_schedule_menu, handle_type_selection, handle_location_selection, handle_time_selection,
-    handle_custom_time, handle_remove_schedule, handle_remove_selection, handle_rss_feed_selection
+    handle_custom_time, handle_remove_schedule, handle_remove_selection, handle_rss_feed_selection, handle_custom_city
 )
 
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.DEBUG  # Changed from INFO to DEBUG
+    level=logging.INFO  # Changed from INFO to DEBUG
 )
 logging.getLogger('httpx').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
@@ -73,7 +73,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif query.data == "news_force":
         # First notify the user we're updating
         await query.message.reply_text("🔄 Forçando atualização das notícias...")
-        success, result = await generate_news_file(force(True))
+        success, result = await generate_news_file(force=True)
         if success:
             # Send in the same format that was last used (file or message)
             if query.message.reply_markup.inline_keyboard[0][0].callback_data == "news_message":
@@ -103,10 +103,19 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     elif query.data.startswith("ru_"):
         await handle_ru_selection(update, context, query.data)
     elif query.data == "main_menu":
-        await query.message.edit_text(
-            "Selecione uma opção:",
-            reply_markup=get_main_menu()
-        )
+        try:
+            # Try to edit the original message
+            await query.message.edit_text(
+                "Selecione uma opção:",
+                reply_markup=get_main_menu()
+            )
+        except Exception as e:
+            # If editing fails (e.g., for document messages), send a new message
+            logger.info(f"Could not edit message, sending new: {str(e)}")
+            await query.message.reply_text(
+                "Selecione uma opção:",
+                reply_markup=get_main_menu()
+            )
 
 def main() -> None:
     """Start the bot"""
@@ -181,6 +190,7 @@ def main() -> None:
             ],
             SELECTING_LOCATION: [
                 CallbackQueryHandler(handle_time_selection, pattern="^schedule_loc_"),
+                CallbackQueryHandler(handle_time_selection, pattern="^schedule_city_"),
                 CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
             ],
             SELECTING_RSS_FEED: [  # Add RSS feed selection state
@@ -193,6 +203,11 @@ def main() -> None:
             ],
             CUSTOM_TIME: [
                 MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_time),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$"),
+                CallbackQueryHandler(button_callback, pattern="^main_menu$")
+            ],
+            ENTERING_CITY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_city),
                 CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$"),
                 CallbackQueryHandler(button_callback, pattern="^main_menu$")
             ],

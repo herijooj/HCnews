@@ -1,4 +1,5 @@
 import json
+import logging  # Add missing import
 from typing import Dict, List
 from datetime import datetime
 import pytz
@@ -21,6 +22,9 @@ async def send_scheduled_message(context):
     chat_id = job.chat_id
     msg_type = job.data['type']
     location = job.data.get('location')
+    
+    # Set up logger for this function
+    logger = logging.getLogger(__name__)
 
     # Import handlers here to avoid circular imports
     from handlers.news_handler import send_news_as_message
@@ -65,7 +69,10 @@ async def send_scheduled_message(context):
         if msg_type == 'news':
             await send_news_as_message(mock_update, context)
         elif msg_type == 'weather':
-            await send_weather(mock_update, context)
+            # For weather, location contains the city name
+            city = location if location else "Curitiba"  # Default to Curitiba if no city specified
+            logger.info(f"Scheduled weather for city: '{city}'")
+            await send_weather(mock_update, context, city)
         elif msg_type == 'exchange':
             await send_exchange(mock_update, context)
         elif msg_type == 'bicho':
