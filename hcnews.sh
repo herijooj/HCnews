@@ -95,7 +95,7 @@ function footer {
     file_name=$(basename "$0")
     end_time=$(date +%s)
     elapsed_time=$((end_time - start_time))
-    echo "O HCNews é gerado automaticamente todos os dias 🤖 "
+    echo "🔔 HCNews: Diário, Seu Jornal Automático 🤖"
     echo "📡 Stack: RSS • Bash • Python • Nix"
     echo "🔗 https://github.com/herijooj/HCnews"
     echo "🙌 Que Deus abençoe a todos! 🙏"
