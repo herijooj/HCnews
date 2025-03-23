@@ -1,23 +1,30 @@
 #!/usr/bin/env bash
 
-SCRIPT_DIR=$(dirname "$0")
-HOLIDAY_FILE="$SCRIPT_DIR/data/holidays.csv"
+HOLIDAYS_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+PROJECT_ROOT=$(realpath "$HOLIDAYS_SCRIPT_DIR/..")
+HOLIDAY_FILE="$PROJECT_ROOT/data/holidays.csv"
 
 # get holidays
 # the holidays are in the holidays.csv file
-# the file is in the format: "month day holiday"
-# example: 01	01	🎉 Ano Novo
+# the file is in the format: "month,day,emoji,holiday"
+# example: 01,01,🎉,Ano Novo
 function get_holidays() {
     # get the date from arguments
     local month=$1
     local day=$2
     # get the holidays
-    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$HOLIDAY_FILE")
+    local holidays=$(awk -F, -v month="$month" -v day="$day" '$1 == month && $2 == day { emoji=$3; $1=$2=$3=""; gsub(/^[,]+/, "", $0); print emoji, $0 }' "$HOLIDAY_FILE")
     echo "$holidays"
 }
 
 # write the holidays
 function write_holidays() {
+    # Check if file exists
+    if [[ ! -f "$HOLIDAY_FILE" ]]; then
+        echo "Error: Holiday file not found at $HOLIDAY_FILE"
+        exit 1
+    fi
+
     # get the holidays
     local holidays=$(get_holidays "$1" "$2")
 

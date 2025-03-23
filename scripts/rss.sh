@@ -1,126 +1,112 @@
 #!/usr/bin/env bash
-SCRIPT_DIR=$(dirname "$0")
+RSS_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
-#source "$SCRIPT_DIR/shortening.sh"
+# Source the shortening script with proper path
+source "$RSS_DIR/shortening.sh"
 
-# Add this new function to validate RSS dates
-is_valid_rss_date() {
+# Cache directory for URL shortening
+CACHE_DIR="${HOME}/.cache/hcnews"
+mkdir -p "$CACHE_DIR"
+URL_CACHE_FILE="${CACHE_DIR}/url_cache.txt"
+touch "$URL_CACHE_FILE"
+
+# Set locale once at the beginning
+#export LC_ALL=en_US.UTF-8
+
+# Get timestamp for 24 hours ago once
+UNIX_24H_AGO=$(date -d "24 hours ago" +%s)
+
+# Cache for date to unix conversions
+declare -A DATE_CACHE
+
+# Optimized function to convert RSS date to unix timestamp
+date_rss_to_unix() {
     local date_str="$1"
-    # Check if the date string matches RFC 2822 format
-    [[ $date_str =~ ^[A-Za-z]{3},\ [0-9]{2}\ [A-Za-z]{3}\ [0-9]{4}\ [0-9]{2}:[0-9]{2}:[0-9]{2} ]] || return 1
-    return 0
-}
-
-# this function converts a date in RSS format to unix
-# RFC 2822 example: Fri, 03 Feb 2023 16:00:00 +0000
-date_rss_to_unix () {
-
-    local DATE_RSS="$1"
     
-    # Validate date format first
-    if ! is_valid_rss_date "$DATE_RSS"; then
+    # Return from cache if available
+    if [[ -n "${DATE_CACHE[$date_str]}" ]]; then
+        echo "${DATE_CACHE[$date_str]}"
+        return
+    fi
+    
+    # Quick format validation using regex
+    if [[ ! $date_str =~ ^[A-Z][a-z]{2},\ [0-9]{2}\ [A-Z][a-z]{2}\ [0-9]{4}\ [0-9]{2}:[0-9]{2}:[0-9]{2} ]]; then
+        DATE_CACHE[$date_str]="0"
         echo "0"
         return
     fi
-
-    # change the locale to en_US
-    export LC_ALL=en_US.UTF-8
-
-    # get the date in RSS format
-    DATE_RSS=$1
-
-    # convert the date to unix
-    DATE_UNIX=$(date -d "$DATE_RSS" +%s 2>/dev/null || echo "0")
-
-    # change the locale back to normal
-    export LC_ALL=C
-
-
-    # return the date in unix
-    echo "$DATE_UNIX"
-}
-
-# this function returns the date from 24 hours ago in RFC 2822
-# example: Fri, 03 Feb 2023 16:00:00 +0000
-get_date_24_hours_rss () {
-    export LC_ALL=en_US.UTF-8
-
-    # get the date in RFC 2822
-    DATE_RSS=$(date -R -d "24 hours ago")
-    export LC_ALL=C
-
-    # return the date in RFC 2822
-    echo "$DATE_RSS"
-}
-
-# this function compares two dates in RSS format
-# returns 1 if the first date is greater than the second
-# returns 0 if the first date is less than the second
-compare_dates_rss () {
-
-    local DATE_1="$1"
-    local DATE_2="$2"
-
-    local DATE_1_UNIX
-    local DATE_2_UNIX
     
-    DATE_1_UNIX=$(date_rss_to_unix "$DATE_1")
-    DATE_2_UNIX=$(date_rss_to_unix "$DATE_2")
-
-    # If either date is invalid (returns 0), treat as older
-    if [ "$DATE_1_UNIX" -eq 0 ] || [ "$DATE_2_UNIX" -eq 0 ]; then
-        echo 0
-        return
-    fi
-
-    # compare the dates
-    if [ "$DATE_1_UNIX" -gt "$DATE_2_UNIX" ]; then
-        echo 1
-    else
-        echo 0
-    fi
+    # Convert the date to unix
+    local unix_time
+    unix_time=$(date -d "$date_str" +%s 2>/dev/null || echo "0")
+    
+    # Store in cache
+    DATE_CACHE[$date_str]="$unix_time"
+    
+    echo "$unix_time"
 }
 
-# Replace get_news_RSS_combined with this updated version
+# Improved URL shortening with caching
+cached_shorten_url() {
+    local url="$1"
+    local short_url
+    
+    # Check if URL is in cache
+    short_url=$(grep -F "$url|" "$URL_CACHE_FILE" | cut -d'|' -f2)
+    
+    if [[ -z "$short_url" ]]; then
+        # Not in cache, get a new shortened URL
+        short_url=$(shorten_url_isgd "$url")
+        # Add to cache
+        echo "$url|$short_url" >> "$URL_CACHE_FILE"
+    fi
+    
+    echo "$short_url"
+}
+
+# Optimized news retrieval function
 get_news_RSS_combined() {
     local RSS_FEED=$1
     local LINKED=$2
     local FULL_URL=$3
-
-    export LC_ALL=en_US.UTF-8
-    local TIMESTAMP
-    TIMESTAMP=$(get_date_24_hours_rss)
-    export LC_ALL=C
-
+    local result=()
+    
+    # Fetch feed content once
     local FEED_CONTENT
-    FEED_CONTENT=$(curl -s "$RSS_FEED")
-    if ! echo "$FEED_CONTENT" | xmlstarlet val - >/dev/null 2>&1; then
+    FEED_CONTENT=$(curl -s --max-time 10 "$RSS_FEED")
+    
+    # Quick validation check
+    if [[ "$FEED_CONTENT" != *"<item>"* ]]; then
         return
     fi
-
-    local NEWS
-    NEWS=$(echo "$FEED_CONTENT" | xmlstarlet sel -t -m "/rss/channel/item" -v "pubDate" -o "|" -v "title" -o "|" -v "link" -n)
-    [ -z "$NEWS" ] && return
-
-    while read -r line; do
-        local DATE
-        local TITLE
-        local LINK
-        DATE=$(echo "$line" | cut -d "|" -f 1)
-        TITLE=$(echo "$line" | cut -d "|" -f 2)
-        LINK=$(echo "$line" | cut -d "|" -f 3)
-
-        if [ "$(compare_dates_rss "$DATE" "$TIMESTAMP")" -eq 1 ]; then
-            echo "📰 $TITLE"
-            if [ "$LINKED" = true ]; then
-                if [ "$FULL_URL" = true ]; then
-                    echo "$LINK"
+    
+    # Use a more optimized approach to extract items
+    while read -r date && read -r title && read -r link; do
+        # Convert publication date to unix timestamp
+        local DATE_UNIX
+        DATE_UNIX=$(date_rss_to_unix "$date")
+        
+        # Compare with our timestamp threshold
+        if (( DATE_UNIX > UNIX_24H_AGO )); then
+            result+=("📰 $title")
+            if [[ "$LINKED" == true ]]; then
+                if [[ "$FULL_URL" == true ]]; then
+                    result+=("$link")
                 else
-                    echo "$(shorten_url_isgd "$LINK")"
+                    result+=("$(cached_shorten_url "$link")")
                 fi
             fi
         fi
-    done <<< "$NEWS"
+    done < <(xmlstarlet sel -T -t -m "/rss/channel/item" \
+              -v "pubDate" -n \
+              -v "title" -n \
+              -v "link" -n \
+              <<< "$FEED_CONTENT" 2>/dev/null)
+    
+    # Output all results at once
+    if [[ ${#result[@]} -gt 0 ]]; then
+        printf "%s\n" "${result[@]}"
+    fi
 }
 
 write_news() {
@@ -129,22 +115,20 @@ write_news() {
     local SHOW_HEADER=$3
     local FULL_URL=$4
     local PORTAL
-    PORTAL=$(echo "$RSS_FEED" | cut -d "/" -f 3)
+    PORTAL=$(echo "$RSS_FEED" | awk -F/ '{print $3}')
 
     local NEWS_OUTPUT
     NEWS_OUTPUT=$(get_news_RSS_combined "$RSS_FEED" "$LINKED" "$FULL_URL")
 
-    if [ -n "$NEWS_OUTPUT" ]; then
-        if [ "$SHOW_HEADER" = true ]; then
-            echo "📰 $PORTAL 📰"
-        fi
+    if [[ -n "$NEWS_OUTPUT" ]]; then
+        [[ "$SHOW_HEADER" == true ]] && echo "📰 $PORTAL 📰"
         echo "$NEWS_OUTPUT"
         echo ""
     fi
 }
 
 # Update help function with clearer instructions
-help () {
+help() {
     echo "Usage: ./rss.sh [options] [url]"
     echo "Options:"
     echo "  -h, --help      Show this help message and exit"
@@ -157,8 +141,7 @@ help () {
     echo "  ./rss.sh -l -f <url>       # Show news with full URLs"
 }
 
-# Update get_arguments function to warn about -f without -l
-get_arguments () {
+get_arguments() {
     SHOW_HEADER=true
     FULL_URL=false
     LINKED=false
@@ -185,22 +168,29 @@ get_arguments () {
     done
 
     # Check if -f is used without -l
-    if [ "$FULL_URL" = true ] && [ "$LINKED" = false ]; then
+    if [[ "$FULL_URL" == true && "$LINKED" == false ]]; then
         echo "Warning: -f/--full-url requires -l/--linked to show URLs"
         echo "Use -h or --help for usage examples"
         FULL_URL=false
     fi
 
     # Check if FEED_URL is empty
-    if [ -z "$FEED_URL" ]; then
+    if [[ -z "$FEED_URL" ]]; then
         echo "The feed URL was not specified"
         help
         exit 1
     fi
 }
 
+# Clean up function to reset locale when done
+cleanup() {
+    export LC_ALL=C
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    # run the script
+    # Set trap to ensure cleanup
+    trap EXIT
+    
     get_arguments "$@"
     write_news "$FEED_URL" "$LINKED" "$SHOW_HEADER" "$FULL_URL"
 fi

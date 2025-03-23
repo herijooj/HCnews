@@ -1,12 +1,17 @@
 #!/usr/bin/env bash
-SCRIPT_DIR=$(dirname "$0")
-STATES_FILE="$SCRIPT_DIR/data/states.csv"
+STATES_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+PROJECT_ROOT=$(realpath "$STATES_SCRIPT_DIR/..")
+# Only set STATES_FILE if it's not already set (allows for testing)
+if [[ -z "${STATES_FILE}" ]]; then
+    STATES_FILE="$PROJECT_ROOT/data/states.csv"
+fi
+
 function get_states() {
     # get the date from arguments
     local month=$1
     local day=$2
     # get the states
-    local states=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$STATES_FILE")
+    local states=$(awk -v month="$month" -v day="$day" -F, '$1 == month && $2 == day { $1=""; $2=""; sub(/^[ ,]+/, ""); print $0 }' "$STATES_FILE")
     echo "$states"
 }
 

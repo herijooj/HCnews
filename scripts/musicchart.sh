@@ -6,9 +6,11 @@ function get_music_chart () {
   # get the html
   HTML=$(curl -s https://genius.com/#top-songs)
   
-  # extract components using pup
-  TITLES=$(echo "$HTML" | pup 'div.ChartSong-desktop-sc-f118d7af-3.bCJrjW text{}')
-  ARTISTS=$(echo "$HTML" | pup 'h4.ChartSong-desktop-sc-f118d7af-5.kFNpGr text{}'| head -10)
+  # extract components using pup with updated selectors
+  # Using partial class names for more resilient matching
+  TITLES=$(echo "$HTML" | pup 'div[class*="ChartSong-desktop__Title"] text{}')
+  # Updated selector to find artists correctly
+  ARTISTS=$(echo "$HTML" | pup 'h4[class*="ChartSong-desktop"] text{}' | head -10)
 
   # format the top 10 songs
   for i in {0..9}; do

@@ -1,18 +1,20 @@
 #!/usr/bin/env bash
 
-# this function shortens a URL using the is.gd service
-# it receives the URL as an argument
-# it returns the shortened URL
-
-function shorten_url_isgd {
-  local url=$1
-  if [[ $url =~ ^https?:// ]]; then
-    local shortened_url=$(curl -s "https://is.gd/create.php?format=simple&url=$url")
-    echo "$shortened_url"
-  else
-    echo "Invalid URL format: $url"
-    return 1
-  fi
+# URL shortening function using is.gd service
+shorten_url_isgd() {
+    local url="$1"
+    local shortened
+    
+    # Call the URL shortening service
+    shortened=$(curl -s -m 5 "https://is.gd/create.php?format=simple&url=${url}" 2>/dev/null)
+    
+    # Check if the shortening was successful
+    if [[ -n "$shortened" && "$shortened" =~ ^https?:// ]]; then
+        echo "$shortened"
+    else
+        # Return original URL if shortening failed
+        echo "$url"
+    fi
 }
 
 # -------------------------------- Running locally --------------------------------

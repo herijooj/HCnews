@@ -1,5 +1,5 @@
 import json
-import logging  # Add missing import
+import logging
 from typing import Dict, List
 from datetime import datetime
 import pytz
@@ -35,23 +35,30 @@ async def send_scheduled_message(context):
     from handlers.ru_handler import send_ru_menu, handle_ru_selection
     from handlers.rss_handler import send_specific_rss_as_message
 
-    # Create proper mock objects for the handlers
+    # Create improved mock objects for the handlers
     class MockMessage:
         def __init__(self, chat_id):
             self.chat_id = chat_id
+            self.message_id = 0
             
-        async def reply_text(self, *args, **kwargs):
-            await context.bot.send_message(chat_id=self.chat_id, *args, **kwargs)
+        async def reply_text(self, text, **kwargs):
+            return await context.bot.send_message(chat_id=self.chat_id, text=text, **kwargs)
             
-        async def reply_document(self, *args, **kwargs):
-            await context.bot.send_document(chat_id=self.chat_id, *args, **kwargs)
+        async def reply_document(self, document, **kwargs):
+            return await context.bot.send_document(chat_id=self.chat_id, document=document, **kwargs)
+            
+        async def edit_text(self, text, **kwargs):
+            return await context.bot.send_message(chat_id=self.chat_id, text=text, **kwargs)
 
     class MockCallback:
         def __init__(self, message):
             self.message = message
+            self.data = ""
 
-        async def edit_message_text(self, *args, **kwargs):
-            await context.bot.send_message(chat_id=self.message.chat_id, *args, **kwargs)
+        async def edit_message_text(self, text, **kwargs):
+            if 'chat_id' not in kwargs:
+                kwargs['chat_id'] = self.message.chat_id
+            return await context.bot.send_message(text=text, **kwargs)
             
         async def answer(self, *args, **kwargs):
             pass
@@ -61,6 +68,8 @@ async def send_scheduled_message(context):
             self.effective_chat = type('obj', (object,), {'id': chat_id})
             self.message = MockMessage(chat_id)
             self.callback_query = MockCallback(self.message)
+            self.effective_user = type('obj', (object,), {'first_name': 'User'})
+            self.effective_message = self.message
 
     mock_update = MockUpdate(chat_id)
 
@@ -84,6 +93,7 @@ async def send_scheduled_message(context):
             feed_name = location
             await send_specific_rss_as_message(mock_update, context, feed_name)
         elif msg_type == 'ru' and location:
+            mock_update.callback_query.data = f"ru_{location}"
             await handle_ru_selection(mock_update, context, f"ru_{location}")
     except Exception as e:
         logger.error(f"Error sending scheduled message: {str(e)}")

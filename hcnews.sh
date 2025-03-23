@@ -2,7 +2,7 @@
 # this project is licensed under the GPL. See the LICENSE file for more information
 
 # Includes ========================================================================
-SCRIPT_DIR=$(dirname "$0")
+SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
@@ -93,13 +93,14 @@ function help_hcnews {
 function footer {
     time=$(date +"%H:%M:%S")
     file_name=$(basename "$0")
-    echo "🤝 Quer contribuir com o HCNEWS? 🙋"
-    echo "O HCNEWS é gerado automaticamente todos os dias 🤖 "
-    echo "Tecnologias usadas: RSS 📰 Bash 🚀 Python 🐍 Nix 💻"
-    echo "✨ https://github.com/herijooj/HCnews ✨"
-    echo "Que Deus abençoe a todos! 🙏"
+    end_time=$(date +%s)
+    elapsed_time=$((end_time - start_time))
+    echo "O HCNews é gerado automaticamente todos os dias 🤖 "
+    echo "📡 Stack: RSS • Bash • Python • Nix"
+    echo "🔗 https://github.com/herijooj/HCnews"
+    echo "🙌 Que Deus abençoe a todos! 🙏"
     echo ""
-    echo "🤖 Gerado automaticamente em: $time 🤖"
+    echo "🤖 ${time} (BRT) ⏱️ ${elapsed_time}s" 
 }
 
 function hcseguidor {
@@ -129,6 +130,12 @@ function output {
     # Write the header
     write_header
 
+    # Write the holidays
+    write_holidays "$month" "$day"
+
+    # Write the states birthdays
+    write_states_birthdays "$month" "$day"
+
     # Write the saint(s) of the day
     write_saints "$saints_verbose"
 
@@ -137,12 +144,6 @@ function output {
 
     # Ask to enter the Whatsapp Channel
     hcseguidor
-
-    # Write the holidays
-    write_holidays "$month" "$day"
-
-    # Write the states birthdays
-    write_states_birthdays "$month" "$day"
 
     # Write the music chart
     write_music_chart
@@ -165,16 +166,18 @@ function output {
     help_hcnews
 
     # menu of the day
-    #write_menu
+    if [[ $(date +%u) -lt 6 ]]; then
+        write_menu
+    fi
 
     # Write the news
     for feed in "${feeds[@]}"; do
         write_news "$feed" "$news_shortened" true
     done
 
-    # cinema
-    echo "🎬 G1 Cinema 🎬"
-    write_news "$g1cinema" "$news_shortened" "-n"
+    # # cinema
+    # echo "🎬 G1 Cinema 🎬"
+    # write_news "$g1cinema" "$news_shortened" "-n"
 
 
     # # Write the F1 news
@@ -195,6 +198,7 @@ function output {
 get_arguments "$@"
 
 # Define Variables
+start_time=$(date +%s)
 date=$(date +%Y%m%d)
 month=$(date +%m)
 day=$(date +%d)
