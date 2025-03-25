@@ -97,7 +97,7 @@ function get_weather () {
     
     # Check if we got a valid response from wttr.in
     if [[ "$WEATHER" == *"nothing to geocode"* || "$WEATHER" == *"Unknown location"* || -z "$WEATHER" ]]; then
-        echo "Tentando com OpenWeatherMap..." >&2
+        # echo "Tentando com OpenWeatherMap..." >&2
         OWM_RESULT=$(get_weather_openweathermap "$CITY")
         if [[ $? -ne 0 ]]; then
             echo "❌ Não foi possível encontrar a cidade: $CITY"

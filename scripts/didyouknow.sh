@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+# Function to decode HTML entities
+decode_html_entities() {
+  local input="$1"
+  if command -v python3 &> /dev/null; then
+    # Use Python for reliable HTML entity decoding if available
+    python3 -c "import html, sys; print(html.unescape('''$input'''))" 2>/dev/null || echo "$input"
+  else
+    # Fallback to sed for basic entity replacement
+    echo "$input" | sed 's/&amp;/\&/g; s/&quot;/"/g; s/&lt;/</g; s/&gt;/>/g; s/&apos;/'\''/g'
+  fi
+}
+
 function get_didyouknow() {
     local URL="https://pt.wikipedia.org/wiki/Wikip%C3%A9dia:Sabia_que"
 
@@ -18,11 +30,15 @@ function get_didyouknow() {
     # delete everything after the second …
     FACT=$(echo "$FACT" | sed 's/\(.*…\).*/\1/')
 
+    # decode HTML entities before handling encoding
+    FACT=$(decode_html_entities "$FACT")
+
     # remove or replace non-ASCII characters
     FACT=$(echo "$FACT" | iconv -f utf-8 -t ascii//TRANSLIT)
 
     # return the fact
     echo "$FACT"
+
 }
 
 function write_did_you_know() {
@@ -31,7 +47,7 @@ function write_did_you_know() {
 
     # write the fact to the console
     echo "📚 *Você sabia?* 🤔"
-    echo "$FACT"
+    echo "_${FACT}_"
     echo ""
 }
 

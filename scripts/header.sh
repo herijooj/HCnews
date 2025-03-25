@@ -38,7 +38,10 @@ function moon_phase () {
     # grep all the lines with <span> and </span>
     moon_phase=$(curl -s https://www.invertexto.com/fase-lua-hoje | grep -oP '(?<=<span>).*(?=</span>)')
     
-    moon_phase=$(echo $moon_phase | sed 's/%/% de Visibilidade/')
+    # keep only the text before the first number
+    moon_phase=$(echo $moon_phase | sed 's/[0-9].*//')
+
+    # moon_phase=$(echo $moon_phase | sed 's/%/% de Visibilidade/')
     # moon_phase=$(echo $moon_phase | sed 's/km/km de Distância/')
     # moon_phase=$(echo $moon_phase | sed 's/$/ de Idade/')
 
@@ -51,20 +54,20 @@ function write_header () {
 
     date=$(pretty_date)
     edition=$(heripoch_date)
-    days_since=$(date +%j)
+    days_since=$(date +%-j)
     moon_phase=$(moon_phase)
     day_quote=$(quote)
 
     # write the header
-    echo "📰 *HCNews*, Edição $edition 🗞"
+    echo "📰 *HCNews* Edição $edition 🗞"
     echo "📌 De Araucária Paraná 🇧🇷" 
-    echo "🗺 Notícias do Brasil e do Mundo 🌎" 
+    # echo "🗺 Notícias do Brasil e do Mundo 🌎" 
     echo "📅 $date" 
     echo "⏳ $days_sinceº dia do ano" 
     echo "🌔 $moon_phase" 
     echo "" 
     echo "📝 *Frase do dia:*" 
-    echo "$day_quote" 
+    echo "_${day_quote}_"
     echo ""
     
 }

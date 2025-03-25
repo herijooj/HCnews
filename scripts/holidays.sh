@@ -13,7 +13,7 @@ function get_holidays() {
     local month=$1
     local day=$2
     # get the holidays
-    local holidays=$(awk -F, -v month="$month" -v day="$day" '$1 == month && $2 == day { emoji=$3; $1=$2=$3=""; gsub(/^[,]+/, "", $0); print emoji, $0 }' "$HOLIDAY_FILE")
+    local holidays=$(awk -F, -v month="$month" -v day="$day" '$1 == month && $2 == day { print $3 " " $4 }' "$HOLIDAY_FILE")
     echo "$holidays"
 }
 
@@ -37,7 +37,9 @@ function write_holidays() {
 
     # write the holidays
     echo "📅 *Hoje é:*"
-    echo "$holidays"
+    echo "$holidays" | while read -r line; do
+        echo "- $line"
+    done
     echo ""
 }
 

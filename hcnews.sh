@@ -95,7 +95,7 @@ function footer {
     file_name=$(basename "$0")
     end_time=$(date +%s)
     elapsed_time=$((end_time - start_time))
-    echo "🔔 HCNews: Diário, Seu Jornal Automático 🤖"
+    echo "🔔 HCNews: Seu Jornal Automático Diário 🤖"
     echo "📡 Stack: RSS • Bash • Python • Nix"
     echo "🔗 https://github.com/herijooj/HCnews"
     echo "🙌 Que Deus abençoe a todos! 🙏"
@@ -106,6 +106,7 @@ function footer {
 function hcseguidor {
     echo "Quer ser um HCseguidor? 🤖"
     echo "💬 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y 📱"
+    echo "📢 https://t.me/HericCNewsBot 📱"
     echo ""
 }
 
@@ -167,6 +168,7 @@ function output {
 
     # menu of the day
     if [[ $(date +%u) -lt 6 ]]; then
+        SHOW_ONLY_TODAY=true
         write_menu
     fi
 
@@ -181,12 +183,12 @@ function output {
 
 
     # # Write the F1 news
-    # echo "🏎️ F1 🏎️"
-    # write_news "$formula1" "$news_shortened"
-
-    # # Write the tech news
-    # echo "🤖 Tech 🤖"
-    # write_news "$bcc" "$news_shortened"
+    # Write the F1 news
+    f1_news=$(write_news "$formula1" "$news_shortened")
+    if [[ -n "$f1_news" ]]; then
+        echo "🏎️ F1 🏎️"
+        echo "$f1_news"
+    fi
 
     # Write the footer
     footer

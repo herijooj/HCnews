@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+# Function to decode HTML entities
+decode_html_entities() {
+  local input="$1"
+  if command -v python3 &> /dev/null; then
+    # Use Python for reliable HTML entity decoding if available
+    python3 -c "import html, sys; print(html.unescape('''$input'''))" 2>/dev/null || echo "$input"
+  else
+    # Fallback to sed for basic entity replacement
+    echo "$input" | sed 's/&amp;/\&/g; s/&quot;/"/g; s/&lt;/</g; s/&gt;/>/g; s/&apos;/'\''/g'
+  fi
+}
+
 # this function will get the top 10 songs from the music chart
 # https://genius.com/#top-songs
 function get_music_chart () {
@@ -17,8 +29,13 @@ function get_music_chart () {
     # get the title and artist
     TITLE=$(echo "$TITLES" | sed -n "$((i+1))p")
     ARTIST=$(echo "$ARTISTS" | sed -n "$((i+1))p")
+    
+    # decode HTML entities in both title and artist
+    TITLE=$(decode_html_entities "$TITLE")
+    ARTIST=$(decode_html_entities "$ARTIST")
+    
     # print the formatted song
-    echo "  $((i+1)). $TITLE - $ARTIST"
+    echo "- $((i+1)). $TITLE - $ARTIST"
   done
 }
 

@@ -19,9 +19,10 @@ get_exchange_BC() {
   local JSON=https://www.bcb.gov.br/api/servico/sitebcb/indicadorCambio
   local retry_count=0
   local response=""
-  
+
   echo ""
-  
+  echo "💵 *Fiat*"
+
   # Add retry mechanism
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
     response=$(curl -s -m 10 $JSON)
@@ -29,7 +30,7 @@ get_exchange_BC() {
     # Check if we got a valid JSON response
     if echo "$response" | jq -e . > /dev/null 2>&1; then
       # Filter by tipoCotacao=Fechamento and format each currency with proper alignment and decimal places
-      OUT=$(echo "$response" | jq -r '.conteudo[] | select(.tipoCotacao == "Fechamento") | "  🔹 *\(.moeda)*: Compra R$ \(.valorCompra | tostring | tonumber | (. * 100 | floor | . / 100)) · Venda R$ \(.valorVenda | tostring | tonumber | (. * 100 | floor | . / 100))"')
+      OUT=$(echo "$response" | jq -r '.conteudo[] | select(.tipoCotacao == "Fechamento") | "- *\(.moeda)*: Compra R$ \(.valorCompra | tostring | tonumber | (. * 100 | floor | . / 100)) · Venda R$ \(.valorVenda | tostring | tonumber | (. * 100 | floor | . / 100))"')
       
       # Verify we have actual data
       if [[ ! -z "$OUT" ]]; then
@@ -45,7 +46,7 @@ get_exchange_BC() {
   done
   
   log_message "ERROR" "Failed to fetch BC exchange rates after $MAX_RETRIES attempts."
-  echo "  🔹 *Dados não disponíveis no momento. Tente novamente mais tarde.*"
+  echo "  - *Dados não disponíveis no momento. Tente novamente mais tarde.*"
   return 1
 }
 
@@ -57,7 +58,6 @@ generate_exchange_CMC() {
   
   echo ""
   echo "💎 *Criptomoedas*"
-  echo ""
 
   # Define groups of currencies
   local crypto_currencies=("BTC:1:Bitcoin" "ETH:1027:Ethereum" "SOL:5426:Solana" "DOGE:74:Dogecoin" "BCH:1831:Bitcoin Cash" "LTC:2:Litecoin" "XMR:328:Monero")
@@ -67,32 +67,31 @@ generate_exchange_CMC() {
   local crypto_success=false
   for crypto in "${crypto_currencies[@]}"; do
     IFS=':' read -r symbol id name <<< "$crypto"
-    if get_currency_data "$symbol" "$id" "$name" "₿"; then
+    if get_currency_data "$symbol" "$id" "$name" "-"; then
       crypto_success=true
     fi
   done
   
   # If all crypto data retrieval failed, show an error message
   if [[ "$crypto_success" == "false" ]]; then
-    echo "  ₿ *Dados de criptomoedas não disponíveis no momento.*"
+    echo "  - *Dados de criptomoedas não disponíveis no momento.*"
   fi
   
   echo ""
   echo "🪙 *Metais Preciosos*"
-  echo ""
   
   # Process precious metals
   local metals_success=false
   for metal in "${precious_metals[@]}"; do
     IFS=':' read -r symbol id name <<< "$metal"
-    if get_currency_data "$symbol" "$id" "$name" "🔶"; then
+    if get_currency_data "$symbol" "$id" "$name" "-"; then
       metals_success=true
     fi
   done
   
   # If all precious metals data retrieval failed, show an error message
   if [[ "$metals_success" == "false" ]]; then
-    echo "  🔶 *Dados de metais preciosos não disponíveis no momento.*"
+    echo "  - *Dados de metais preciosos não disponíveis no momento.*"
   fi
 }
 
@@ -121,21 +120,24 @@ get_currency_data() {
       if [[ "$price" =~ ^[0-9]*\.?[0-9]+$ ]]; then
         # Format the price with thousands separator and two decimal places
         local formatted_price=$(echo "scale=2; $price" | bc | awk '{printf "%.2f", $0}' | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta')
-        
         # Format the change percentage and add arrow
-        local change_symbol="➡️"
+        local change_symbol="↔️"
         local formatted_change="0.00"
         
         if [[ "$change_24h" =~ ^[+-]?[0-9]*\.?[0-9]+$ ]]; then
-          if (( $(echo "$change_24h > 0" | bc -l) )); then
-            change_symbol="⬆️"
-          elif (( $(echo "$change_24h < 0" | bc -l) )); then
-            change_symbol="⬇️"
-          fi
           formatted_change=$(echo "scale=2; $change_24h" | bc | awk '{printf "%.2f", $0}')
+          
+          # Use different symbols based on the change value
+          if (( $(echo "$change_24h > 0.001" | bc -l) )); then
+            change_symbol="📈"
+          elif (( $(echo "$change_24h < -0.001" | bc -l) )); then
+            change_symbol="📉"
+          else
+            change_symbol="↔️"  # Neutral symbol for zero or near-zero changes
+          fi
         fi
         
-        echo "  $icon *${symbol}* (${name}): R$ ${formatted_price} ${change_symbol} ${formatted_change}%"
+        echo "$icon *${symbol}*: R$ ${formatted_price} ${change_symbol} ${formatted_change}%"
         return 0
       fi
     fi
@@ -179,11 +181,11 @@ check_dependencies() {
 
 # Write complete exchange rate information
 write_exchange() {
-  echo "📊 *COTAÇÕES DIÁRIAS* 📊"
+  echo "📈 *COTAÇÕES DIÁRIAS* 📉"
   
   # Check dependencies first
   if ! check_dependencies; then
-    echo "❌ *Erro na configuração. Verifique os logs para mais detalhes.*"
+    echo "- *Erro na configuração. Verifique os logs para mais detalhes.*"
     return 1
   fi
   
@@ -199,7 +201,7 @@ write_exchange() {
 
 # Help function
 show_help() {
-  echo "📋 *Exchange Rate Information Tool*"
+  echo "- *Exchange Rate Information Tool*"
   echo ""
   echo "Usage: ./exchange.sh [options]"
   echo "The exchange rates will be formatted and printed to the console."

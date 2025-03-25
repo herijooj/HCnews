@@ -1,5 +1,17 @@
 #!/usr/bin/env bash
 
+# Function to decode HTML entities
+decode_html_entities() {
+  local input="$1"
+  if command -v python3 &> /dev/null; then
+    # Use Python for reliable HTML entity decoding if available
+    python3 -c "import html, sys; print(html.unescape('''$input'''))" 2>/dev/null || echo "$input"
+  else
+    # Fallback to sed for basic entity replacement
+    echo "$input" | sed 's/&amp;/\&/g; s/&quot;/"/g; s/&lt;/</g; s/&gt;/>/g; s/&apos;/'\''/g'
+  fi
+}
+
 # Get the saint(s) of the day from the Vatican website.
 # https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
 # This function prints the name(s) and the description of the saint(s).
@@ -16,16 +28,27 @@ get_saints_of_the_day_verbose () {
     # Only the names
     local names
     names=$(curl -s "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
+    
+    # Check if we got any names
+    if [[ -z "$names" ]]; then
+        echo "⚠️ Não foi possível encontrar santos para hoje."
+        return 1
+    fi
 
     # The description
     local description
     description=$(curl -s "$url" | pup '.section__head h2 text{}, .section__content p text{}' | sed '/^$/d' | sed '1d'| sed '/^[[:space:]]*$/d')
+    
+    # Decode HTML entities in the description
+    description=$(decode_html_entities "$description")
 
     # Iterate over each name and print the corresponding description.
     local name
     while read -r name; do
         echo "😇 $name"
-        echo "$description" | head -n 1
+        local saint_description
+        saint_description=$(echo "$description" | head -n 1)
+        echo "- $saint_description"
         description=$(echo "$description" | tail -n +2)
     done <<< "$names"
 }
@@ -46,6 +69,12 @@ get_saints_of_the_day () {
     # Only the names
     local names
     names=$(curl -s "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
+    
+    # Check if we got any names
+    if [[ -z "$names" ]]; then
+        echo "⚠️ Não foi possível encontrar santos para hoje."
+        return 1
+    fi
 
     local name
     while read -r name; do

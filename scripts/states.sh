@@ -10,8 +10,13 @@ function get_states() {
     # get the date from arguments
     local month=$1
     local day=$2
-    # get the states
-    local states=$(awk -v month="$month" -v day="$day" -F, '$1 == month && $2 == day { $1=""; $2=""; sub(/^[ ,]+/, ""); print $0 }' "$STATES_FILE")
+    # get the states - improved to avoid extra whitespace
+    local states=$(awk -v month="$month" -v day="$day" -F, '$1 == month && $2 == day { 
+        # Join fields 3 onwards with commas to preserve CSV structure if needed
+        result = $3
+        for(i=4; i<=NF; i++) result = result "," $i
+        print result 
+    }' "$STATES_FILE")
     echo "$states"
 }
 
@@ -29,7 +34,14 @@ function write_states_birthdays() {
     
     # write the states
     echo "📅 *Estados com aniversário hoje:*"
-    echo "$states"
+    
+    # Process each state and format as markdown list with emoji
+    echo "$states" | while IFS= read -r state; do
+        if [[ ! -z "$state" ]]; then
+            echo "- 🏛️  $state"
+        fi
+    done
+    
     echo ""
 }
 

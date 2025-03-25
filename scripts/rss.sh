@@ -88,7 +88,7 @@ get_news_RSS_combined() {
         
         # Compare with our timestamp threshold
         if (( DATE_UNIX > UNIX_24H_AGO )); then
-            result+=("📰 $title")
+            result+=("- 📰 $title")
             if [[ "$LINKED" == true ]]; then
                 if [[ "$FULL_URL" == true ]]; then
                     result+=("$link")
