@@ -76,12 +76,30 @@ declare -A RU_LOCATIONS=(
 
 # Default location
 SELECTED_LOCATION="politecnico"
+# Default is to show the full menu
+SHOW_ONLY_TODAY=false
 
 function list_locations() {
     echo "Available RU locations:"
     for loc in "${!RU_LOCATIONS[@]}"; do
         echo "  - $loc"
     done
+}
+
+# Function to get today's day of the week in Portuguese
+function get_today_weekday() {
+    # Get day of week (0-6, Sunday is 0)
+    local DOW=$(date +%w)
+    
+    case "$DOW" in
+        0) echo "Domingo" ;;
+        1) echo "Segunda-feira" ;;
+        2) echo "Terça-feira" ;;
+        3) echo "Quarta-feira" ;;
+        4) echo "Quinta-feira" ;;
+        5) echo "Sexta-feira" ;;
+        6) echo "Sábado" ;;
+    esac
 }
 
 # Function to retrieve the menu from the website
@@ -139,8 +157,13 @@ function get_menu () {
         elif [[ "$line" == *"feira"* ]]; then
             OUTPUT+=$'\n'"📅 *$line*"$'\n'
         elif [[ ! -z "$line" ]]; then
+            # Replace "Molho para salada:" with "+"
+            if [[ "$line" == *"Molho para salada:"* ]]; then
+                line="${line/Molho para salada:/+}"
+            fi
+            
             # Check if this line is a continuation of the previous line
-            if [[ "$line" == "e "* || "$line" == "("* ]]; then
+            if [[ "$line" == "e "* || "$line" == "("* || "$line" == "+"* ]]; then
                 OUTPUT="${OUTPUT%$'\n'} $line"$'\n'
             else
                 OUTPUT+="- $line"$'\n'
@@ -155,8 +178,49 @@ function get_menu () {
 # Function to display the menu
 function write_menu () {
     MENU=$(get_menu)
-
-    echo "$MENU"
+    
+    # Extract header (first line) separately
+    HEADER=$(echo "$MENU" | head -n1)
+    # Remove the dash prefix from the header if it exists
+    HEADER=$(echo "$HEADER" | sed 's/^- //')
+    
+    if [ "$SHOW_ONLY_TODAY" = true ]; then
+        TODAY=$(get_today_weekday)
+        # Extract only sections for today
+        FILTERED=""
+        CURRENT_DAY=""
+        INCLUDE_SECTION=false
+        
+        # Skip the first line (header) when processing the menu for filtering
+        while IFS= read -r line; do
+            if [[ "$line" == *"📅"* ]]; then
+                # This is a day header
+                CURRENT_DAY="$line"
+                if [[ "$CURRENT_DAY" == *"$TODAY"* ]]; then
+                    INCLUDE_SECTION=true
+                    FILTERED+="$line"$'\n'
+                else
+                    INCLUDE_SECTION=false
+                fi
+            elif [ "$INCLUDE_SECTION" = true ]; then
+                FILTERED+="$line"$'\n'
+            fi
+        done <<< "$(echo "$MENU" | tail -n +2)"
+        
+        if [ -z "$FILTERED" ]; then
+            echo "$HEADER"
+            echo ""
+            echo "Não há cardápio disponível para hoje ($TODAY)."
+        else
+            echo "$HEADER"
+            echo ""
+            # Trim trailing newlines before outputting
+            echo -e "${FILTERED%$'\n'*}"
+        fi
+    else
+        echo -e "$MENU"
+    fi
+    
     echo ""
 }
 
@@ -168,6 +232,7 @@ help () {
     echo "  -h, --help: show this help message"
     echo "  -l, --list: list available RU locations"
     echo "  -r, --ru LOCATION: select RU location (default: politecnico)"
+    echo "  -t, --today: show only today's menu"
 }
 
 # Argument parsing function
@@ -195,6 +260,9 @@ get_arguments () {
                     exit 1
                 fi
                 shift
+                ;;
+            -t|--today)
+                SHOW_ONLY_TODAY=true
                 ;;
             *)
                 echo "Invalid argument: $1"

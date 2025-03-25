@@ -93,8 +93,33 @@ async def send_scheduled_message(context):
             feed_name = location
             await send_specific_rss_as_message(mock_update, context, feed_name)
         elif msg_type == 'ru' and location:
-            mock_update.callback_query.data = f"ru_{location}"
-            await handle_ru_selection(mock_update, context, f"ru_{location}")
+            # For automated/scheduled RU messages, we need to modify how it works
+            # We'll create a custom implementation here instead of using handle_ru_selection
+            from handlers.ru_handler import generate_ru_menu, RU_LOCATIONS
+            from config.keyboard import get_return_button
+            
+            # For scheduled messages, only show today's menu
+            success, content = generate_ru_menu(location, force=False, today_only=True)
+            if success:
+                location_name = RU_LOCATIONS.get(location, location)
+                message = f"{content}"
+                
+                # Truncate if too long
+                if len(message) > 4096:
+                    message = message[:4093] + "..."
+                
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=message,
+                    parse_mode='Markdown',
+                    reply_markup=get_return_button()
+                )
+            else:
+                await context.bot.send_message(
+                    chat_id=chat_id,
+                    text=f"❌ Erro ao gerar cardápio para {location}",
+                    reply_markup=get_return_button()
+                )
     except Exception as e:
         logger.error(f"Error sending scheduled message: {str(e)}")
         await context.bot.send_message(

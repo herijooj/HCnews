@@ -31,21 +31,26 @@ def get_ru_keyboard() -> InlineKeyboardMarkup:
     keyboard.append([InlineKeyboardButton("🏠 Menu Principal", callback_data="main_menu")])
     return InlineKeyboardMarkup(keyboard)
 
-def generate_ru_menu(location: str, force: bool = False) -> tuple[bool, str]:
+def generate_ru_menu(location: str, force: bool = False, today_only: bool = False) -> tuple[bool, str]:
     """Generate RU menu for specified location"""
-    logger.debug(f"Generating RU menu for location: {location}")
+    logger.debug(f"Generating RU menu for location: {location}, today_only: {today_only}")
     
     data_dir = os.path.join(PROJECT_ROOT, "data", "news")
     os.makedirs(data_dir, exist_ok=True)
     
     today = datetime.now()
-    filename = os.path.join(data_dir, f"{today.strftime('%Y%m%d')}_{location}.ru")
+    cache_suffix = "_today" if today_only else "_full"
+    filename = os.path.join(data_dir, f"{today.strftime('%Y%m%d')}_{location}{cache_suffix}.ru")
     
     if force or not os.path.exists(filename):
         logger.debug(f"Generating new RU menu file: {filename}")
         try:
+            cmd = [SCRIPT_PATHS['ru'], '-r', location]
+            if today_only:
+                cmd.append('-t')
+                
             result = subprocess.run(
-                [SCRIPT_PATHS['ru'], '-r', location],
+                cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
@@ -80,7 +85,8 @@ async def handle_ru_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
     location = callback_data.replace("ru_", "")
     logger.debug(f"RU selection: {location}")
     
-    success, content = generate_ru_menu(location)
+    # Don't use today_only flag for manual requests
+    success, content = generate_ru_menu(location, force=False, today_only=False)
     if not success:
         await query.message.edit_text(
             f"❌ {content}",
@@ -89,7 +95,7 @@ async def handle_ru_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
         return
     
     location_name = RU_LOCATIONS.get(location, location)
-    message = f"🍽️ Cardápio RU {location_name}\n\n{content}"
+    message = f"{content}"
     
     # Truncate if too long
     if len(message) > 4096:
