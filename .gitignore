@@ -1,7 +1,7 @@
 # the token is used to authenticate with the API
 tokens.py
 tokens.sh
-schedules.json
+data/schedules.json
 
 # new files
 news/
