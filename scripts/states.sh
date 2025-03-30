@@ -27,8 +27,8 @@ function write_states_birthdays() {
     
     # if there are no states, print a message
     if [[ -z $states ]]; then
-        echo "📅 Sem estados com aniversário hoje..."
-        echo ""
+        # echo "📅 Sem estados com aniversário hoje..."
+        # echo ""
         return
     fi
     

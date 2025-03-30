@@ -20,8 +20,6 @@ get_exchange_BC() {
   local retry_count=0
   local response=""
 
-  echo ""
-  echo "💵 *Fiat*"
 
   # Add retry mechanism
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
@@ -29,8 +27,11 @@ get_exchange_BC() {
     
     # Check if we got a valid JSON response
     if echo "$response" | jq -e . > /dev/null 2>&1; then
-      # Filter by tipoCotacao=Fechamento and format each currency with proper alignment and decimal places
+      # First get output without backticks
       OUT=$(echo "$response" | jq -r '.conteudo[] | select(.tipoCotacao == "Fechamento") | "- *\(.moeda)*: Compra R$ \(.valorCompra | tostring | tonumber | (. * 100 | floor | . / 100)) · Venda R$ \(.valorVenda | tostring | tonumber | (. * 100 | floor | . / 100))"')
+      
+      # Then add backticks around the numeric values using sed
+      OUT=$(echo "$OUT" | sed -E 's/Compra R\$ ([0-9.]+)/Compra R$ `\1`/g; s/Venda R\$ ([0-9.]+)/Venda R$ `\1`/g')
       
       # Verify we have actual data
       if [[ ! -z "$OUT" ]]; then
@@ -118,26 +119,33 @@ get_currency_data() {
       
       # Further validate the extracted data
       if [[ "$price" =~ ^[0-9]*\.?[0-9]+$ ]]; then
-        # Format the price with thousands separator and two decimal places
-        local formatted_price=$(echo "scale=2; $price" | bc | awk '{printf "%.2f", $0}' | sed ':a;s/\B[0-9]\{3\}\>/,&/;ta')
-        # Format the change percentage and add arrow
+        # Format the price with K for thousands and two decimal places
+        local formatted_price
+        if (( $(echo "$price >= 1000" | bc -l) )); then
+          formatted_price=$(echo "scale=2; $price / 1000" | bc | awk '{printf "%.2fK", $0}')
+        else
+          formatted_price=$(echo "scale=2; $price" | bc | awk '{printf "%.2f", $0}')
+        fi
+        
+        # Format the change percentage and add standardized arrow
         local change_symbol="↔️"
         local formatted_change="0.00"
         
         if [[ "$change_24h" =~ ^[+-]?[0-9]*\.?[0-9]+$ ]]; then
           formatted_change=$(echo "scale=2; $change_24h" | bc | awk '{printf "%.2f", $0}')
           
-          # Use different symbols based on the change value
+          # Use emojis based on the change value
           if (( $(echo "$change_24h > 0.001" | bc -l) )); then
-            change_symbol="📈"
+            change_symbol="⬆️"
           elif (( $(echo "$change_24h < -0.001" | bc -l) )); then
-            change_symbol="📉"
+            change_symbol="⬇️"
           else
-            change_symbol="↔️"  # Neutral symbol for zero or near-zero changes
+            change_symbol="↔️"
           fi
         fi
         
-        echo "$icon *${symbol}*: R$ ${formatted_price} ${change_symbol} ${formatted_change}%"
+        # Align output for better readability
+        printf "%s %-5s: R$ %-8s %s %6s%%\n" "-" "$symbol" "\`$formatted_price\`" "$change_symbol" "\`$formatted_change\`"
         return 0
       fi
     fi
@@ -181,7 +189,7 @@ check_dependencies() {
 
 # Write complete exchange rate information
 write_exchange() {
-  echo "📈 *COTAÇÕES DIÁRIAS* 📉"
+  echo "📈 *Cotação do Dia:*"
   
   # Check dependencies first
   if ! check_dependencies; then

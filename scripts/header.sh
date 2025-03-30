@@ -58,12 +58,24 @@ function write_header () {
     moon_phase=$(moon_phase)
     day_quote=$(quote)
 
+    # Calculate the percentage of the year passed
+    year_percentage=$((days_since * 100 / 365))
+
+    # Create the progress bar string
+    progress_bar_length=20 # Adjust for total length
+    filled_blocks=$((year_percentage * progress_bar_length / 100))
+    empty_blocks=$((progress_bar_length - filled_blocks))
+    filled_string=$(printf "%${filled_blocks}s" | tr ' ' '#')
+    empty_string=$(printf "%${empty_blocks}s" | tr ' ' '.')
+    progress_bar="[$filled_string$empty_string]"
+
     # write the header
     echo "📰 *HCNews* Edição $edition 🗞"
-    echo "📌 De Araucária Paraná 🇧🇷" 
+    echo "🇧🇷 De Araucária Paraná " 
     # echo "🗺 Notícias do Brasil e do Mundo 🌎" 
     echo "📅 $date" 
-    echo "⏳ $days_sinceº dia do ano" 
+    # echo "⏳ $days_sinceº dia do ano"
+    echo "⏳ Dia $days_since/365 $progress_bar ${year_percentage}%"
     echo "🌔 $moon_phase" 
     echo "" 
     echo "📝 *Frase do dia:*" 

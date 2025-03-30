@@ -17,6 +17,8 @@ source "$SCRIPT_DIR/scripts/didyouknow.sh"
 source "$SCRIPT_DIR/scripts/holidays.sh"
 source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
+source "$SCRIPT_DIR/scripts/emoji.sh"
+source "$SCRIPT_DIR/scripts/futuro.sh"
 
 # ==================================================================================
 
@@ -43,7 +45,7 @@ show_help() {
 get_arguments() {
     # Define variables
     silent=false
-    saints_verbose=false
+    saints_verbose=true
     news_shortened=false
     file=false
 
@@ -81,11 +83,9 @@ get_arguments() {
 
 
 # this function will ask for help
-# 🤝 Quer contribuir com o HCNEWS? 🙋
-# ✨https://github.com/herijooj/HCnews✨
 function help_hcnews {
-    echo "🤝 Quer contribuir com o HCNEWS? 🙋"
-    echo "✨ https://github.com/herijooj/HCnews ✨"
+    echo "🤝 *Quer contribuir com o HCNEWS?*"
+    echo "- ✨ https://github.com/herijooj/HCnews"
     echo ""
 }
 
@@ -95,18 +95,18 @@ function footer {
     file_name=$(basename "$0")
     end_time=$(date +%s)
     elapsed_time=$((end_time - start_time))
-    echo "🔔 HCNews: Seu Jornal Automático Diário 🤖"
-    echo "📡 Stack: RSS • Bash • Python • Nix"
-    echo "🔗 https://github.com/herijooj/HCnews"
-    echo "🙌 Que Deus abençoe a todos! 🙏"
+    echo "🔔 *HCNews:* Seu Jornal Automático Diário"
+    echo "- 📡 Stack: RSS • Bash • Python • Nix"
+    echo "- 🔗 https://github.com/herijooj/HCnews"
+    echo "🙌 *Que Deus abençoe a todos!*"
     echo ""
     echo "🤖 ${time} (BRT) ⏱️ ${elapsed_time}s" 
 }
 
 function hcseguidor {
-    echo "Quer ser um HCseguidor? 🤖"
-    echo "💬 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y 📱"
-    echo "📢 https://t.me/HericCNewsBot 📱"
+    echo "🤖 *Quer ser um HCseguidor?*"
+    echo "- 📢 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y"
+    echo "- 💬 https://bit.ly/m/HCNews"
     echo ""
 }
 
@@ -124,9 +124,10 @@ function output {
     formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
     bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
     g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
+    plantao190=https://plantao190.com.br/feed/
 
     # put this in an array
-    feeds=("$o_popular" "$newyorker" "$g1")
+    feeds=("$o_popular" "$plantao190" "$g1")
 
     # Write the header
     write_header
@@ -140,11 +141,14 @@ function output {
     # Write the saint(s) of the day
     write_saints "$saints_verbose"
 
+    # Write the AI Fortune
+    write_ai_fortune
+
     # Write the exchange rates
     write_exchange
 
     # Ask to enter the Whatsapp Channel
-    hcseguidor
+    help_hcnews
 
     # Write the music chart
     write_music_chart
@@ -164,13 +168,16 @@ function output {
     #write_ferias
     
     # Help HCNEWS
-    help_hcnews
+    hcseguidor
 
     # menu of the day
     if [[ $(date +%u) -lt 6 ]]; then
         SHOW_ONLY_TODAY=true
         write_menu
     fi
+
+    # emoji of the day
+    write_emoji
 
     # Write the news
     for feed in "${feeds[@]}"; do

@@ -95,7 +95,7 @@ function format_bicho_data {
 function write_bicho {
   local raw_bicho_data=$(get_bicho_data)
   
-  echo "🎲 *Palpites do Jogo do Bicho* 🐾"
+  echo "🎲 *Palpites do Jogo do Bicho:*"
   format_bicho_data "$raw_bicho_data"
   echo "🍀 *Boa sorte!*"
   echo ""

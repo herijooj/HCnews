@@ -161,7 +161,10 @@ function get_menu () {
             if [[ "$line" == *"Molho para salada:"* ]]; then
                 line="${line/Molho para salada:/+}"
             fi
-            
+            # Replace "2ª Opção:" with "ou"
+            if [[ "$line" == *"2ª Opção:"* ]]; then
+                line="${line/2ª Opção:/ou}"
+            fi
             # Check if this line is a continuation of the previous line
             if [[ "$line" == "e "* || "$line" == "("* || "$line" == "+"* ]]; then
                 OUTPUT="${OUTPUT%$'\n'} $line"$'\n'

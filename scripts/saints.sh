@@ -45,7 +45,7 @@ get_saints_of_the_day_verbose () {
     # Iterate over each name and print the corresponding description.
     local name
     while read -r name; do
-        echo "😇 $name"
+        echo "$name 😇"
         local saint_description
         saint_description=$(echo "$description" | head -n 1)
         echo "- $saint_description"
@@ -78,14 +78,14 @@ get_saints_of_the_day () {
 
     local name
     while read -r name; do
-        echo "😇 $name"
+        echo "$name 😇"
     done <<< "$names"
 }
 
 write_saints () {
     local saints_verbose=$1
 
-    echo "🙏 *Santos do dia* 💒"
+    echo "🙏 *Santos do dia*:"
     if [[ "$saints_verbose" == "true" ]]; then
         get_saints_of_the_day_verbose
     else

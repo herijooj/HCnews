@@ -30,8 +30,8 @@ function write_holidays() {
 
     # if there are no holidays, print a message
     if [[ -z $holidays ]]; then
-        echo "📅 Sem feriados hoje..."
-        echo ""
+        # echo "📅 Sem feriados hoje..."
+        # echo ""
         return
     fi
 

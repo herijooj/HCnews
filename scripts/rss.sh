@@ -121,7 +121,7 @@ write_news() {
     NEWS_OUTPUT=$(get_news_RSS_combined "$RSS_FEED" "$LINKED" "$FULL_URL")
 
     if [[ -n "$NEWS_OUTPUT" ]]; then
-        [[ "$SHOW_HEADER" == true ]] && echo "📰 $PORTAL 📰"
+        [[ "$SHOW_HEADER" == true ]] && echo "📰 $PORTAL:"
         echo "$NEWS_OUTPUT"
         echo ""
     fi

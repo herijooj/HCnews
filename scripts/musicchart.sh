@@ -35,7 +35,7 @@ function get_music_chart () {
     ARTIST=$(decode_html_entities "$ARTIST")
     
     # print the formatted song
-    echo "- $((i+1)). $TITLE - $ARTIST"
+    echo "- $((i+1)). \`$TITLE - $ARTIST\`"
   done
 }
 
@@ -45,7 +45,7 @@ function write_music_chart () {
   TOP_10=$(get_music_chart)
 
   # write the header
-  echo "🎵 *Top 10 Músicas* 🎵"
+  echo "🎵 *Top 10*:"
   # write the formatted list
   echo "$TOP_10"
   echo "📌 De Genius.com/#top-songs"

@@ -46,7 +46,7 @@ function write_did_you_know() {
     FACT=$(get_didyouknow)
 
     # write the fact to the console
-    echo "📚 *Você sabia?* 🤔"
+    echo "📚 *Você sabia?*"
     echo "_${FACT}_"
     echo ""
 }
