@@ -33,11 +33,11 @@ function is_meal () {
     # Check if the line indicates a meal time
     if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         if [[ "$LINE" == *"Café da manhã"* ]]; then
-            echo "🥪 CAFÉ DA MANHÃ 🥪"
+            echo "🥪 *CAFÉ DA MANHÃ* 🥪"
         elif [[ "$LINE" == *"Almoço"* ]]; then
-            echo "🍝 ALMOÇO 🍝"
+            echo "🍝 *ALMOÇO* 🍝"
         elif [[ "$LINE" == *"Jantar"* ]]; then
-            echo "🍛 JANTAR 🍛"
+            echo "🍛 *JANTAR* 🍛"
         else
             echo ""
         fi
@@ -120,7 +120,8 @@ function get_menu () {
     fi
 
     # Process the content: remove unnecessary lines, convert images to emojis, and clean up HTML
-    MENU=$(echo "$CONTENT" | 
+    MENU=$(echo "$CONTENT" |
+        sed '/<style>/,/<\/style>/d' |  # Remove style tags and their content 
         sed '/<hr>/d' | 
         sed '/class="wp-block-table"/d' |
         sed '/class="has-fixed-layout"/d' |
@@ -154,8 +155,13 @@ function get_menu () {
     while read -r line; do
         if [[ "$(is_meal "$line")" != "" ]]; then
             OUTPUT+=$'\n'"$(is_meal "$line")"$'\n'
-        elif [[ "$line" == *"feira"* ]]; then
-            OUTPUT+=$'\n'"📅 *$line*"$'\n'
+        elif [[ "$line" =~ (Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira ]]; then
+            # Extract the day name (everything before the first digit)
+            DAY_NAME=$(echo "$line" | sed -E 's/^([^0-9]+)[0-9].*/\1/' | xargs)
+            # Extract the date (everything from the first digit onwards)
+            DATE=$(echo "$line" | sed -E 's/^[^0-9]+([0-9].+)/\1/' | xargs)
+            # Use just one newline before each date
+            OUTPUT+=$'\n'"📅 *$DAY_NAME* $DATE"
         elif [[ ! -z "$line" ]]; then
             # Replace "Molho para salada:" with "+"
             if [[ "$line" == *"Molho para salada:"* ]]; then
@@ -181,50 +187,61 @@ function get_menu () {
 # Function to display the menu
 function write_menu () {
     MENU=$(get_menu)
-    
+
     # Extract header (first line) separately
     HEADER=$(echo "$MENU" | head -n1)
-    # Remove the dash prefix from the header if it exists
+    # Remove any existing dash prefix from the header
     HEADER=$(echo "$HEADER" | sed 's/^- //')
-    
+
     if [ "$SHOW_ONLY_TODAY" = true ]; then
         TODAY=$(get_today_weekday)
         # Extract only sections for today
         FILTERED=""
         CURRENT_DAY=""
         INCLUDE_SECTION=false
-        
-        # Skip the first line (header) when processing the menu for filtering
+
+        # Process the menu for filtering, skipping the header line
+        MENU_WITHOUT_HEADER=$(echo "$MENU" | tail -n +2)
+
         while IFS= read -r line; do
+            # Check if this is a day header line
             if [[ "$line" == *"📅"* ]]; then
-                # This is a day header
                 CURRENT_DAY="$line"
-                if [[ "$CURRENT_DAY" == *"$TODAY"* ]]; then
+                # Convert both strings to lowercase for comparison
+                DAY_LOWER=$(echo "$CURRENT_DAY" | tr '[:upper:]' '[:lower:]')
+                TODAY_LOWER=$(echo "$TODAY" | tr '[:upper:]' '[:lower:]')
+                
+                # Check if the day header contains today's day name
+                if [[ "$DAY_LOWER" == *"${TODAY_LOWER%%-*}"* ]]; then
                     INCLUDE_SECTION=true
-                    FILTERED+="$line"$'\n'
+                    FILTERED+="$line"$'\n' # Add the day header itself
                 else
                     INCLUDE_SECTION=false
                 fi
             elif [ "$INCLUDE_SECTION" = true ]; then
-                FILTERED+="$line"$'\n'
+                # Only add non-empty lines for the included section
+                if [[ -n "$line" ]]; then
+                     FILTERED+="$line"$'\n'
+                fi
             fi
-        done <<< "$(echo "$MENU" | tail -n +2)"
-        
+        done <<< "$MENU_WITHOUT_HEADER"
+
+        echo -e "$HEADER" # Print header with single dash
+        echo "" # Add a blank line
+
         if [ -z "$FILTERED" ]; then
-            echo "$HEADER"
-            echo ""
             echo "Não há cardápio disponível para hoje ($TODAY)."
         else
-            echo "$HEADER"
-            echo ""
-            # Trim trailing newlines before outputting
-            echo -e "${FILTERED%$'\n'*}"
+            # Trim potential trailing newline from FILTERED before printing
+            echo -e "${FILTERED%$'\n'}"
         fi
     else
-        echo -e "$MENU"
+        # Original behavior: print the whole menu with a single dash for the header
+        echo -e "$HEADER"
+        # Print the rest of the menu as is
+        echo -e "$(echo "$MENU" | tail -n +2)"
     fi
-    
-    echo ""
+    echo "" # Add a blank line at the end
 }
 
 # Help function

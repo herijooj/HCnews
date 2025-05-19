@@ -67,21 +67,17 @@ async def send_weather(update: Update, context: ContextTypes.DEFAULT_TYPE, city:
             return
             
         weather_text = clean_ansi(result.stdout)
-        
-        # Fix for Markdown parsing errors - Use HTML instead or escape special characters
+
+        # Send the message using Markdown parse mode
         try:
-            # Try sending as HTML instead of Markdown
-            weather_text_html = weather_text.replace('*', '<b>').replace('_', '<i>').replace('`', '<code>')
-            weather_text_html = weather_text_html.replace('</b>', '</b>').replace('</i>', '</i>').replace('</code>', '</code>')
-            
             await message.reply_text(
-                text=weather_text_html,
-                parse_mode='HTML',
+                text=weather_text,
+                parse_mode='Markdown', # Use Markdown as the script already formats it
                 reply_markup=get_return_button()
             )
         except Exception as e:
-            logger.warning(f"Failed to send as HTML: {str(e)}. Sending without parse mode.")
-            # If HTML fails too, send without any parse mode
+            logger.warning(f"Failed to send as Markdown: {str(e)}. Sending without parse mode.")
+            # If Markdown fails, send without any parse mode
             await message.reply_text(
                 text=weather_text,
                 parse_mode=None,

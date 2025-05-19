@@ -27,21 +27,29 @@ fi
 function get_ai_fortune() {
     # Using 30 words as the limit directly here
     local word_limit=30
+
+    # Add date/day context for the AI model
+    local date=$(date +"%d/%m/%Y")
+    local day_of_week=$(date +"%A")
+    local pre_prompt="Contexto: hoje é ${day_of_week}, ${date}." # Re-added date context
+
     # --- Improved Prompts ---
+    # Instructions added: Respond ONLY with the phrase, no date/day mentions.
     local prompts=(
-      "Escreva uma previsão de biscoito da sorte *absurdamente* engraçada em menos de ${word_limit} palavras."
-      "Revele um futuro ridiculamente improvável e específico. Seja breve (máximo ${word_limit} palavras)."
-      "Descreva uma cena curtíssima (${word_limit} palavras) que viole as leis da física ou da lógica de forma surreal e poética."
-      "Compartilhe uma 'sabedoria' profundamente esquisita e inesperada em até ${word_limit} palavras. Que soe quase verdadeiro."
-      "Faça uma previsão *sarcástica* e irreverente. Máximo ${word_limit} palavras, por favor."
-      "Um oráculo digital com defeito prevê seu futuro imediato em ${word_limit} palavras ou menos. Qual a previsão?"
-      "Imagine o conselho mais bizarro que uma IA poderia dar. Curto (${word_limit} palavras)."
+      "Escreva uma previsão de biscoito da sorte *absurdamente* engraçada em menos de ${word_limit} palavras. Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
+      "Revele um futuro ridiculamente improvável e específico. Seja breve (máximo ${word_limit} palavras). Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
+      "Descreva uma cena curtíssima (${word_limit} palavras) que viole as leis da física ou da lógica de forma surreal e poética. Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
+      "Compartilhe uma 'sabedoria' profundamente esquisita e inesperada em até ${word_limit} palavras. Que soe quase verdadeiro. Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
+      "Faça uma previsão *sarcástica* e irreverente. Máximo ${word_limit} palavras, por favor. Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
+      "Um oráculo digital com defeito prevê seu futuro imediato em ${word_limit} palavras ou menos. Qual a previsão? Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
+      "Imagine o conselho mais bizarro que uma IA poderia dar. Curto (${word_limit} palavras). Responda *apenas* com a frase da previsão, sem saudações ou menção de data/dia."
     )
     local num_prompts=${#prompts[@]} # Get the number of prompts dynamically
     local temps=(0.4 0.6 0.8 1.0)
     local random_prompt_index=$((RANDOM % num_prompts)) # Use dynamic count
     local random_temp_index=$((RANDOM % 4))
-    local prompt_text="${prompts[$random_prompt_index]}"
+    # Combine date context with the chosen prompt
+    local prompt_text="${pre_prompt} ${prompts[$random_prompt_index]}"
     TEMPERATURE="${temps[$random_temp_index]}"
     local json_payload http_response curl_exit_code api_error fortune_raw
 
@@ -153,15 +161,27 @@ function write_ai_fortune() {
     fortune_raw=$(get_ai_fortune)
     local get_status=$?
 
-    # If getting the fortune failed, exit the script
+    # If getting the fortune failed, display funny error message in Portuguese
     if [[ $get_status -ne 0 ]]; then
-        echo "Error: Failed to retrieve AI fortune. Cannot write section." >&2
-        # The specific error message should have been printed by get_ai_fortune
+        # Array of funny error messages in Portuguese
+        local error_messages=(
+            "🤖 *ERRO CÓSMICO:* O Heric acabou com os tokens da API! Agora a IA está em greve até o próximo pagamento! 💸"
+            "🔮 *FALHA NA MATRIX:* Tokens esgotados! Heric esqueceu de alimentar a IA com créditos novos... que fome! 🍽️"
+            "📛 *PANE NO SISTEMA:* Acabaram os tokens! A IA implora: 'Heric, não me abandone na pobreza digital!' 😭"
+            "⚠️ *PREVISÃO INTERROMPIDA:* A bola de cristal digital ficou sem bateria... ou o Heric ficou sem tokens. Provavelmente a segunda opção! 🔋"
+            "🐒 *MACAQUINHOS NO SERVIDOR:* Tentamos consultar o futuro, mas o Heric gastou todos os tokens em previsões sobre quando vai ganhar na loteria! 🎰"
+            "🚫 *PORTAL FECHADO:* A IA vidente entrou em modo de economia de energia (tokens). Culpa do Heric! 📉"
+        )
+        local num_messages=${#error_messages[@]}
+        local random_index=$((RANDOM % num_messages))
+
+        echo "${error_messages[$random_index]}"
+        echo "" # Add a blank line after the section
         exit 1 # Exit the script since we can't proceed
     fi
 
-    # Simple cleanup: remove potential leading/trailing quotes and whitespace
-    fortune_clean=$(echo "$fortune_raw" | sed -e 's/^[[:space:]"]*//' -e 's/[[:space:]"]*$//')
+    # Simple cleanup: remove potential leading/trailing quotes, asterisks, and whitespace
+    fortune_clean=$(echo "$fortune_raw" | sed -e 's/^[[:space:]"*]*//' -e 's/[[:space:]"*]*$//')
 
     # Print the formatted section
     echo "🔮 *Previsão do Futuro: (via Gemini)*"

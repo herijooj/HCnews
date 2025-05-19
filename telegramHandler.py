@@ -82,6 +82,15 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
                 await send_news_as_file(update, context)
         else:
             await query.message.reply_text(f"❌ Falha ao atualizar as notícias: {result}")
+    elif query.data == "news_regenerate":
+        # First notify the user we're updating
+        await query.message.reply_text("🔄 Atualizando e preparando arquivo de notícias...")
+        success, result = await generate_news_file(force=True)
+        if success:
+            # Send the news as file after regenerating
+            await send_news_as_file(update, context)
+        else:
+            await query.message.reply_text(f"❌ Falha ao atualizar o arquivo de notícias: {result}", reply_markup=get_return_button())
     elif query.data == "rss":
         await handle_rss_menu(update, context)
     elif query.data == "rss_message":

@@ -85,7 +85,21 @@ async def handle_news_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -
     """Handle the news menu"""
     query = update.callback_query
     await query.answer()
-    
+
+    if query.data == "news_regenerate":
+        success, result = await generate_news_file(force=True)
+        if success:
+            await query.message.reply_text(
+                "✅ O arquivo de notícias foi regenerado com sucesso!",
+                reply_markup=get_return_button()
+            )
+        else:
+            await query.message.reply_text(
+                "❌ Não foi possível regenerar o arquivo de notícias.",
+                reply_markup=get_return_button()
+            )
+        return
+
     await query.message.edit_text(
         "📰 Notícias\n\nEscolha uma opção:",
         reply_markup=get_news_menu()

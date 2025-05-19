@@ -12,10 +12,75 @@ decode_html_entities() {
   fi
 }
 
+# Cache directory setup
+CACHE_DIR="$HOME/.cache/hcnews"
+mkdir -p "$CACHE_DIR"
+
+# Function to get today's date string
+get_date_string() {
+  date +"%Y-%m-%d"
+}
+
+# Function to check if cache exists and is from today
+check_cache() {
+  local cache_type="$1"  # Can be "regular" or "verbose"
+  local today_date
+  today_date=$(get_date_string)
+  local cache_file="$CACHE_DIR/saints-${cache_type}-${today_date}.txt"
+  
+  if [[ -f "$cache_file" ]]; then
+    # Check if the cache file is from today
+    file_date=$(stat -c %y "$cache_file" | cut -d' ' -f1)
+    if [[ "$file_date" == "$today_date" ]]; then
+      return 0  # Cache exists and is current
+    else
+      # Remove outdated cache file
+      rm -f "$cache_file"
+      return 1  # Cache doesn't exist (was outdated and deleted)
+    fi
+  else
+    return 1  # Cache doesn't exist
+  fi
+}
+
+# Function to read from cache
+read_cache() {
+  local cache_type="$1"
+  local today_date
+  today_date=$(get_date_string)
+  local cache_file="$CACHE_DIR/saints-${cache_type}-${today_date}.txt"
+  
+  # Check if cache exists and is valid
+  if check_cache "$cache_type"; then
+    cat "$cache_file"
+    return 0
+  else
+    return 1
+  fi
+}
+
+# Function to write to cache
+write_cache() {
+  local cache_type="$1"
+  local content="$2"
+  local today_date
+  today_date=$(get_date_string)
+  local cache_file="$CACHE_DIR/saints-${cache_type}-${today_date}.txt"
+  
+  # Write the content directly without echo to preserve formatting
+  printf "%s" "$content" > "$cache_file"
+}
+
 # Get the saint(s) of the day from the Vatican website.
 # https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
 # This function prints the name(s) and the description of the saint(s).
 get_saints_of_the_day_verbose () {
+    # Check if we have cached data
+    if check_cache "verbose"; then
+      read_cache "verbose"
+      return 0
+    fi
+    
     # Get the current month and day.
     local month
     local day
@@ -42,21 +107,36 @@ get_saints_of_the_day_verbose () {
     # Decode HTML entities in the description
     description=$(decode_html_entities "$description")
 
+    # Prepare the output to be both displayed and cached
+    local output=""
+    
     # Iterate over each name and print the corresponding description.
     local name
     while read -r name; do
-        echo "$name 😇"
+        output+="😇 ${name}"$'\n'
         local saint_description
         saint_description=$(echo "$description" | head -n 1)
-        echo "- $saint_description"
+        output+="- ${saint_description}"$'\n'
         description=$(echo "$description" | tail -n +2)
     done <<< "$names"
+    
+    # Write to cache
+    write_cache "verbose" "$output"
+    
+    # Output the result
+    printf "%s" "$output"
 }
 
 # Get the saint(s) of the day from the Vatican website.
 # https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
 # This function only prints the name of the saint(s).
 get_saints_of_the_day () {
+    # Check if we have cached data
+    if check_cache "regular"; then
+      read_cache "regular"
+      return 0
+    fi
+    
     # Get the current month and day.
     local month
     local day
@@ -76,10 +156,17 @@ get_saints_of_the_day () {
         return 1
     fi
 
+    local output=""
     local name
     while read -r name; do
-        echo "$name 😇"
+        output+="😇${name}"$'\n'
     done <<< "$names"
+    
+    # Write to cache
+    write_cache "regular" "$output"
+    
+    # Output the result
+    printf "%s" "$output"
 }
 
 write_saints () {

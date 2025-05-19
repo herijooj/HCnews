@@ -35,6 +35,9 @@ def get_news_menu() -> InlineKeyboardMarkup:
         ],
         [
             InlineKeyboardButton("🔄 Forçar atualização", callback_data="news_force"),
+            InlineKeyboardButton("🔄 Atualizar e baixar", callback_data="news_regenerate")
+        ],
+        [
             InlineKeyboardButton("🏠 Menu Principal", callback_data="main_menu")
         ]
     ]

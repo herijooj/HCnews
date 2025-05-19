@@ -20,7 +20,6 @@ get_exchange_BC() {
   local retry_count=0
   local response=""
 
-
   # Add retry mechanism
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
     response=$(curl -s -m 10 $JSON)
@@ -55,7 +54,6 @@ get_exchange_BC() {
 generate_exchange_CMC() {
   local API_KEY=$CoinMarketCap_API_KEY
   local API_URL="https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
-  local timestamp=$(date "+%d/%m/%Y %H:%M")
   
   echo ""
   echo "💎 *Criptomoedas*"
@@ -64,99 +62,111 @@ generate_exchange_CMC() {
   local crypto_currencies=("BTC:1:Bitcoin" "ETH:1027:Ethereum" "SOL:5426:Solana" "DOGE:74:Dogecoin" "BCH:1831:Bitcoin Cash" "LTC:2:Litecoin" "XMR:328:Monero")
   local precious_metals=("XAU:3575:Ouro" "XAG:3574:Prata")
   
-  # Process cryptocurrencies
-  local crypto_success=false
+  # Collect all IDs for a batch request
+  local crypto_ids=""
+  local crypto_map=()
   for crypto in "${crypto_currencies[@]}"; do
     IFS=':' read -r symbol id name <<< "$crypto"
-    if get_currency_data "$symbol" "$id" "$name" "-"; then
-      crypto_success=true
-    fi
+    [[ -n "$crypto_ids" ]] && crypto_ids+=","
+    crypto_ids+="$id"
+    crypto_map+=("$id:$symbol:$name")
   done
   
-  # If all crypto data retrieval failed, show an error message
-  if [[ "$crypto_success" == "false" ]]; then
+  # Make a single batch request for cryptocurrencies
+  if ! fetch_and_display_batch "$crypto_ids" "${crypto_map[@]}"; then
     echo "  - *Dados de criptomoedas não disponíveis no momento.*"
   fi
   
   echo ""
   echo "🪙 *Metais Preciosos*"
   
-  # Process precious metals
-  local metals_success=false
+  # Collect all IDs for metals batch request
+  local metals_ids=""
+  local metals_map=()
   for metal in "${precious_metals[@]}"; do
     IFS=':' read -r symbol id name <<< "$metal"
-    if get_currency_data "$symbol" "$id" "$name" "-"; then
-      metals_success=true
-    fi
+    [[ -n "$metals_ids" ]] && metals_ids+=","
+    metals_ids+="$id"
+    metals_map+=("$id:$symbol:$name")
   done
   
-  # If all precious metals data retrieval failed, show an error message
-  if [[ "$metals_success" == "false" ]]; then
+  # Make a single batch request for metals
+  if ! fetch_and_display_batch "$metals_ids" "${metals_map[@]}"; then
     echo "  - *Dados de metais preciosos não disponíveis no momento.*"
   fi
 }
 
-# Helper function to get and format currency data
-get_currency_data() {
-  local symbol=$1
-  local id=$2
-  local name=$3
-  local icon=$4
+# Function to fetch and process batch data from CoinMarketCap API
+fetch_and_display_batch() {
+  local ids=$1
+  shift
+  local currency_map=("$@")
   local API_KEY=$CoinMarketCap_API_KEY
   local API_URL="https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
   local retry_count=0
   local data=""
+  local success=false
   
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
-    data=$(curl -s -m 10 -G -H "X-CMC_PRO_API_KEY: $API_KEY" -H "Accept: application/json" \
-      --data-urlencode "id=$id" \
+    data=$(curl -s -m 15 -G -H "X-CMC_PRO_API_KEY: $API_KEY" -H "Accept: application/json" \
+      --data-urlencode "id=$ids" \
       --data-urlencode "convert=BRL" $API_URL)
       
     # Validate the response data
-    if echo "$data" | jq -e ".data[\"$id\"].quote.BRL.price" > /dev/null 2>&1; then
-      local price=$(echo "$data" | jq -r ".data[\"$id\"].quote.BRL.price")
-      local change_24h=$(echo "$data" | jq -r ".data[\"$id\"].quote.BRL.percent_change_24h")
-      
-      # Further validate the extracted data
-      if [[ "$price" =~ ^[0-9]*\.?[0-9]+$ ]]; then
-        # Format the price with K for thousands and two decimal places
-        local formatted_price
-        if (( $(echo "$price >= 1000" | bc -l) )); then
-          formatted_price=$(echo "scale=2; $price / 1000" | bc | awk '{printf "%.2fK", $0}')
-        else
-          formatted_price=$(echo "scale=2; $price" | bc | awk '{printf "%.2f", $0}')
-        fi
+    if echo "$data" | jq -e '.data' > /dev/null 2>&1; then
+      # Process each item in the batch response
+      for item_info in "${currency_map[@]}"; do
+        IFS=':' read -r id symbol name <<< "$item_info"
         
-        # Format the change percentage and add standardized arrow
-        local change_symbol="↔️"
-        local formatted_change="0.00"
-        
-        if [[ "$change_24h" =~ ^[+-]?[0-9]*\.?[0-9]+$ ]]; then
-          formatted_change=$(echo "scale=2; $change_24h" | bc | awk '{printf "%.2f", $0}')
+        # Extract data for this specific currency
+        if echo "$data" | jq -e ".data[\"$id\"]" > /dev/null 2>&1; then
+          local price=$(echo "$data" | jq -r ".data[\"$id\"].quote.BRL.price")
+          local change_24h=$(echo "$data" | jq -r ".data[\"$id\"].quote.BRL.percent_change_24h")
           
-          # Use emojis based on the change value
-          if (( $(echo "$change_24h > 0.001" | bc -l) )); then
-            change_symbol="⬆️"
-          elif (( $(echo "$change_24h < -0.001" | bc -l) )); then
-            change_symbol="⬇️"
-          else
-            change_symbol="↔️"
+          # Validate the extracted data
+          if [[ "$price" =~ ^[0-9]*\.?[0-9]+$ ]]; then
+            # Format the price with K for thousands and two decimal places
+            local formatted_price
+            if (( $(echo "$price >= 1000" | bc -l) )); then
+              formatted_price=$(echo "scale=2; $price / 1000" | bc | awk '{printf "%.2fK", $0}')
+            else
+              formatted_price=$(echo "scale=2; $price" | bc | awk '{printf "%.2f", $0}')
+            fi
+            
+            # Format the change percentage and add standardized arrow
+            local change_symbol="↔️"
+            local formatted_change="0.00"
+            
+            if [[ "$change_24h" =~ ^[+-]?[0-9]*\.?[0-9]+$ ]]; then
+              formatted_change=$(echo "scale=2; $change_24h" | bc | awk '{printf "%.2f", $0}')
+              
+              # Use emojis based on the change value
+              if (( $(echo "$change_24h > 0.001" | bc -l) )); then
+                change_symbol="⬆️"
+              elif (( $(echo "$change_24h < -0.001" | bc -l) )); then
+                change_symbol="⬇️"
+              else
+                change_symbol="↔️"
+              fi
+            fi
+            
+            # Align output for better readability
+            printf "%s %-5s: R$ %-8s %s %6s%%\n" "-" "$symbol" "\`$formatted_price\`" "$change_symbol" "\`$formatted_change\`"
+            success=true
           fi
         fi
-        
-        # Align output for better readability
-        printf "%s %-5s: R$ %-8s %s %6s%%\n" "-" "$symbol" "\`$formatted_price\`" "$change_symbol" "\`$formatted_change\`"
-        return 0
-      fi
+      done
+      
+      [[ "$success" == "true" ]] && return 0
     fi
     
     # Retry after delay
-    log_message "WARNING" "Failed to fetch data for $symbol (attempt $((retry_count+1))). Retrying in $RETRY_DELAY seconds..."
+    log_message "WARNING" "Failed to fetch batch data (attempt $((retry_count+1))). Retrying in $RETRY_DELAY seconds..."
     sleep $RETRY_DELAY
     ((retry_count++))
   done
   
-  log_message "ERROR" "Failed to fetch data for $symbol after $MAX_RETRIES attempts."
+  log_message "ERROR" "Failed to fetch batch data after $MAX_RETRIES attempts."
   return 1
 }
 
