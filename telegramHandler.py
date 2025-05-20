@@ -7,7 +7,7 @@ from config.constants import MESSAGE_TYPES, RU_LOCATIONS, SCRIPT_PATHS, TIMEZONE
 from utils.schedule_utils import load_schedules, add_schedule, remove_schedule
 from utils.text_utils import clean_ansi, split_message
 from tokens import TOKEN
-from handlers.news_handler import handle_news_menu, send_news_as_message, send_news_as_file, generate_news_file
+from handlers.news_handler import handle_news_menu, send_news_as_message, send_news_as_file
 from config.keyboard import get_main_menu, get_return_button
 from handlers.weather_handler import send_weather
 from handlers.exchange_handler import send_exchange
@@ -67,49 +67,62 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
     if query.data == "news":
         await handle_news_menu(update, context)
     elif query.data == "news_message":
+        # Assumes send_news_as_message (in news_handler.py) now directly executes hcnews.sh,
+        # captures its stdout, and sends it as a message.
+        # Python-level caching for news content itself is removed from news_handler.py;
+        # hcnews.sh handles its own component caching.
         await send_news_as_message(update, context)
     elif query.data == "news_file":
+        # Assumes send_news_as_file (in news_handler.py) now directly executes hcnews.sh,
+        # captures its stdout, and sends it as an in-memory file.
         await send_news_as_file(update, context)
     elif query.data == "news_force":
-        # First notify the user we're updating
         await query.message.reply_text("🔄 Forçando atualização das notícias...")
-        success, result = await generate_news_file(force=True)
-        if success:
-            # Send in the same format that was last used (file or message)
-            if query.message.reply_markup.inline_keyboard[0][0].callback_data == "news_message":
-                await send_news_as_message(update, context)
-            else:
-                await send_news_as_file(update, context)
-        else:
-            await query.message.reply_text(f"❌ Falha ao atualizar as notícias: {result}")
+        # Assumes send_news_as_message from news_handler.py now accepts force_refresh.
+        # It will call hcnews.sh with --force, get content, and send as message.
+        # Error handling is expected to be within send_news_as_message.
+        await send_news_as_message(update, context, force_refresh=True)
     elif query.data == "news_regenerate":
-        # First notify the user we're updating
         await query.message.reply_text("🔄 Atualizando e preparando arquivo de notícias...")
-        success, result = await generate_news_file(force=True)
-        if success:
-            # Send the news as file after regenerating
-            await send_news_as_file(update, context)
-        else:
-            await query.message.reply_text(f"❌ Falha ao atualizar o arquivo de notícias: {result}", reply_markup=get_return_button())
+        # Assumes send_news_as_file from news_handler.py now accepts force_refresh.
+        # It will call hcnews.sh with --force, get content, and send as an in-memory file.
+        # Error handling is expected to be within send_news_as_file.
+        await send_news_as_file(update, context, force_refresh=True)
     elif query.data == "rss":
+        # rss_handler.py functions should now rely on rss.sh for caching.
+        # Any Python-level caching in rss_handler.py should be removed.
         await handle_rss_menu(update, context)
     elif query.data == "rss_message":
+        # rss_handler.py functions should now rely on rss.sh for caching.
         await send_rss_as_message(update, context)
     elif query.data == "rss_file":
+        # rss_handler.py functions should now rely on rss.sh for caching.
         await send_rss_as_file(update, context)
     elif query.data == "horoscope":
+        # horoscope_handler.py functions should now rely on horoscopo.sh for caching.
+        # Any Python-level caching in horoscope_handler.py should be removed.
         await send_horoscope(update, context)
     elif query.data.startswith("horoscope_"):
+        # horoscope_handler.py functions should now rely on horoscopo.sh for caching.
         await handle_horoscope_selection(update, context, query.data)
     elif query.data == "weather":
+        # weather_handler.py functions should now rely on weather.sh for caching.
+        # Any Python-level caching in weather_handler.py should be removed.
         await send_weather(update, context)
     elif query.data == "exchange":
+        # exchange_handler.py functions should now rely on exchange.sh for caching.
+        # Any Python-level caching in exchange_handler.py should be removed.
         await send_exchange(update, context)
     elif query.data == "bicho":
+        # bicho_handler.py functions should now rely on bicho.sh for caching (if applicable).
+        # Any Python-level caching in bicho_handler.py should be removed.
         await send_bicho(update, context)
     elif query.data == "ru":
+        # ru_handler.py functions should now rely on ru.sh for caching.
+        # Any Python-level caching in ru_handler.py should be removed.
         await send_ru_menu(update, context)
     elif query.data.startswith("ru_"):
+        # ru_handler.py functions should now rely on ru.sh for caching.
         await handle_ru_selection(update, context, query.data)
     elif query.data == "main_menu":
         try:

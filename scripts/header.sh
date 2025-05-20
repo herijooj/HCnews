@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 HEADER_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+# Define cache directory relative to this script's location
+# HEADER_DIR is .../scripts/, so $(dirname "$HEADER_DIR") is .../HCnews/
+_header_CACHE_DIR="$(dirname "$HEADER_DIR")/data/cache/header"
 
 source "$HEADER_DIR/quote.sh"
 
@@ -34,19 +37,44 @@ function heripoch_date() {
 
 # this function returns the moon phase from https://www.invertexto.com/fase-lua-hoje
 function moon_phase () {
+    local use_cache=true
+    local force_refresh=false
 
+    # Check for global flags from hcnews.sh if this script is sourced
+    # hc_no_cache and hc_force_refresh would be set by hcnews.sh
+    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
+        use_cache=false
+    fi
+    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
+        force_refresh=true
+    fi
+
+    local date_format
+    date_format=$(date +"%Y%m%d")
+    
+    # Ensure the cache directory exists
+    mkdir -p "$_header_CACHE_DIR"
+    local cache_file="${_header_CACHE_DIR}/${date_format}_moon_phase.cache"
+
+    if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then
+        cat "$cache_file"
+        return 0
+    fi
+
+    local fetched_moon_phase
     # grep all the lines with <span> and </span>
-    moon_phase=$(curl -s https://www.invertexto.com/fase-lua-hoje | grep -oP '(?<=<span>).*(?=</span>)')
+    fetched_moon_phase=$(curl -s https://www.invertexto.com/fase-lua-hoje | grep -oP '(?<=<span>).*(?=</span>)')
     
     # keep only the text before the first number
-    moon_phase=$(echo $moon_phase | sed 's/[0-9].*//')
+    fetched_moon_phase=$(echo "$fetched_moon_phase" | sed 's/[0-9].*//')
 
-    # moon_phase=$(echo $moon_phase | sed 's/%/% de Visibilidade/')
-    # moon_phase=$(echo $moon_phase | sed 's/km/km de Distância/')
-    # moon_phase=$(echo $moon_phase | sed 's/$/ de Idade/')
+    if [[ "$use_cache" == true ]]; then
+        # Save to cache
+        echo "$fetched_moon_phase" > "$cache_file"
+    fi
 
     # return the moon phase
-    echo $moon_phase
+    echo "$fetched_moon_phase"
 }
 
 # this function is used to write the header of the news file

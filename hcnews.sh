@@ -4,6 +4,7 @@
 # Includes ========================================================================
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
+# Source all the required scripts
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
 source "$SCRIPT_DIR/scripts/saints.sh"
@@ -19,6 +20,8 @@ source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
 source "$SCRIPT_DIR/scripts/emoji.sh"
 source "$SCRIPT_DIR/scripts/futuro.sh"
+# Source timing utilities last
+source "$SCRIPT_DIR/scripts/timing.sh"
 
 # ==================================================================================
 
@@ -31,6 +34,9 @@ source "$SCRIPT_DIR/scripts/futuro.sh"
 #   -s, --silent: the script will run silently"
 #   -sa, --saints: show the saints of the day with the verbose description
 #   -n, --news: show the news with the shortened link
+#   -t, --timing: show function execution timing information"
+#   --no-cache: disable caching for this run
+#   --force: force refresh cache for this run
 show_help() {
     echo "Usage: ./hcnews.sh [options]"
     echo "Options:"
@@ -38,7 +44,9 @@ show_help() {
     echo "  -s, --silent: the script will run silently"
     echo "  -sa, --saints: show the saints of the day with the verbose description"
     echo "  -n, --news: show the news with the shortened link"
-    echo "  -f, --file: if the output will be to a file"
+    echo "  -t, --timing: show function execution timing information"
+    echo "  --no-cache: disable caching for this run"
+    echo "  --force: force refresh cache for this run"
 }
 
 # this function will receive the arguments
@@ -47,7 +55,9 @@ get_arguments() {
     silent=false
     saints_verbose=true
     news_shortened=false
-    file=false
+    timing=false
+    hc_no_cache=false 
+    hc_force_refresh=false
 
     # Get the arguments
     while [[ $# -gt 0 ]]; do
@@ -68,8 +78,16 @@ get_arguments() {
                 news_shortened=true
                 shift
                 ;;
-            -f|--file)
-                file=true
+            -t|--timing)
+                timing=true
+                shift
+                ;;
+            --no-cache)
+                hc_no_cache=true
+                shift
+                ;;
+            --force)
+                hc_force_refresh=true
                 shift
                 ;;
             *)
@@ -81,16 +99,18 @@ get_arguments() {
     done
 }
 
-
 # this function will ask for help
 function help_hcnews {
+    start_timing "help_hcnews"
     echo "🤝 *Quer contribuir com o HCNEWS?*"
     echo "- ✨ https://github.com/herijooj/HCnews"
     echo ""
+    end_timing "help_hcnews"
 }
 
 # Função para imprimir o footer
 function footer {
+    start_timing "footer"
     time=$(date +"%H:%M:%S")
     file_name=$(basename "$0")
     end_time=$(date +%s)
@@ -101,20 +121,39 @@ function footer {
     echo "🙌 *Que Deus abençoe a todos!*"
     echo ""
     echo "🤖 ${time} (BRT) ⏱️ ${elapsed_time}s" 
+    
+    # Add timing summary if enabled
+    if [[ $timing == true ]]; then
+        echo ""
+        print_timing_summary
+    fi
+    
+    end_timing "footer"
 }
 
 function hcseguidor {
+    start_timing "hcseguidor"
     echo "🤖 *Quer ser um HCseguidor?*"
     echo "- 📢 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y"
     echo "- 💬 https://bit.ly/m/HCNews"
     echo ""
+    end_timing "hcseguidor"
 }
 
 function output {
+    start_timing "output"
 
     # Define variables
     saints_verbose=$1
     news_shortened=$2
+    local cache_options="" # Variable to hold cache flags
+
+    if [[ "$hc_no_cache" == true ]]; then
+        cache_options+=" --no-cache"
+    fi
+    if [[ "$hc_force_refresh" == true ]]; then
+        cache_options+=" --force"
+    fi
     
     # RSS feeds
     o_popular=https://opopularpr.com.br/feed/
@@ -126,41 +165,61 @@ function output {
     g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
     plantao190=https://plantao190.com.br/feed/
 
-    # put this in an array
-    feeds=("$o_popular" "$plantao190" "$g1")
+    # Combine feeds for parallel processing
+    all_feeds="${o_popular},${plantao190},${g1}"
 
     # Write the header
+    start_timing "write_header"
     write_header
+    end_timing "write_header"
 
     # Write the holidays
+    start_timing "write_holidays"
     write_holidays "$month" "$day"
+    end_timing "write_holidays"
 
     # Write the states birthdays
+    start_timing "write_states_birthdays"
     write_states_birthdays "$month" "$day"
+    end_timing "write_states_birthdays"
 
     # Write the saint(s) of the day
-    write_saints "$saints_verbose"
+    start_timing "write_saints"
+    (source "$SCRIPT_DIR/scripts/saints.sh" $cache_options && write_saints "$saints_verbose")
+    end_timing "write_saints"
 
     # Write the AI Fortune
+    start_timing "write_ai_fortune"
     write_ai_fortune
+    end_timing "write_ai_fortune"
 
     # Write the exchange rates
-    write_exchange
+    start_timing "write_exchange"
+    (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
+    end_timing "write_exchange"
 
     # Ask to enter the Whatsapp Channel
     help_hcnews
 
     # Write the music chart
-    write_music_chart
+    start_timing "write_music_chart"
+    (source "$SCRIPT_DIR/scripts/musicchart.sh" $cache_options && write_music_chart)
+    end_timing "write_music_chart"
 
     # Write the weather
-    write_weather "$city" "false"
+    start_timing "write_weather"
+    (source "$SCRIPT_DIR/scripts/weather.sh" $cache_options && write_weather "$city" "false")
+    end_timing "write_weather"
 
     # Write "Did you know?"
+    start_timing "write_did_you_know"
     write_did_you_know
+    end_timing "write_did_you_know"
 
     # Write the palpite of the day
+    start_timing "write_bicho"
     write_bicho
+    end_timing "write_bicho"
 
     # UFPR 
 
@@ -172,33 +231,39 @@ function output {
 
     # menu of the day
     if [[ $(date +%u) -lt 6 ]]; then
+        start_timing "write_menu"
         SHOW_ONLY_TODAY=true
-        write_menu
+        (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu) 
+        end_timing "write_menu"
     fi
 
     # emoji of the day
+    start_timing "write_emoji"
     write_emoji
+    end_timing "write_emoji"
 
-    # Write the news
-    for feed in "${feeds[@]}"; do
-        write_news "$feed" "$news_shortened" true
-    done
+    # Write all news in parallel (major performance improvement)
+    start_timing "write_all_news"
+    (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$news_shortened" true)
+    end_timing "write_all_news"
 
     # # cinema
     # echo "🎬 G1 Cinema 🎬"
     # write_news "$g1cinema" "$news_shortened" "-n"
 
-
-    # # Write the F1 news
     # Write the F1 news
-    f1_news=$(write_news "$formula1" "$news_shortened")
-    if [[ -n "$f1_news" ]]; then
-        echo "🏎️ F1 🏎️"
-        echo "$f1_news"
-    fi
+    # start_timing "write_f1_news"
+    # f1_news=$(write_news "$formula1" "$news_shortened")
+    # if [[ -n "$f1_news" ]]; then
+    #     echo "🏎️ F1 🏎️"
+    #     echo "$f1_news"
+    # fi
+    # end_timing "write_f1_news"
 
     # Write the footer
     footer
+    
+    end_timing "output"
 }
 
 # Main =============================================================================
@@ -208,25 +273,13 @@ get_arguments "$@"
 
 # Define Variables
 start_time=$(date +%s)
-date=$(date +%Y%m%d)
 month=$(date +%m)
 day=$(date +%d)
 city="Curitiba"
 
-# if the output will be to a file
-if [[ $file == true ]]; then
-    # Define paths
-    news_file_name="$date.news"
-    news_file_path="./data/news/$news_file_name"
+# Reset timing data
+reset_timing_data
 
-    # Create the news file
-    new_file "$news_file_name" "$news_file_path" "$silent"
-
-    # Output to the file (overwrite mode)
-    output "$saints_verbose" "$news_shortened" > "$news_file_path"
-    exit 0
-else
-    # Output to the terminal
-    output "$saints_verbose" "$news_shortened"
-    exit 0
-fi
+# The script will now always output to standard output.
+output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh"
+exit 0

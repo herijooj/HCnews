@@ -1,18 +1,38 @@
 #!/usr/bin/env bash
 
-# URL shortening function using is.gd service
+# URL shortening function using is.gd service with timeout and retries
 shorten_url_isgd() {
     local url="$1"
     local shortened
+    local max_retries=2
+    local retry_count=0
+    local success=false
     
-    # Call the URL shortening service
-    shortened=$(curl -s -m 5 "https://is.gd/create.php?format=simple&url=${url}" 2>/dev/null)
+    # URL encode the input to ensure it works with special characters
+    local encoded_url
+    encoded_url=$(printf '%s' "$url" | jq -s -R -r @uri)
     
-    # Check if the shortening was successful
-    if [[ -n "$shortened" && "$shortened" =~ ^https?:// ]]; then
+    while (( retry_count < max_retries )) && [[ "$success" == false ]]; do
+        # Call the URL shortening service with strict timeouts
+        shortened=$(curl -s -m 3 --connect-timeout 2 "https://is.gd/create.php?format=simple&url=${encoded_url}" 2>/dev/null)
+        
+        # Check if the shortening was successful
+        if [[ -n "$shortened" && "$shortened" =~ ^https?:// ]]; then
+            success=true
+            break
+        fi
+        
+        # Increment retry counter and wait before retrying
+        (( retry_count++ ))
+        if (( retry_count < max_retries )); then
+            sleep 1
+        fi
+    done
+    
+    # Return shortened URL if successful, otherwise return original URL
+    if [[ "$success" == true ]]; then
         echo "$shortened"
     else
-        # Return original URL if shortening failed
         echo "$url"
     fi
 }

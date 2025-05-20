@@ -8,18 +8,17 @@ from config.keyboard import get_return_button
 logger = logging.getLogger(__name__)
 
 async def send_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Execute exchange script and send rates"""
+    """Execute exchange script and send rates. The script handles its own caching."""
     try:
+        # The exchange.sh script handles its own caching.
+        # No cache-related flags are needed here.
         result = subprocess.run(
             ['bash', SCRIPT_PATHS['exchange']],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            check=True # Will raise CalledProcessError if returncode is non-zero
         )
-        
-        if result.returncode != 0:
-            logger.error("Failed to get exchange rates: %s", result.stderr)
-            raise subprocess.CalledProcessError(result.returncode, SCRIPT_PATHS['exchange'])
         
         await update.callback_query.edit_message_text(
             text=result.stdout,

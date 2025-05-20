@@ -12,72 +12,79 @@ decode_html_entities() {
   fi
 }
 
-# Cache directory setup
-CACHE_DIR="$HOME/.cache/hcnews"
-mkdir -p "$CACHE_DIR"
+# Cache configuration
+_saints_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
+CACHE_TTL_SECONDS=$((23 * 60 * 60)) # 23 hours
+# Default cache behavior is enabled
+_saints_USE_CACHE=true
+# Force refresh cache
+_saints_FORCE_REFRESH=false
 
-# Function to get today's date string
-get_date_string() {
-  date +"%Y-%m-%d"
+# Override defaults if --no-cache or --force is passed during sourcing
+# This allows the main hcnews.sh script to control caching for sourced scripts.
+_current_sourcing_args_for_saints=("${@}")
+for arg in "${_current_sourcing_args_for_saints[@]}"; do
+  case "$arg" in
+    --no-cache)
+      _saints_USE_CACHE=false
+      ;;
+    --force)
+      _saints_FORCE_REFRESH=true
+      ;;
+  esac
+done
+
+# Function to get today's date in YYYYMMDD format (same as RU script)
+get_date_format() {
+  date +"%Y%m%d"
 }
 
-# Function to check if cache exists and is from today
+# Function to check if cache exists and is valid and within TTL
 check_cache() {
-  local cache_type="$1"  # Can be "regular" or "verbose"
-  local today_date
-  today_date=$(get_date_string)
-  local cache_file="$CACHE_DIR/saints-${cache_type}-${today_date}.txt"
-  
-  if [[ -f "$cache_file" ]]; then
-    # Check if the cache file is from today
-    file_date=$(stat -c %y "$cache_file" | cut -d' ' -f1)
-    if [[ "$file_date" == "$today_date" ]]; then
-      return 0  # Cache exists and is current
-    else
-      # Remove outdated cache file
-      rm -f "$cache_file"
-      return 1  # Cache doesn't exist (was outdated and deleted)
+  local cache_file_path="$1"
+  if [ -f "$cache_file_path" ] && [ "$_saints_FORCE_REFRESH" = false ]; then
+    # Check TTL
+    local file_mod_time
+    file_mod_time=$(stat -c %Y "$cache_file_path")
+    local current_time
+    current_time=$(date +%s)
+    if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
+      # Cache exists, not forced, and within TTL
+      return 0
     fi
-  else
-    return 1  # Cache doesn't exist
   fi
+  return 1
 }
 
 # Function to read from cache
 read_cache() {
-  local cache_type="$1"
-  local today_date
-  today_date=$(get_date_string)
-  local cache_file="$CACHE_DIR/saints-${cache_type}-${today_date}.txt"
-  
-  # Check if cache exists and is valid
-  if check_cache "$cache_type"; then
-    cat "$cache_file"
-    return 0
-  else
-    return 1
-  fi
+  local cache_file_path="$1"
+  cat "$cache_file_path"
 }
 
 # Function to write to cache
 write_cache() {
-  local cache_type="$1"
+  local cache_file_path="$1"
   local content="$2"
-  local today_date
-  today_date=$(get_date_string)
-  local cache_file="$CACHE_DIR/saints-${cache_type}-${today_date}.txt"
   
-  # Write the content directly without echo to preserve formatting
-  printf "%s" "$content" > "$cache_file"
+  # Ensure the directory exists
+  mkdir -p "$(dirname "$cache_file_path")"
+  
+  # Write the content to the cache file
+  printf "%s" "$content" > "$cache_file_path"
 }
 
 # Get the saint(s) of the day from the Vatican website.
 # https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
 # This function prints the name(s) and the description of the saint(s).
 get_saints_of_the_day_verbose () {
+    local date_format
+    date_format=$(get_date_format)
+    local cache_file="${_saints_CACHE_DIR}/${date_format}_saints-verbose.txt"
+
     # Check if we have cached data
-    if check_cache "verbose"; then
-      read_cache "verbose"
+    if [ "$_saints_USE_CACHE" = true ] && check_cache "$cache_file"; then
+      read_cache "$cache_file"
       return 0
     fi
     
@@ -120,8 +127,10 @@ get_saints_of_the_day_verbose () {
         description=$(echo "$description" | tail -n +2)
     done <<< "$names"
     
-    # Write to cache
-    write_cache "verbose" "$output"
+    # Write to cache if cache is enabled
+    if [ "$_saints_USE_CACHE" = true ]; then
+      write_cache "$cache_file" "$output"
+    fi
     
     # Output the result
     printf "%s" "$output"
@@ -131,9 +140,13 @@ get_saints_of_the_day_verbose () {
 # https://www.vaticannews.va/pt/santo-do-dia/MONTH/DAY.html
 # This function only prints the name of the saint(s).
 get_saints_of_the_day () {
+    local date_format
+    date_format=$(get_date_format)
+    local cache_file="${_saints_CACHE_DIR}/${date_format}_saints-regular.txt"
+
     # Check if we have cached data
-    if check_cache "regular"; then
-      read_cache "regular"
+    if [ "$_saints_USE_CACHE" = true ] && check_cache "$cache_file"; then
+      read_cache "$cache_file"
       return 0
     fi
     
@@ -162,8 +175,10 @@ get_saints_of_the_day () {
         output+="😇${name}"$'\n'
     done <<< "$names"
     
-    # Write to cache
-    write_cache "regular" "$output"
+    # Write to cache if cache is enabled
+    if [ "$_saints_USE_CACHE" = true ]; then
+      write_cache "$cache_file" "$output"
+    fi
     
     # Output the result
     printf "%s" "$output"
@@ -188,11 +203,15 @@ write_saints () {
 # Options:
 #   -h, --help: show the help
 #   -v, --verbose: show the verbose description of the saints
+#   -n, --no-cache: do not use cached data
+#   -f, --force: force refresh cache
 show_help() {
     echo "Usage: ./saints.sh [options]"
     echo "Options:"
     echo "  -h, --help: show the help"
     echo "  -v, --verbose: show the verbose description of the saints"
+    echo "  -n, --no-cache: do not use cached data"
+    echo "  -f, --force: force refresh cache"
 }
 
 # this function will receive the arguments
@@ -209,6 +228,14 @@ get_arguments() {
                 ;;
             -v|--verbose)
                 saints_verbose=true
+                shift
+                ;;
+            -n|--no-cache)
+                _saints_USE_CACHE=false
+                shift
+                ;;
+            -f|--force)
+                _saints_FORCE_REFRESH=true
                 shift
                 ;;
             *)

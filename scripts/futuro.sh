@@ -6,9 +6,13 @@ source tokens.sh
 # === Configuration ===
 
 # --- API & Prompt Settings ---
-readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent"
+readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
 #readonly MAX_WORDS=25
 readonly MAX_OUTPUT_TOKENS=150
+
+# --- Cache Settings ---
+_futuro_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+_futuro_CACHE_DIR="$(dirname "$_futuro_SCRIPT_DIR")/data/cache/futuro"
 
 # --- Dependencies Check ---
 # Ensure curl and jq are installed
@@ -25,6 +29,27 @@ fi
 
 # Function: get_ai_fortune
 function get_ai_fortune() {
+    local local_use_cache=true
+    local local_force_refresh=false
+
+    # Check for global flags from hcnews.sh if this script is sourced
+    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
+        local_use_cache=false
+    fi
+    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
+        local_force_refresh=true
+    fi
+
+    local date_format
+    date_format=$(date +"%Y%m%d")
+    mkdir -p "$_futuro_CACHE_DIR" # Ensure cache directory exists
+    local cache_file="${_futuro_CACHE_DIR}/${date_format}_fortune.cache"
+
+    if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then
+        cat "$cache_file"
+        return 0
+    fi
+
     # Using 30 words as the limit directly here
     local word_limit=30
 
@@ -147,6 +172,9 @@ function get_ai_fortune() {
     fi
 
     # Output raw fortune text if successful
+    if [[ "$local_use_cache" == true && $? -eq 0 && -n "$fortune_raw" ]]; then
+        echo "$fortune_raw" > "$cache_file"
+    fi
     echo "$fortune_raw"
     return 0
 }

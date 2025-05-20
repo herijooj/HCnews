@@ -12,11 +12,8 @@ function get_emoji() {
         exit 1
     fi
 
-    # Use shuf to select a random line from the file, ignoring comment and empty lines
-    selected_line=$(grep -v '^#' "$EMOJI_TEST_FILE" | grep -v '^\s*$' | shuf -n 1)
-
-    # Extract the emoji info after the '#' character.
-    emoji_info=$(echo "$selected_line" | awk -F'#' '{print $2}' | sed 's/^[ \t]*//')
+    # Use awk to filter and extract emoji info, then shuf to select a random line
+    emoji_info=$(awk '!/^#/ && NF {split($0,a,"#"); if(a[2]) print substr(a[2],2)}' "$EMOJI_TEST_FILE" | shuf -n 1)
     echo "$emoji_info"
 }
 

@@ -48,54 +48,45 @@ def get_zodiac_keyboard() -> InlineKeyboardMarkup:
     ])
     return InlineKeyboardMarkup(keyboard)
 
-def generate_horoscope(sign: str = None) -> tuple[bool, str]:
+def generate_horoscope(sign: str = None, force: bool = False) -> tuple[bool, str]:
     """Generate horoscope using the script and return content."""
-    logger.debug(f"generate_horoscope called with sign: {sign!r}")
+    logger.debug(f"generate_horoscope called with sign: {sign!r}, force: {force!r}")
     
-    data_dir = os.path.join(PROJECT_ROOT, "data", "news")
-    os.makedirs(data_dir, exist_ok=True)
+    # The horoscopo.sh script handles its own caching.
+    # Python-level file existence checks and direct file reading are removed.
     
-    today = datetime.now()
-    filename = os.path.join(data_dir, f"{today.strftime('%Y%m%d')}.hrcp")
+    command = ["bash", SCRIPT_PATHS['horoscope']]
+    if force:
+        command.append("--force")
     
-    # Generate file if it doesn't exist
-    if not os.path.exists(filename):
-        logger.debug(f"Horoscope file {filename} does not exist, generating...")
-        try:
-            subprocess.run(f"bash {SCRIPT_PATHS['horoscope']} -s", shell=True, check=True)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to generate horoscope: {e}")
-            return False, "Erro ao gerar horóscopo"
-    
-    try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            content = f.read()
-            
-        if not sign:  # Return full content
-            return True, content
-            
-        # Convert fancy sign name to crude version
+    # If a specific sign is requested, pass it to the script.
+    # Otherwise, the script will return all signs by default.
+    if sign:
         crude_name = SIGN_TO_CRUDE.get(sign)
         if not crude_name:
             logger.error(f"Unknown sign format: {sign}")
             return False, f"Formato de signo desconhecido: {sign}"
-            
-        logger.debug(f"Converting {sign!r} to crude name: {crude_name!r}")
+        command.append(crude_name)
         
-        # Find specific sign's horoscope
-        lines = content.split('\n')
-        for i, line in enumerate(lines):
-            logger.debug(f"Checking line {i}: {line[:50]}...")
-            if f"📌 {crude_name}" in line.lower():
-                logger.debug(f"Found match at line {i}")
-                return True, f"{lines[i-1]}\n{lines[i]}"
-                
-        logger.warning(f"Sign {crude_name!r} not found in horoscope content")
-        return False, f"Horóscopo para {sign} não encontrado"
+    try:
+        result = subprocess.run(
+            command, 
+            capture_output=True, 
+            text=True, 
+            check=True
+        )
+        content = result.stdout
+        
+        # The script now directly outputs the required format.
+        # No need to manually parse or find specific signs in Python.
+        return True, content
             
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to generate horoscope: {e}\nStderr: {e.stderr}")
+        return False, f"Erro ao gerar horóscopo: {e.stderr if e.stderr else 'Erro desconhecido'}"
     except Exception as e:
-        logger.error(f"Error reading horoscope: {e}")
-        return False, "Erro ao ler horóscopo"
+        logger.error(f"Error running horoscope script: {e}")
+        return False, "Erro ao executar script do horóscopo"
 
 async def send_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show zodiac sign selection menu"""

@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# not implemented yet
 # Function to convert menu image URLs to emojis
 function menu_to_emoji () {
     URL="$1"
@@ -76,8 +75,30 @@ declare -A RU_LOCATIONS=(
 
 # Default location
 SELECTED_LOCATION="politecnico"
-# Default is to show the full menu
-SHOW_ONLY_TODAY=false
+# Default is to show the full menu, allow override from sourcing script
+SHOW_ONLY_TODAY=${SHOW_ONLY_TODAY:-false}
+# Default cache behavior is enabled
+_ru_USE_CACHE=true
+# Force refresh cache
+_ru_FORCE_REFRESH=false
+
+# Override defaults if --no-cache or --force is passed during sourcing
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
+    _current_sourcing_args_for_ru=("${@}") 
+    for arg in "${_current_sourcing_args_for_ru[@]}"; do
+      case "$arg" in
+        --no-cache)
+          _ru_USE_CACHE=false
+          ;;
+        --force)
+          _ru_FORCE_REFRESH=true
+          ;;
+      esac
+    done
+fi
+
+# Cache directory path
+_ru_CACHE_DIR="$(dirname "$(dirname "$(dirname "$0")")")/data/news"
 
 function list_locations() {
     echo "Available RU locations:"
@@ -102,8 +123,56 @@ function get_today_weekday() {
     esac
 }
 
+# Function to get date in YYYYMMDD format
+function get_date_format() {
+    date +"%Y%m%d"
+}
+
+# Function to check if cache exists and is from today
+function check_cache() {
+    local location="$1"
+    local date_format=$(get_date_format)
+    local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
+    
+    if [ -f "$cache_file" ] && [ "$_ru_FORCE_REFRESH" = false ]; then
+        # Cache exists and force refresh is not enabled
+        return 0
+    else
+        return 1
+    fi
+}
+
+# Function to read menu from cache
+function read_cache() {
+    local location="$1"
+    local date_format=$(get_date_format)
+    local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
+    
+    cat "$cache_file"
+}
+
+# Function to write menu to cache
+function write_cache() {
+    local location="$1"
+    local menu="$2"
+    local date_format=$(get_date_format)
+    local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
+    
+    # Ensure the directory exists
+    mkdir -p "$(dirname "$cache_file")"
+    
+    # Write menu to cache file
+    echo "$menu" > "$cache_file"
+}
+
 # Function to retrieve the menu from the website
 function get_menu () {
+    # If cache is enabled and exists, use it
+    if [ "$_ru_USE_CACHE" = true ] && check_cache "$SELECTED_LOCATION"; then
+        read_cache "$SELECTED_LOCATION"
+        return
+    fi
+
     URL="${RU_LOCATIONS[$SELECTED_LOCATION]}"
 
     # Fetch the webpage content and extract the relevant section
@@ -180,6 +249,11 @@ function get_menu () {
         fi
         PREVIOUS_LINE="$line"
     done <<< "$MENU"
+    
+    # Write to cache if cache is enabled
+    if [ "$_ru_USE_CACHE" = true ]; then
+        write_cache "$SELECTED_LOCATION" "$OUTPUT"
+    fi
 
     echo -e "$OUTPUT"
 }
@@ -253,6 +327,8 @@ help () {
     echo "  -l, --list: list available RU locations"
     echo "  -r, --ru LOCATION: select RU location (default: politecnico)"
     echo "  -t, --today: show only today's menu"
+    echo "  -n, --no-cache: do not use cached data"
+    echo "  -f, --force: force refresh cache"
 }
 
 # Argument parsing function
@@ -283,6 +359,12 @@ get_arguments () {
                 ;;
             -t|--today)
                 SHOW_ONLY_TODAY=true
+                ;;
+            -n|--no-cache)
+                _ru_USE_CACHE=false
+                ;;
+            -f|--force)
+                _ru_FORCE_REFRESH=true
                 ;;
             *)
                 echo "Invalid argument: $1"

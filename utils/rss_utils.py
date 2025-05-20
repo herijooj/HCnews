@@ -123,37 +123,19 @@ def get_url_hash(url: str) -> str:
     """Get a short hash of a URL"""
     return hashlib.md5(url.encode()).hexdigest()[:8]
 
-def get_rss_cache_path(url: str) -> str:
-    """Get the cache path for an RSS feed"""
-    today = datetime.now().strftime('%Y%m%d')
-    url_hash = get_url_hash(url)
-    
-    # Ensure directory exists
-    os.makedirs('data/news', exist_ok=True)
-    
-    return f'data/news/{today}_rss_{url_hash}.txt'
-
 def generate_rss_content(url: str, force: bool = False) -> Tuple[bool, str]:
-    """Generate RSS feed content from URL"""
-    cache_path = get_rss_cache_path(url)
+    """Generate RSS feed content from URL using rss.sh, which handles its own caching."""
     
-    # Check if cache exists and is not forced
-    if os.path.exists(cache_path) and not force:
-        with open(cache_path, 'r') as f:
-            return True, f.read()
-    
-    # Generate new content
+    command = ['bash', 'scripts/rss.sh', '-l', '-f', url]
+    if force:
+        command.append('--force')
+        
     try:
         result = subprocess.run(
-            ['bash', 'scripts/rss.sh', '-l', '-f', url],
+            command,
             capture_output=True, text=True, check=True
         )
         content = clean_ansi(result.stdout)
-        
-        # Cache the result
-        with open(cache_path, 'w') as f:
-            f.write(content)
-            
         return True, content
     except subprocess.CalledProcessError as e:
         error_msg = f"Error processing RSS feed: {e.stderr}"

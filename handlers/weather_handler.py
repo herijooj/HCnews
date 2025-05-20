@@ -33,6 +33,8 @@ async def send_weather(update: Update, context: ContextTypes.DEFAULT_TYPE, city:
         status_msg = await message.reply_text(f"🔍 Buscando previsão do tempo para {city}...")
         
         # Construct command with explicit arguments
+        # The weather.sh script now handles its own caching.
+        # No cache-related flags are needed here.
         command = [SCRIPT_PATHS['weather']]
         if city:
             command.append(city)

@@ -3,7 +3,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes, ConversationHandler
 from utils.rss_utils import (
     get_rss_feeds, get_rss_feed, save_rss_feed, remove_rss_feed, validate_rss_url,
-    generate_rss_content, get_rss_cache_path, get_rss_filename
+    generate_rss_content, get_rss_filename
 )
 from utils.text_utils import split_message
 from config.keyboard import get_return_button, get_rss_menu

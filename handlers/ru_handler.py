@@ -32,43 +32,32 @@ def get_ru_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(keyboard)
 
 def generate_ru_menu(location: str, force: bool = False, today_only: bool = False) -> tuple[bool, str]:
-    """Generate RU menu for specified location"""
-    logger.debug(f"Generating RU menu for location: {location}, today_only: {today_only}")
-    
-    data_dir = os.path.join(PROJECT_ROOT, "data", "news")
-    os.makedirs(data_dir, exist_ok=True)
-    
-    today = datetime.now()
-    cache_suffix = "_today" if today_only else "_full"
-    filename = os.path.join(data_dir, f"{today.strftime('%Y%m%d')}_{location}{cache_suffix}.ru")
-    
-    if force or not os.path.exists(filename):
-        logger.debug(f"Generating new RU menu file: {filename}")
-        try:
-            cmd = [SCRIPT_PATHS['ru'], '-r', location]
-            if today_only:
-                cmd.append('-t')
-                
-            result = subprocess.run(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                check=True
-            )
-            with open(filename, 'w', encoding='utf-8') as f:
-                f.write(result.stdout)
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to generate RU menu: {e}")
-            return False, "Erro ao gerar cardápio"
-    
+    """Generate RU menu for specified location using ru.sh, which handles its own caching."""
+    logger.debug(f"Generating RU menu for location: {location}, force: {force}, today_only: {today_only}")
+
+    command = [SCRIPT_PATHS['ru'], '-r', location]
+    if force:
+        command.append('--force')
+    if today_only:
+        command.append('-t')
+            
     try:
-        with open(filename, 'r', encoding='utf-8') as f:
-            content = f.read()
+        result = subprocess.run(
+            command,
+            capture_output=True, 
+            text=True, 
+            check=True
+        )
+        # The ru.sh script now directly outputs the content.
+        # No need to write to or read from a file in Python.
+        content = clean_ansi(result.stdout) # Clean ANSI codes if any
         return True, content
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Failed to generate RU menu: {e}\nStderr: {e.stderr}")
+        return False, f"Erro ao gerar cardápio: {clean_ansi(e.stderr) if e.stderr else 'Erro desconhecido'}"
     except Exception as e:
-        logger.error(f"Error reading RU menu: {e}")
-        return False, "Erro ao ler cardápio"
+        logger.error(f"Error running RU script: {e}")
+        return False, "Erro ao executar script do RU"
 
 async def send_ru_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Show RU location selection menu"""

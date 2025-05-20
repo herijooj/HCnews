@@ -8,18 +8,17 @@ from config.keyboard import get_return_button
 logger = logging.getLogger(__name__)
 
 async def send_bicho(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Execute bicho script and send tips"""
+    """Execute bicho script and send tips. The script handles its own caching, if applicable."""
     try:
+        # The bicho.sh script handles its own caching if it implements it.
+        # No cache-related flags are assumed or needed here from the Python side.
         result = subprocess.run(
             ['bash', SCRIPT_PATHS['bicho']],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
-            text=True
+            text=True,
+            check=True # Will raise CalledProcessError if returncode is non-zero
         )
-        
-        if result.returncode != 0:
-            logger.error("Failed to get bicho tips: %s", result.stderr)
-            raise subprocess.CalledProcessError(result.returncode, SCRIPT_PATHS['bicho'])
         
         await update.callback_query.edit_message_text(
             text=result.stdout,
