@@ -3,7 +3,9 @@
 source tokens.sh
 
 # Cache configuration
-_exchange_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
+_exchange_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/exchange"
+# Ensure the cache directory exists
+mkdir -p "$_exchange_CACHE_DIR"
 CACHE_TTL_SECONDS=$((4 * 60 * 60)) # 4 hours
 # Default cache behavior is enabled
 _exchange_USE_CACHE=true

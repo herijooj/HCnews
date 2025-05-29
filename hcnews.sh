@@ -27,6 +27,31 @@ source "$SCRIPT_DIR/scripts/timing.sh"
 
 # Functions ========================================================================
 
+# Format elapsed time like F1 lap times (MM:SS.mmm or SS.mmm)
+format_f1_time() {
+    local start_time_ns=$1
+    local end_time_ns=$2
+    
+    # Calculate elapsed time in seconds (with decimal precision)
+    local elapsed_seconds=$(echo "$end_time_ns - $start_time_ns" | bc -l)
+    
+    # Convert to total milliseconds (as integer to avoid floating point issues)
+    local total_ms=$(echo "scale=0; ($elapsed_seconds * 1000 + 0.5)/1" | bc -l)
+    
+    # Extract minutes, seconds, and milliseconds using only integer arithmetic
+    local minutes=$((total_ms / 60000))
+    local remaining_ms=$((total_ms % 60000))
+    local seconds=$((remaining_ms / 1000))
+    local milliseconds=$((remaining_ms % 1000))
+    
+    # Format like F1 times
+    if [[ $minutes -gt 0 ]]; then
+        printf "%d:%02d.%03d" $minutes $seconds $milliseconds
+    else
+        printf "%d.%03ds" $seconds $milliseconds
+    fi
+}
+
 # help function
 # usage: ./hcnews.sh [options]
 # options:
@@ -111,16 +136,17 @@ function help_hcnews {
 # Função para imprimir o footer
 function footer {
     start_timing "footer"
-    time=$(date +"%H:%M:%S")
-    file_name=$(basename "$0")
-    end_time=$(date +%s)
-    elapsed_time=$((end_time - start_time))
+    end_time_precise=$(date +%s.%N)
+    
+    # Calculate F1-style elapsed time
+    elapsed_f1_time=$(format_f1_time "$start_time_precise" "$end_time_precise")
+    
     echo "🔔 *HCNews:* Seu Jornal Automático Diário"
     echo "- 📡 Stack: RSS • Bash • Python • Nix"
     echo "- 🔗 https://github.com/herijooj/HCnews"
     echo "🙌 *Que Deus abençoe a todos!*"
     echo ""
-    echo "🤖 ${time} (BRT) ⏱️ ${elapsed_time}s" 
+    echo "🤖 ${current_time} (BRT) ⏱️ ${elapsed_f1_time}" 
     
     # Add timing summary if enabled
     if [[ $timing == true ]]; then
@@ -159,7 +185,7 @@ function output {
     o_popular=https://opopularpr.com.br/feed/
     newyorker=https://www.newyorker.com/feed/magazine/rss
     folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
-    g1=https://g1.globo.com/rss/g1/pr/parana/
+    g1=https://g1.globo.com/rss/g1/parana/
     formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
     bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
     g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
@@ -229,8 +255,8 @@ function output {
     # Help HCNEWS
     hcseguidor
 
-    # menu of the day
-    if [[ $(date +%u) -lt 6 ]]; then
+    # menu of the day (use cached weekday instead of calling date)
+    if [[ $weekday -lt 6 ]]; then
         start_timing "write_menu"
         SHOW_ONLY_TODAY=true
         (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu) 
@@ -271,10 +297,15 @@ function output {
 # Get the arguments
 get_arguments "$@"
 
-# Define Variables
-start_time=$(date +%s)
-month=$(date +%m)
-day=$(date +%d)
+# Cache all date operations at once to avoid multiple subprocess calls
+# Use nanosecond precision for F1-style timing
+current_date=$(date +"%s.%N %m %d %u %H:%M:%S %Y %-j")
+read start_time_precise month day weekday current_time year days_since <<< "$current_date"
+start_time=${start_time_precise%.*}  # Keep integer seconds for compatibility
+
+# Export cached values so they're available to sourced scripts
+export weekday month day year days_since start_time current_time start_time_precise
+
 city="Curitiba"
 
 # Reset timing data

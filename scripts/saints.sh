@@ -13,7 +13,9 @@ decode_html_entities() {
 }
 
 # Cache configuration
-_saints_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
+_saints_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/saints"
+# Ensure the cache directory exists
+mkdir -p "$_saints_CACHE_DIR"
 CACHE_TTL_SECONDS=$((23 * 60 * 60)) # 23 hours
 # Default cache behavior is enabled
 _saints_USE_CACHE=true

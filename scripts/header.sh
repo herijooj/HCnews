@@ -7,14 +7,51 @@ _header_CACHE_DIR="$(dirname "$HEADER_DIR")/data/cache/header"
 source "$HEADER_DIR/quote.sh"
 
 # Returns the current date in a pretty format.
-# Usage: pretty_date
-# Example output: "Segunda-feira, 10 de Abril de 2023"
+# Usage: pretty_date [weekday] [day] [month] [year]
+# If parameters are provided, uses them instead of calling date
 function pretty_date {
-  # set the locale to pt_BR
-  local date=$(date +%A)
-  local day=$(date +%d)
-  local month=$(date +%B)
-  local year=$(date +%Y)
+  local date_arg="$1"
+  local day_arg="$2" 
+  local month_arg="$3"
+  local year_arg="$4"
+  
+  local date day month year
+  
+  if [[ -n "$date_arg" && -n "$day_arg" && -n "$month_arg" && -n "$year_arg" ]]; then
+    # Use provided cached values
+    case $date_arg in
+      1) date="segunda" ;;
+      2) date="terça" ;;
+      3) date="quarta" ;;
+      4) date="quinta" ;;
+      5) date="sexta" ;;
+      6) date="sábado" ;;
+      7) date="domingo" ;;
+    esac
+    day="$day_arg"
+    
+    case $month_arg in
+      01) month="janeiro" ;;
+      02) month="fevereiro" ;;
+      03) month="março" ;;
+      04) month="abril" ;;
+      05) month="maio" ;;
+      06) month="junho" ;;
+      07) month="julho" ;;
+      08) month="agosto" ;;
+      09) month="setembro" ;;
+      10) month="outubro" ;;
+      11) month="novembro" ;;
+      12) month="dezembro" ;;
+    esac
+    year="$year_arg"
+  else
+    # Fallback to date commands if no cached values provided
+    date=$(date +%A)
+    day=$(date +%d)
+    month=$(date +%B)
+    year=$(date +%Y)
+  fi
 
   # Add "-feira" if it's not Saturday or Sunday
   if [[ $date != "sábado" && $date != "domingo" ]]; then
@@ -27,9 +64,19 @@ function pretty_date {
 
 # calculates the HERIPOCH (the HCnews epoch)
 # the start of the project was in 07/10/2021
+# Usage: heripoch_date [current_timestamp]
 function heripoch_date() {
+    local current_timestamp="$1"
     local start_date="2021-10-07"
-    local current_date=$(date +%s)
+    
+    if [[ -n "$current_timestamp" ]]; then
+        # Use provided timestamp
+        local current_date="$current_timestamp"
+    else
+        # Fallback to date command
+        local current_date=$(date +%s)
+    fi
+    
     local difference=$((current_date - $(date -d "$start_date" +%s)))
     local days_since=$((difference / 86400))
     echo "$days_since"
@@ -79,10 +126,19 @@ function moon_phase () {
 
 # this function is used to write the header of the news file
 function write_header () {
-
-    date=$(pretty_date)
-    edition=$(heripoch_date)
-    days_since=$(date +%-j)
+    # Use cached values if available (passed from main script)
+    if [[ -n "$weekday" && -n "$day" && -n "$month" && -n "$year" && -n "$start_time" && -n "$days_since" ]]; then
+        date=$(pretty_date "$weekday" "$day" "$month" "$year")
+        edition=$(heripoch_date "$start_time")
+        # Use cached days_since value instead of calculating it
+        # days_since is already available from main script
+    else
+        # Fallback to original behavior
+        date=$(pretty_date)
+        edition=$(heripoch_date)
+        days_since=$(date +%-j)
+    fi
+    
     moon_phase=$(moon_phase)
     day_quote=$(quote)
 

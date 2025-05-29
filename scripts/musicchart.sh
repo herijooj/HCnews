@@ -13,7 +13,9 @@ decode_html_entities() {
 }
 
 # Cache configuration
-_musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
+_musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/musicchart"
+# Ensure the cache directory exists
+mkdir -p "$_musicchart_CACHE_BASE_DIR"
 CACHE_TTL_SECONDS=$((12 * 60 * 60)) # 12 hours
 _musicchart_USE_CACHE=true
 _musicchart_FORCE_REFRESH=false

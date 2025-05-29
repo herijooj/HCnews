@@ -98,7 +98,9 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
 fi
 
 # Cache directory path
-_ru_CACHE_DIR="$(dirname "$(dirname "$(dirname "$0")")")/data/news"
+_ru_CACHE_DIR="$(dirname "$(dirname "$(dirname "$0")")")/data/cache/ru"
+# Ensure cache directory exists
+mkdir -p "$_ru_CACHE_DIR"
 
 function list_locations() {
     echo "Available RU locations:"

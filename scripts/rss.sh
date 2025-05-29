@@ -5,8 +5,11 @@ RSS_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 source "$RSS_DIR/shortening.sh"
 
 # Cache directory for URL shortening and RSS content
-_rss_CACHE_DIR_BASE="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
-URL_CACHE_FILE="${_rss_CACHE_DIR_BASE}/url_shorten_cache.txt"
+_rss_CACHE_DIR_BASE="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/rss"
+# Ensure the base cache directory exists
+mkdir -p "$_rss_CACHE_DIR_BASE"
+_rss_URL_CACHE_DIR="${_rss_CACHE_DIR_BASE}/url_cache"
+URL_CACHE_FILE="${_rss_URL_CACHE_DIR}/url_shorten_cache.txt"
 CACHE_TTL_SECONDS=$((2 * 60 * 60)) # 2 hours for general RSS feeds
 # Default cache behavior is enabled
 _rss_USE_CACHE=true
@@ -31,6 +34,7 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
 fi
 
 mkdir -p "$_rss_CACHE_DIR_BASE"
+mkdir -p "$_rss_URL_CACHE_DIR"
 touch "$URL_CACHE_FILE"
 
 # Limit cache file size to prevent performance degradation
@@ -150,7 +154,11 @@ get_news_RSS_combined() {
     portal_identifier=$(echo "$RSS_FEED" | sed -e 's|https*://||g' -e 's|/|__|g' -e 's|[^a-zA-Z0-9_.-]||g')
     local date_format
     date_format=$(get_date_format)
-    local cache_file="${_rss_CACHE_DIR_BASE}/${date_format}_${portal_identifier}.news"
+    
+    # Create individual folder for each RSS feed
+    local rss_cache_dir="${_rss_CACHE_DIR_BASE}/rss_feeds/${portal_identifier}"
+    mkdir -p "$rss_cache_dir"
+    local cache_file="${rss_cache_dir}/${date_format}.news"
 
     if [ "$_rss_USE_CACHE" = true ] && check_cache "$cache_file"; then
         read_cache "$cache_file"

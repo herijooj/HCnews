@@ -17,6 +17,16 @@ function sign_to_emoji {
     echo "${EMOJIS[$1]}"
 }
 
+# Add new function to format sign names properly
+function format_sign_name {
+    declare -A SIGN_NAMES=(
+        ["aries"]="Áries" ["peixes"]="Peixes" ["aquario"]="Aquário" ["capricornio"]="Capricórnio"
+        ["sagitario"]="Sagitário" ["escorpiao"]="Escorpião" ["libra"]="Libra" ["virgem"]="Virgem"
+        ["leao"]="Leão" ["cancer"]="Câncer" ["gemeos"]="Gêmeos" ["touro"]="Touro"
+    )
+    echo "${SIGN_NAMES[$1]}"
+}
+
 # Function to get today's date in YYYYMMDD format
 get_date_format() {
     date +"%Y%m%d"
@@ -74,8 +84,8 @@ function get_horoscopo {
     SIGN="$1"
     # get the horoscope
     HOROSCOPO=$(curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3" "https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-$SIGN/")
-    # extract the horoscope
-    HOROSCOPO=$(echo "$HOROSCOPO" | pup '.theiaPostSlider_preloadedSlide > div:nth-child(3) > p:nth-child(1) text{}')
+    # extract the horoscope using the correct selector for the current website structure
+    HOROSCOPO=$(echo "$HOROSCOPO" | pup 'p.MsoNormal text{}')
 
     # return the horoscope
     echo "$HOROSCOPO"
@@ -85,11 +95,13 @@ function write_horoscopo {
     # get the arguments
     SIGN="$1"
     EMOJI=$(sign_to_emoji "$SIGN")
+    FORMATTED_SIGN=$(format_sign_name "$SIGN")
     # get the horoscope
     HOROSCOPO=$(get_horoscopo "$SIGN")
     # write the horoscope to the console
     echo "$HOROSCOPO"
-    echo "📌 $SIGN $EMOJI"
+    echo ""
+    echo "🔸 *$FORMATTED_SIGN* $EMOJI"
     echo ""
 }
 # -------------------------------- Running locally --------------------------------
@@ -182,12 +194,14 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         for SIGN in "${SIGNS[@]}"; do
             HOROSCOPO=$(get_horoscopo "$SIGN")
             EMOJI=$(sign_to_emoji "$SIGN")
-            output+="$HOROSCOPO\\n📌 $SIGN $EMOJI\\n\\n"
+            FORMATTED_SIGN=$(format_sign_name "$SIGN")
+            output+="$HOROSCOPO\\n\\n🔸 *$FORMATTED_SIGN* $EMOJI\\n\\n"
         done
     else
         HOROSCOPO=$(get_horoscopo "$SIGN")
         EMOJI=$(sign_to_emoji "$SIGN")
-        output+="$HOROSCOPO\\n📌 $SIGN $EMOJI\\n\\n"
+        FORMATTED_SIGN=$(format_sign_name "$SIGN")
+        output+="$HOROSCOPO\\n\\n🔸 *$FORMATTED_SIGN* $EMOJI\\n\\n"
     fi
 
     # Save to file if -s is used OR if _horoscopo_USE_CACHE is true and -s is not used (cache the output)

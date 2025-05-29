@@ -1,12 +1,48 @@
 #!/usr/bin/env bash
 
+BICHO_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+# Define cache directory relative to this script's location
+_bicho_CACHE_DIR="$(dirname "$BICHO_DIR")/data/cache/bicho"
+
 # Return the guess of the jogo do bicho of the day.
 # we retrieve the guess from the website https://www.ojogodobicho.com/palpite.htm
 function get_bicho_data {
+  local use_cache=true
+  local force_refresh=false
+
+  # Check for global flags from hcnews.sh if this script is sourced
+  if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
+    use_cache=false
+  fi
+  if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
+    force_refresh=true
+  fi
+
+  local date_format
+  date_format=$(date +"%Y%m%d")
+  
+  # Ensure the cache directory exists
+  mkdir -p "$_bicho_CACHE_DIR"
+  local cache_file="${_bicho_CACHE_DIR}/${date_format}_bicho.cache"
+
+  # Check cache first (unless force refresh is requested)
+  if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then
+    cat "$cache_file"
+    return 0
+  fi
+
   # Download the webpage and extract the raw data
-  curl -s "https://www.ojogodobicho.com/palpite.htm" |
-  pup 'div.content ul.inline-list json{}' |
-  jq -r '.[] | .children | map(.text) | join(" ")'
+  local bicho_data
+  bicho_data=$(curl -s "https://www.ojogodobicho.com/palpite.htm" |
+    pup 'div.content ul.inline-list json{}' |
+    jq -r '.[] | .children | map(.text) | join(" ")')
+
+  # Save to cache if caching is enabled
+  if [[ "$use_cache" == true && -n "$bicho_data" ]]; then
+    echo "$bicho_data" > "$cache_file"
+  fi
+
+  echo "$bicho_data"
 }
 
 function format_bicho_data {

@@ -11,7 +11,11 @@ if [[ "$@" == *"--telegram"* ]]; then
 fi
 
 # Cache directory - use the same directory as ru.sh
-CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
+CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/weather"
+# Ensure the cache directory exists
+if [[ ! -d "$CACHE_DIR" ]]; then
+    mkdir -p "$CACHE_DIR"
+fi
 CACHE_TTL_SECONDS=$((3 * 60 * 60)) # 3 hours
 mkdir -p "$CACHE_DIR"
 

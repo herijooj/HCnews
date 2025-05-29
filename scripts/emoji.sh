@@ -12,7 +12,7 @@ function get_emoji() {
         exit 1
     fi
 
-    # Use awk to filter and extract emoji info, then shuf to select a random line
+    # Much faster: use awk to filter and shuf to randomize in one pipeline
     emoji_info=$(awk '!/^#/ && NF {split($0,a,"#"); if(a[2]) print substr(a[2],2)}' "$EMOJI_TEST_FILE" | shuf -n 1)
     echo "$emoji_info"
 }

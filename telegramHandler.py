@@ -12,7 +12,7 @@ from config.keyboard import get_main_menu, get_return_button
 from handlers.weather_handler import send_weather
 from handlers.exchange_handler import send_exchange
 from handlers.bicho_handler import send_bicho
-from handlers.horoscope_handler import send_horoscope, handle_horoscope_selection
+from handlers.horoscope_handler import send_horoscope
 from handlers.ru_handler import send_ru_menu, handle_ru_selection
 from handlers.rss_handler import (
     handle_rss_menu, handle_set_rss, handle_url_input, handle_clear_rss,
@@ -102,9 +102,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) ->
         # horoscope_handler.py functions should now rely on horoscopo.sh for caching.
         # Any Python-level caching in horoscope_handler.py should be removed.
         await send_horoscope(update, context)
-    elif query.data.startswith("horoscope_"):
-        # horoscope_handler.py functions should now rely on horoscopo.sh for caching.
-        await handle_horoscope_selection(update, context, query.data)
     elif query.data == "weather":
         # weather_handler.py functions should now rely on weather.sh for caching.
         # Any Python-level caching in weather_handler.py should be removed.

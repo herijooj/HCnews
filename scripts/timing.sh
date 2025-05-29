@@ -7,6 +7,11 @@ declare -A TIMING_DATA
 # Start timing a function
 # Usage: start_timing "function_name"
 start_timing() {
+    # Only do timing work if timing is enabled
+    if [[ "$timing" != true ]]; then
+        return 0
+    fi
+    
     local func_name=$1
     TIMING_DATA["${func_name}_start"]=$(date +%s%N)
 }
@@ -14,6 +19,11 @@ start_timing() {
 # End timing a function and print the result
 # Usage: end_timing "function_name"
 end_timing() {
+    # Only do timing work if timing is enabled
+    if [[ "$timing" != true ]]; then
+        return 0
+    fi
+    
     local func_name=$1
     local end_time=$(date +%s%N)
     local start_time=${TIMING_DATA["${func_name}_start"]}
@@ -28,11 +38,6 @@ end_timing() {
     
     # Store the function name in the list of timed functions
     TIMING_DATA["timed_functions"]="${TIMING_DATA["timed_functions"]} $func_name"
-    
-    # Only print the elapsed time if timing is enabled
-    if [[ "$timing" == true ]]; then
-        echo "$elapsed_ms"
-    fi
 }
 
 # Print timing for a specific function
