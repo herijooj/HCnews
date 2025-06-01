@@ -27,3 +27,42 @@ def split_message(text: str) -> List[str]:
         chunks.append(current_chunk.rstrip())
     
     return chunks
+
+def escape_markdownv2(text: str) -> str:
+    """
+    Escape special characters for MarkdownV2.
+    
+    MarkdownV2 requires these characters to be escaped: _*[]()~`>#+-=|{}.!
+    This version escapes ALL special characters to ensure parsing always works.
+    """
+    if not text:
+        return text
+    
+    # Characters that need to be escaped in MarkdownV2
+    # We'll escape ALL of them to be safe
+    escape_chars = {
+        '_': r'\_',
+        '*': r'\*',
+        '[': r'\[',
+        ']': r'\]',
+        '(': r'\(',
+        ')': r'\)',
+        '~': r'\~',
+        '`': r'\`',
+        '>': r'\>',
+        '#': r'\#',
+        '+': r'\+',
+        '-': r'\-',
+        '=': r'\=',
+        '|': r'\|',
+        '{': r'\{',
+        '}': r'\}',
+        '.': r'\.',
+        '!': r'\!',
+    }
+    
+    # Apply escaping for each character
+    for char, escaped in escape_chars.items():
+        text = text.replace(char, escaped)
+    
+    return text

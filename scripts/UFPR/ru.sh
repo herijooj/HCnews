@@ -111,23 +111,40 @@ function list_locations() {
 
 # Function to get today's day of the week in Portuguese
 function get_today_weekday() {
-    # Get day of week (0-6, Sunday is 0)
-    local DOW=$(date +%w)
-    
-    case "$DOW" in
-        0) echo "Domingo" ;;
-        1) echo "Segunda-feira" ;;
-        2) echo "Terça-feira" ;;
-        3) echo "Quarta-feira" ;;
-        4) echo "Quinta-feira" ;;
-        5) echo "Sexta-feira" ;;
-        6) echo "Sábado" ;;
-    esac
+    # Use cached weekday if available, otherwise fall back to date command
+    if [[ -n "$weekday" ]]; then
+        case "$weekday" in
+            1) echo "Segunda-feira" ;;
+            2) echo "Terça-feira" ;;
+            3) echo "Quarta-feira" ;;
+            4) echo "Quinta-feira" ;;
+            5) echo "Sexta-feira" ;;
+            6) echo "Sábado" ;;
+            7) echo "Domingo" ;;
+        esac
+    else
+        # Fallback to date command
+        local DOW=$(date +%w)
+        case "$DOW" in
+            0) echo "Domingo" ;;
+            1) echo "Segunda-feira" ;;
+            2) echo "Terça-feira" ;;
+            3) echo "Quarta-feira" ;;
+            4) echo "Quinta-feira" ;;
+            5) echo "Sexta-feira" ;;
+            6) echo "Sábado" ;;
+        esac
+    fi
 }
 
 # Function to get date in YYYYMMDD format
 function get_date_format() {
-    date +"%Y%m%d"
+    # Use cached date_format if available, otherwise fall back to date command
+    if [[ -n "$date_format" ]]; then
+        echo "$date_format"
+    else
+        date +"%Y%m%d"
+    fi
 }
 
 # Function to check if cache exists and is from today
@@ -177,11 +194,93 @@ function get_menu () {
 
     URL="${RU_LOCATIONS[$SELECTED_LOCATION]}"
 
-    # Fetch the webpage content and extract the relevant section
-    CONTENT=$(curl -s "$URL" | pup 'div#conteudo')
+    # Ultra-optimized single-pass processing
+    OUTPUT=$(curl -s --compressed --connect-timeout 5 --max-time 10 "$URL" | \
+        pup 'div#conteudo' | \
+        sed -e '/<style>/,/<\/style>/d' -e 's/<[^>]*>//g' | \
+        awk '
+        BEGIN { 
+            print "🍽️  Cardápio RU Politecnico"
+            skip = 0
+            current_line = ""
+        }
+        /SENHOR USUÁRIO/ { skip = 1; next }
+        /LEGENDA/ { skip = 1; next }
+        /Cardápio sujeito/ { skip = 1; next }
+        skip { next }
+        /^[[:space:]]*$/ { next }
+        /Cardápio RU/ { next }
+        /:/ && (/table|background|border|padding|margin|color|font|width|height|display|overflow/) { next }
+        /\{|\}/ { next }
+        /\.wp-block/ { next }
+        /Café da manhã/ { 
+            if (current_line != "") { print current_line; current_line = "" }
+            print "\n🥪 *CAFÉ DA MANHÃ* 🥪"
+            next 
+        }
+        /Almoço/ { 
+            if (current_line != "") { print current_line; current_line = "" }
+            print "\n🍝 *ALMOÇO* 🍝"
+            next 
+        }
+        /Jantar/ { 
+            if (current_line != "") { print current_line; current_line = "" }
+            print "\n🍛 *JANTAR* 🍛"
+            next 
+        }
+        /(Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira.*[0-9]/ {
+            if (current_line != "") { print current_line; current_line = "" }
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+            # Split day and date using mawk-compatible approach
+            pos = match($0, /[0-9]/)
+            if (pos > 0) {
+                day = substr($0, 1, pos-1)
+                date = substr($0, pos)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", day)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", date)
+                print "\n📅 *" day "* " date
+            }
+            next
+        }
+        /^(Contêm|Contém|Indicado)/ { next }
+        {
+            # Check for connectives BEFORE trimming whitespace
+            if (/^[[:space:]]*e / || /^[[:space:]]*\+/ || /^[[:space:]]*Molho para salada:/) {
+                # This is a connective line - trim and process
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+                gsub(/Molho para salada:/, "+")
+                
+                # Append to current line if one exists
+                if (current_line != "") {
+                    current_line = current_line " " $0
+                } else {
+                    # No previous line, treat as new item
+                    current_line = "- " $0
+                }
+                next
+            }
+            
+            # Regular line processing
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+            if (length($0) == 0) next
+            gsub(/2ª [Oo]pção:/, "ou")
+            
+            # Print any pending line first
+            if (current_line != "") {
+                print current_line
+            }
+            # Start a new line
+            current_line = "- " $0
+        }
+        END {
+            # Print any remaining line
+            if (current_line != "") {
+                print current_line
+            }
+        }')
 
     # Check if the content is empty (RU closed or special menu)
-    if [[ -z "$CONTENT" ]]; then
+    if [[ -z "$OUTPUT" || "$OUTPUT" == "🍽️  Cardápio RU Politecnico" ]]; then
         if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             echo "O RU está fechado ou o cardápio é especial."
         else
@@ -189,75 +288,13 @@ function get_menu () {
         fi
         return
     fi
-
-    # Process the content: remove unnecessary lines, convert images to emojis, and clean up HTML
-    MENU=$(echo "$CONTENT" |
-        sed '/<style>/,/<\/style>/d' |  # Remove style tags and their content 
-        sed '/<hr>/d' | 
-        sed '/class="wp-block-table"/d' |
-        sed '/class="has-fixed-layout"/d' |
-        sed '/<tbody>/d' |
-        sed '/<\/tbody>/d' |
-        sed '/<figure>/d' |
-        sed '/<\/figure>/d' |
-        sed 's/<img[^>]*src="\\([^"]*\\)"[^>]*>/\\n\\1/g' |
-        while read -r line; do
-          if [[ "$line" == http* ]]; then
-            echo "$(menu_to_emoji "$line")"
-          else
-            echo "$line"
-          fi
-        done |
-        sed 's/<br \/>//g' |
-        while read -r line; do
-            echo "$(get_inside_tags "$line")"
-        done |
-        sed '/^$/d')
-    
-    # delete everthing afer "SENHOR USUÁRIO"
-    MENU=$(echo "$MENU" | sed -n '/SENHOR USUÁRIO/q;p')
-    # if the line has only ")" it should go to the previous line
-    MENU=$(echo "$MENU" | sed ':a;N;$!ba;s/\n)/)/g')
-    # add emojis to the start and end of the first line
-    MENU=$(echo "$MENU" | sed '1s/^/🍽️  /')
-    # Format the menu output
-    OUTPUT=""
-    PREVIOUS_LINE=""
-    while read -r line; do
-        if [[ "$(is_meal "$line")" != "" ]]; then
-            OUTPUT+=$'\n'"$(is_meal "$line")"$'\n'
-        elif [[ "$line" =~ (Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira ]]; then
-            # Extract the day name (everything before the first digit)
-            DAY_NAME=$(echo "$line" | sed -E 's/^([^0-9]+)[0-9].*/\1/' | xargs)
-            # Extract the date (everything from the first digit onwards)
-            DATE=$(echo "$line" | sed -E 's/^[^0-9]+([0-9].+)/\1/' | xargs)
-            # Use just one newline before each date
-            OUTPUT+=$'\n'"📅 *$DAY_NAME* $DATE"
-        elif [[ ! -z "$line" ]]; then
-            # Replace "Molho para salada:" with "+"
-            if [[ "$line" == *"Molho para salada:"* ]]; then
-                line="${line/Molho para salada:/+}"
-            fi
-            # Replace "2ª Opção:" with "ou"
-            if [[ "$line" == *"2ª Opção:"* ]]; then
-                line="${line/2ª Opção:/ou}"
-            fi
-            # Check if this line is a continuation of the previous line
-            if [[ "$line" == "e "* || "$line" == "("* || "$line" == "+"* ]]; then
-                OUTPUT="${OUTPUT%$'\n'} $line"$'\n'
-            else
-                OUTPUT+="- $line"$'\n'
-            fi
-        fi
-        PREVIOUS_LINE="$line"
-    done <<< "$MENU"
     
     # Write to cache if cache is enabled
     if [ "$_ru_USE_CACHE" = true ]; then
         write_cache "$SELECTED_LOCATION" "$OUTPUT"
     fi
 
-    echo -e "$OUTPUT"
+    echo "$OUTPUT"
 }
 
 # Function to display the menu
@@ -294,6 +331,11 @@ function write_menu () {
                 else
                     INCLUDE_SECTION=false
                 fi
+            elif [[ "$line" == *"🥪"* || "$line" == *"🍝"* || "$line" == *"🍛"* ]]; then
+                # This is a meal section header
+                if [ "$INCLUDE_SECTION" = true ]; then
+                    FILTERED+="$line"$'\n'
+                fi
             elif [ "$INCLUDE_SECTION" = true ]; then
                 # Only add non-empty lines for the included section
                 if [[ -n "$line" ]]; then
@@ -302,17 +344,17 @@ function write_menu () {
             fi
         done <<< "$MENU_WITHOUT_HEADER"
 
-        echo -e "$HEADER" # Print header with single dash
+        echo -e "$HEADER" # Print header
         echo "" # Add a blank line
 
         if [ -z "$FILTERED" ]; then
             echo "Não há cardápio disponível para hoje ($TODAY)."
         else
-            # Trim potential trailing newline from FILTERED before printing
+            # Print the filtered content with proper formatting
             echo -e "${FILTERED%$'\n'}"
         fi
     else
-        # Original behavior: print the whole menu with a single dash for the header
+        # Original behavior: print the whole menu
         echo -e "$HEADER"
         # Print the rest of the menu as is
         echo -e "$(echo "$MENU" | tail -n +2)"

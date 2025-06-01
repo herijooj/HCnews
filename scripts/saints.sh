@@ -38,7 +38,12 @@ done
 
 # Function to get today's date in YYYYMMDD format (same as RU script)
 get_date_format() {
-  date +"%Y%m%d"
+  # Use cached date_format if available, otherwise fall back to date command
+  if [[ -n "$date_format" ]]; then
+    echo "$date_format"
+  else
+    date +"%Y%m%d"
+  fi
 }
 
 # Function to check if cache exists and is valid and within TTL
@@ -49,7 +54,12 @@ check_cache() {
     local file_mod_time
     file_mod_time=$(stat -c %Y "$cache_file_path")
     local current_time
-    current_time=$(date +%s)
+    # Use cached start_time if available, otherwise fall back to date command
+    if [[ -n "$start_time" ]]; then
+      current_time="$start_time"
+    else
+      current_time=$(date +%s)
+    fi
     if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
       # Cache exists, not forced, and within TTL
       return 0
@@ -90,14 +100,19 @@ get_saints_of_the_day_verbose () {
       return 0
     fi
     
-    # Get the current month and day.
-    local month
-    local day
-    month=$(date +%m)
-    day=$(date +%d)
+    # Get the current month and day using cached values if available
+    local month_local
+    local day_local
+    if [[ -n "$month" && -n "$day" ]]; then
+        month_local="$month"
+        day_local="$day"
+    else
+        month_local=$(date +%m)
+        day_local=$(date +%d)
+    fi
 
     # Get the URL
-    local url="https://www.vaticannews.va/pt/santo-do-dia/$month/$day.html"
+    local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"
 
     # Only the names
     local names
@@ -152,14 +167,19 @@ get_saints_of_the_day () {
       return 0
     fi
     
-    # Get the current month and day.
-    local month
-    local day
-    month=$(date +%m)
-    day=$(date +%d)
+    # Get the current month and day using cached values if available
+    local month_local
+    local day_local
+    if [[ -n "$month" && -n "$day" ]]; then
+        month_local="$month"
+        day_local="$day"
+    else
+        month_local=$(date +%m)
+        day_local=$(date +%d)
+    fi
 
     # Get the URL
-    local url="https://www.vaticannews.va/pt/santo-do-dia/$month/$day.html"
+    local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"
 
     # Only the names
     local names

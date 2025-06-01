@@ -29,7 +29,12 @@ function format_sign_name {
 
 # Function to get today's date in YYYYMMDD format
 get_date_format() {
-    date +"%Y%m%d"
+    # Use cached date_format if available, otherwise fall back to date command
+    if [[ -n "$date_format" ]]; then
+        echo "$date_format"
+    else
+        date +"%Y%m%d"
+    fi
 }
 
 # Function to check if cache exists and is from today and within TTL
@@ -40,7 +45,12 @@ check_cache() {
         local file_mod_time
         file_mod_time=$(stat -c %Y "$cache_file_path")
         local current_time
-        current_time=$(date +%s)
+        # Use cached start_time if available, otherwise fall back to date command
+        if [[ -n "$start_time" ]]; then
+            current_time="$start_time"
+        else
+            current_time=$(date +%s)
+        fi
         if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
             # Cache exists, not forced, and within TTL
             return 0

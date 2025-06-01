@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from config.constants import SCRIPT_PATHS
 from config.keyboard import get_return_button
-from utils.text_utils import clean_ansi
+from utils.text_utils import clean_ansi, escape_markdownv2
 
 logger = logging.getLogger(__name__)
 
@@ -70,16 +70,16 @@ async def send_weather(update: Update, context: ContextTypes.DEFAULT_TYPE, city:
             
         weather_text = clean_ansi(result.stdout)
 
-        # Send the message using Markdown parse mode
+        # Send the message using MarkdownV2 parse mode
         try:
             await message.reply_text(
-                text=weather_text,
-                parse_mode='Markdown', # Use Markdown as the script already formats it
+                text=escape_markdownv2(weather_text),
+                parse_mode='MarkdownV2', # Use MarkdownV2 as the script already formats it
                 reply_markup=get_return_button()
             )
         except Exception as e:
-            logger.warning(f"Failed to send as Markdown: {str(e)}. Sending without parse mode.")
-            # If Markdown fails, send without any parse mode
+            logger.warning(f"Failed to send as MarkdownV2: {str(e)}. Sending without parse mode.")
+            # If MarkdownV2 fails, send without any parse mode
             await message.reply_text(
                 text=weather_text,
                 parse_mode=None,

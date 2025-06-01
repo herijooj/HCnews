@@ -4,6 +4,7 @@ from typing import Dict, List
 from datetime import datetime
 import pytz
 from config.constants import TIMEZONE
+from utils.text_utils import escape_markdownv2
 
 def load_schedules() -> Dict:
     try:
@@ -110,8 +111,8 @@ async def send_scheduled_message(context):
                 
                 await context.bot.send_message(
                     chat_id=chat_id,
-                    text=message,
-                    parse_mode='Markdown',
+                    text=escape_markdownv2(message),
+                    parse_mode='MarkdownV2',
                     reply_markup=get_return_button()
                 )
             else:

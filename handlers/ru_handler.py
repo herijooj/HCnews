@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from config.constants import SCRIPT_PATHS, PROJECT_ROOT, RU_LOCATIONS
 from config.keyboard import get_return_button
-from utils.text_utils import clean_ansi
+from utils.text_utils import clean_ansi, escape_markdownv2
 
 logger = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ async def handle_ru_selection(update: Update, context: ContextTypes.DEFAULT_TYPE
         message = message[:4093] + "..."
     
     await query.message.edit_text(
-        message,
+        escape_markdownv2(message),
         reply_markup=get_return_button(),
-        parse_mode='Markdown'
+        parse_mode='MarkdownV2'
     )

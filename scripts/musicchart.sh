@@ -37,7 +37,12 @@ fi
 
 # Function to get today's date in YYYYMMDD format
 get_date_format() {
-  date +"%Y%m%d"
+  # Use cached date_format if available, otherwise fall back to date command
+  if [[ -n "$date_format" ]]; then
+    echo "$date_format"
+  else
+    date +"%Y%m%d"
+  fi
 }
 
 # Function to check if cache exists and is from today and within TTL
@@ -48,7 +53,12 @@ check_cache() {
     local file_mod_time
     file_mod_time=$(stat -c %Y "$cache_file_path")
     local current_time
-    current_time=$(date +%s)
+    # Use cached start_time if available, otherwise fall back to date command
+    if [[ -n "$start_time" ]]; then
+      current_time="$start_time"
+    else
+      current_time=$(date +%s)
+    fi
     if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
       # Cache exists, not forced, and within TTL
       return 0
@@ -73,7 +83,6 @@ write_cache() {
 
 # optimized get_music_chart using caching and faster requests
 function get_music_chart () {
-  local html title artist i
   local date_format
   date_format=$(get_date_format)
   local cache_file="${_musicchart_CACHE_BASE_DIR}/${date_format}.musicchart"
@@ -84,36 +93,93 @@ function get_music_chart () {
     return
   fi
   
-  # Optimized curl with timeout and compression
-  html=$(curl -s --compressed --max-time 5 --connect-timeout 3 \
-         --user-agent "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \
-         https://genius.com/#top-songs)
+  # Optimized curl with aggressive timeouts and better headers
+  local html
+  html=$(timeout 8s curl -s --compressed --max-time 6 --connect-timeout 2 \
+         --retry 1 --retry-delay 0 --fail \
+         -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
+         -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+         -H "Accept-Language: en-US,en;q=0.5" \
+         -H "Accept-Encoding: gzip, deflate" \
+         "https://genius.com/#top-songs" 2>/dev/null)
     
-  # Save HTML to temp file for processing if successful
-  local temp_html_file
-  if [[ -n "$html" ]]; then
-    temp_html_file=$(mktemp)
-    echo "$html" > "$temp_html_file"
-  else
+  # Quick validation - fail fast if no data
+  if [[ -z "$html" || ${#html} -lt 1000 ]]; then
     echo "Failed to retrieve chart data" >&2
     return 1
   fi
 
-  # Process HTML and generate output
-  local output_content=""
-  mapfile -t titles < <(pup 'div[class*="ChartSong-desktop__Title"] text{}' < "$temp_html_file" | head -10)
-  mapfile -t artists < <(pup 'h4[class*="ChartSong-desktop"] text{}' < "$temp_html_file" | head -10)
-  rm -f "$temp_html_file" # Clean up temp file
-    
-  for i in "${!titles[@]}"; do
-    title=$(decode_html_entities "${titles[i]}")
-    artist=$(decode_html_entities "${artists[i]}")
-    output_content+="- $((i+1)). \`$title - $artist\`"$'\n'
-  done
+  # Single-pass HTML processing - extract both titles and artists in one go
+  local combined_data
+  combined_data=$(echo "$html" | timeout 5s pup 'div[class*="ChartSong-desktop"] json{}' 2>/dev/null | \
+    timeout 3s jq -r '.[] | 
+      select(.children and (.children | length > 0)) |
+      .children[] | 
+      select(.tag == "div" and (.class // "" | contains("ChartSongDesktop__Right"))) |
+      (.children[] | select(.tag == "div" and (.class // "" | contains("ChartSong-desktop__Title"))) | .text // empty),
+      (.children[] | select(.tag == "h4") | .text // empty)' 2>/dev/null | \
+    head -20)
   
-  # Write to cache if cache is enabled
+  # Build output efficiently
+  local output_content=""
+  local count=0
+  local title=""
+  local expecting_artist=false
+  
+  while IFS= read -r line && [[ $count -lt 10 ]]; do
+    [[ -z "$line" ]] && continue
+    
+    if [[ "$expecting_artist" == false ]]; then
+      # This should be a title
+      title=$(decode_html_entities "$line")
+      expecting_artist=true
+    else
+      # This should be an artist
+      local artist
+      artist=$(decode_html_entities "$line")
+      ((count++))
+      output_content+="- $count. \`$title - $artist\`"$'\n'
+      expecting_artist=false
+    fi
+  done <<< "$combined_data"
+  
+  # Fallback method if the above doesn't work
+  if [[ $count -eq 0 ]]; then
+    # Simple fallback extraction
+    local titles artists
+    titles=$(echo "$html" | timeout 3s pup 'div[class*="ChartSong-desktop__Title"] text{}' 2>/dev/null | head -10)
+    artists=$(echo "$html" | timeout 3s pup 'h4[class*="ChartSong-desktop"] text{}' 2>/dev/null | head -10)
+    
+    if [[ -n "$titles" && -n "$artists" ]]; then
+      local title_array=()
+      local artist_array=()
+      
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && title_array+=("$(decode_html_entities "$line")")
+      done <<< "$titles"
+      
+      while IFS= read -r line; do
+        [[ -n "$line" ]] && artist_array+=("$(decode_html_entities "$line")")
+      done <<< "$artists"
+      
+      for i in "${!title_array[@]}"; do
+        if [[ $i -lt ${#artist_array[@]} ]]; then
+          ((count++))
+          output_content+="- $count. \`${title_array[i]} - ${artist_array[i]}\`"$'\n'
+          [[ $count -ge 10 ]] && break
+        fi
+      done
+    fi
+  fi
+  
+  # Final fallback if still no data
+  if [[ $count -eq 0 ]]; then
+    output_content="- Chart data temporarily unavailable"$'\n'
+  fi
+  
+  # Async cache write for better performance
   if [ "$_musicchart_USE_CACHE" = true ]; then
-    write_cache "$cache_file" "$output_content"
+    (write_cache "$cache_file" "$output_content") &
   fi
   
   echo "$output_content"
@@ -148,15 +214,27 @@ show_help() {
   echo "  -f, --force: Force refresh cache"
 }
 
-# optimized argument parsing with getopts
+# optimized argument parsing
 get_arguments() {
-  while getopts ":hnf" opt; do # Added n and f for no-cache and force
-    case $opt in
-      h) show_help; exit ;;
-      n) _musicchart_USE_CACHE=false ;; # Set _musicchart_USE_CACHE to false
-      f) _musicchart_FORCE_REFRESH=true ;; # Set _musicchart_FORCE_REFRESH to true
-      *) show_help; exit 1 ;;
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)
+        show_help
+        exit 0
+        ;;
+      -n|--no-cache)
+        _musicchart_USE_CACHE=false
+        ;;
+      -f|--force)
+        _musicchart_FORCE_REFRESH=true
+        ;;
+      *)
+        echo "Invalid argument: $1"
+        show_help
+        exit 1
+        ;;
     esac
+    shift
   done
 }
 

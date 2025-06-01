@@ -41,15 +41,17 @@ function quote {
     QUOTE=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "description" -n | sed -n 2p)
 
     # convert the quote to ASCII and decode HTML entities
+    # Format the quote with markdown and decode HTML entities
     QUOTE=$(echo "$QUOTE" | iconv -f utf-8 -t ascii//TRANSLIT | sed -e "s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/\"/g; s/&#039;/'/g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&#[0-9]\+;//g")
+    QUOTE="📝 *Frase do dia:*\n_${QUOTE}_\n\n"
 
     # Save to cache if caching is enabled
     if [[ "$use_cache" == true ]]; then
-        echo "$QUOTE" > "$cache_file"
+        echo -e "$QUOTE" > "$cache_file"
     fi
 
     # return the quote
-    echo "$QUOTE"
+    echo -e "$QUOTE"
 }
 
 # -------------------------------- Running locally --------------------------------

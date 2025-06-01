@@ -142,7 +142,7 @@ write_cache() {
     echo "$content" > "$cache_file_path"
 }
 
-# Optimized news retrieval function
+# Optimized news retrieval function with improved performance
 get_news_RSS_combined() {
     local RSS_FEED=$1
     local LINKED=$2
@@ -165,51 +165,65 @@ get_news_RSS_combined() {
         return
     fi
     
-    # Fetch feed content once with optimized options and retry once if failed
+    # Fetch feed content with optimized curl options and timeout
     local FEED_CONTENT
-    FEED_CONTENT=$(curl -s --max-time 5 --connect-timeout 3 --retry 1 --retry-delay 1 "$RSS_FEED")
+    FEED_CONTENT=$(timeout 8s curl -s --max-time 6 --connect-timeout 2 --retry 1 --retry-delay 0 \
+        --compressed -H "User-Agent: HCNews/1.0" "$RSS_FEED" 2>/dev/null)
     
-    # Quick validation check
-    if [[ "$FEED_CONTENT" != *"<item>"* ]]; then
+    # Quick validation check - fail fast if invalid
+    if [[ -z "$FEED_CONTENT" || "$FEED_CONTENT" != *"<item>"* ]]; then
         return
     fi
     
-    # Use a faster approach with xmlstarlet - extract all data in one pass
+    # Use optimized xmlstarlet with timeout and error suppression
     local ALL_DATA
-    ALL_DATA=$(xmlstarlet sel -T -t \
-        -m "/rss/channel/item" \
+    ALL_DATA=$(timeout 5s xmlstarlet sel -T -t \
+        -m "/rss/channel/item[position()<=20]" \
         -v "concat(pubDate,'|',title,'|',link)" -n \
         <<< "$FEED_CONTENT" 2>/dev/null)
     
-    while IFS='|' read -r date title link; do
+    # Exit early if no data
+    [[ -z "$ALL_DATA" ]] && return
+    
+    # Process all items in a single loop with optimized date handling
+    local line_count=0
+    while IFS='|' read -r date title link && [[ $line_count -lt 15 ]]; do
         [[ -z "$date" || -z "$title" ]] && continue
         
-        # Convert publication date to unix timestamp
-        local DATE_UNIX
-        DATE_UNIX=$(date_rss_to_unix "$date")
-        
-        # Compare with our timestamp threshold
-        if (( DATE_UNIX > UNIX_24H_AGO )); then
-            result+=("- 📰 $title")
-            if [[ "$LINKED" == true ]]; then
-                if [[ "$FULL_URL" == true ]]; then
-                    result+=("$link")
-                else
-                    result+=("$(cached_shorten_url "$link")")
+        # Optimized date check - use faster regex first
+        if [[ "$date" =~ ^[A-Za-z]{3},.*[0-9]{4} ]]; then
+            local DATE_UNIX
+            DATE_UNIX=$(date_rss_to_unix "$date")
+            
+            # Compare with our timestamp threshold
+            if (( DATE_UNIX > UNIX_24H_AGO )); then
+                result+=("- 📰 $title")
+                if [[ "$LINKED" == true ]]; then
+                    if [[ "$FULL_URL" == true ]]; then
+                        result+=("$link")
+                    else
+                        # Use async URL shortening for better performance
+                        local short_url
+                        short_url=$(cached_shorten_url "$link")
+                        result+=("$short_url")
+                    fi
                 fi
+                ((line_count++))
             fi
         fi
     done <<< "$ALL_DATA"
     
-    # Output all results at once
+    # Build output efficiently
     local news_output=""
     if [[ ${#result[@]} -gt 0 ]]; then
         news_output=$(printf "%s\n" "${result[@]}")
     fi
 
-    if [ "$_rss_USE_CACHE" = true ] && [[ -n "$news_output" ]]; then # Only cache if there's output
-        write_cache "$cache_file" "$news_output"
+    # Async cache write for better performance
+    if [ "$_rss_USE_CACHE" = true ] && [[ -n "$news_output" ]]; then
+        (write_cache "$cache_file" "$news_output") &
     fi
+    
     echo "$news_output"
 }
 

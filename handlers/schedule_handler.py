@@ -6,6 +6,7 @@ from config.constants import MESSAGE_TYPES, RU_LOCATIONS, TIMEZONE
 from config.keyboard import get_return_button, get_schedule_menu
 from utils.schedule_utils import load_schedules, add_schedule, remove_schedule, save_schedules  # Added save_schedules
 from utils.rss_utils import get_rss_feeds
+from utils.text_utils import escape_markdownv2
 
 logger = logging.getLogger(__name__)
 
@@ -109,16 +110,16 @@ async def handle_schedule_menu(update: Update, context: ContextTypes.DEFAULT_TYP
     schedules_text = format_schedules(chat_id)
     try:
         await query.message.edit_text(
-            f"{schedules_text}\n\nEscolha uma opção:",
+            f"{escape_markdownv2(schedules_text)}\n\nEscolha uma opção:",
             reply_markup=get_schedule_menu(),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
     except Exception as e:
         logger.info(f"Could not edit message for schedule menu, sending new: {str(e)}")
         await query.message.reply_text(
-            f"{schedules_text}\n\nEscolha uma opção:",
+            f"{escape_markdownv2(schedules_text)}\n\nEscolha uma opção:",
             reply_markup=get_schedule_menu(),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
     return SELECTING_ACTION
 

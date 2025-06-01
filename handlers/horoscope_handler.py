@@ -6,7 +6,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from config.constants import SCRIPT_PATHS, PROJECT_ROOT
 from config.keyboard import get_return_button
-from utils.text_utils import clean_ansi, split_message
+from utils.text_utils import clean_ansi, split_message, escape_markdownv2
 
 logger = logging.getLogger(__name__)
 
@@ -64,17 +64,17 @@ async def send_horoscope(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         # Send first message by editing the existing one
         await query.message.edit_text(
-            messages[0],
+            escape_markdownv2(messages[0]),
             reply_markup=get_return_button() if len(messages) == 1 else None,
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
         
         # Send remaining messages as new messages
         for i, msg_part in enumerate(messages[1:], 1):
             await query.message.reply_text(
-                msg_part,
+                escape_markdownv2(msg_part),
                 reply_markup=get_return_button() if i == len(messages) - 1 else None,
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
     except Exception as e:
         logger.error(f"Error sending horoscope messages: {str(e)}")

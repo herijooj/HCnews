@@ -6,9 +6,13 @@ source tokens.sh
 # === Configuration ===
 
 # --- API & Prompt Settings ---
-readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
-#readonly MAX_WORDS=25
-readonly MAX_OUTPUT_TOKENS=150
+# Use conditional readonly to prevent errors on re-sourcing
+if [[ -z "${API_ENDPOINT:-}" ]]; then
+    readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
+fi
+if [[ -z "${MAX_OUTPUT_TOKENS:-}" ]]; then
+    readonly MAX_OUTPUT_TOKENS=150
+fi
 
 # --- Cache Settings ---
 _futuro_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")

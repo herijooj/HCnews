@@ -7,7 +7,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from config.constants import SCRIPT_PATHS
 from config.keyboard import get_news_menu, get_return_button
-from utils.text_utils import clean_ansi, split_message
+from utils.text_utils import clean_ansi, split_message, escape_markdownv2
 
 logger = logging.getLogger(__name__)
 
@@ -111,14 +111,39 @@ async def send_news_as_message(update: Update, context: ContextTypes.DEFAULT_TYP
         return
         
     content_for_message = "📰 Notícias do dia\n\n" + clean_ansi(news_content_raw.strip())
+    
+    # Escape content for MarkdownV2
+    escaped_content = escape_markdownv2(content_for_message)
         
-    messages = split_message(content_for_message)
+    messages = split_message(escaped_content)
     try:
         for i, msg_part in enumerate(messages):
             if i == len(messages) - 1:
-                await update.effective_message.reply_text(msg_part, reply_markup=get_return_button())
+                try:
+                    await update.effective_message.reply_text(
+                        msg_part, 
+                        parse_mode='MarkdownV2',
+                        reply_markup=get_return_button()
+                    )
+                except Exception as markdown_error:
+                    # If MarkdownV2 parsing fails, send without parse_mode
+                    logger.warning(f"MarkdownV2 parsing failed, sending without formatting: {str(markdown_error)}")
+                    await update.effective_message.reply_text(
+                        msg_part, 
+                        reply_markup=get_return_button()
+                    )
             else:
-                await update.effective_message.reply_text(msg_part)
+                try:
+                    await update.effective_message.reply_text(
+                        msg_part,
+                        parse_mode='MarkdownV2'
+                    )
+                except Exception as markdown_error:
+                    # If MarkdownV2 parsing fails, send without parse_mode
+                    logger.warning(f"MarkdownV2 parsing failed, sending without formatting: {str(markdown_error)}")
+                    await update.effective_message.reply_text(
+                        msg_part
+                    )
     except Exception as e:
         logger.error(f"Error sending news as message parts: {str(e)}")
         await update.effective_message.reply_text(

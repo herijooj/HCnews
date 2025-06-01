@@ -7,6 +7,8 @@ SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 # Source all the required scripts
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
+source "$SCRIPT_DIR/scripts/moonphase.sh"
+source "$SCRIPT_DIR/scripts/quote.sh"
 source "$SCRIPT_DIR/scripts/saints.sh"
 source "$SCRIPT_DIR/scripts/rss.sh"
 source "$SCRIPT_DIR/scripts/exchange.sh"
@@ -20,23 +22,104 @@ source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
 source "$SCRIPT_DIR/scripts/emoji.sh"
 source "$SCRIPT_DIR/scripts/futuro.sh"
+source "$SCRIPT_DIR/scripts/sanepar.sh"
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
 
 # ==================================================================================
 
+# Global date caching for performance optimization
+start_time_precise=$(date +%s.%N)
+current_time=$(date '+%d/%m/%Y %H:%M:%S')
+weekday=$(date +%u)  # 1=Monday, 7=Sunday
+month=$(date +%m)
+day=$(date +%d)
+date_format=$(date +"%Y%m%d")
+
 # Functions ========================================================================
+
+# Background job management for parallel network operations
+declare -A background_jobs
+declare -A job_outputs
+declare -A job_timings
+
+# Start a network operation in background with timing
+start_background_job() {
+    local job_name="$1"
+    local command="$2"
+    local temp_file=$(mktemp)
+    local timing_file=$(mktemp)
+    
+    # Wrap command with timing if timing is enabled
+    local timed_command="$command"
+    if [[ "$timing" == true ]]; then
+        timed_command="start_time=\$(date +%s%N); $command; end_time=\$(date +%s%N); echo \$(((\$end_time - \$start_time) / 1000000)) > $timing_file"
+    fi
+    
+    # Run command in background and store PID
+    eval "$timed_command" > "$temp_file" 2>&1 &
+    local pid=$!
+    
+    background_jobs["$job_name"]="$pid:$temp_file:$timing_file"
+}
+
+# Wait for a background job and get its output
+wait_for_job() {
+    local job_name="$1"
+    local job_info="${background_jobs[$job_name]}"
+    
+    if [[ -n "$job_info" ]]; then
+        local pid="${job_info%%:*}"
+        local temp_file="${job_info#*:}"
+        temp_file="${temp_file%%:*}"
+        local timing_file="${job_info##*:}"
+        
+        # Wait for the job to complete with timeout
+        local timeout=30
+        local elapsed=0
+        while kill -0 "$pid" 2>/dev/null; do
+            sleep 0.1
+            elapsed=$((elapsed + 1))
+            if [[ $elapsed -gt $((timeout * 10)) ]]; then
+                kill "$pid" 2>/dev/null
+                echo "⚠️ Background job '$job_name' timed out after ${timeout}s"
+                rm -f "$temp_file" "$timing_file"
+                return 1
+            fi
+        done
+        
+        # Store timing data if available
+        if [[ "$timing" == true && -f "$timing_file" ]]; then
+            local job_time=$(cat "$timing_file" 2>/dev/null)
+            if [[ -n "$job_time" && "$job_time" =~ ^[0-9]+$ ]]; then
+                TIMING_DATA["${job_name}_elapsed"]=$job_time
+                TIMING_DATA["timed_functions"]="${TIMING_DATA["timed_functions"]} $job_name"
+            fi
+        fi
+        
+        # Get the output and clean up
+        if [[ -f "$temp_file" ]]; then
+            cat "$temp_file"
+            rm -f "$temp_file"
+        fi
+        rm -f "$timing_file"
+        
+        unset background_jobs["$job_name"]
+        return 0
+    fi
+    return 1
+}
 
 # Format elapsed time like F1 lap times (MM:SS.mmm or SS.mmm)
 format_f1_time() {
     local start_time_ns=$1
     local end_time_ns=$2
     
-    # Calculate elapsed time in seconds (with decimal precision)
-    local elapsed_seconds=$(echo "$end_time_ns - $start_time_ns" | bc -l)
+    # Calculate elapsed time in nanoseconds and convert to seconds with decimal precision
+    local elapsed_ns=$((end_time_ns - start_time_ns))
     
-    # Convert to total milliseconds (as integer to avoid floating point issues)
-    local total_ms=$(echo "scale=0; ($elapsed_seconds * 1000 + 0.5)/1" | bc -l)
+    # Convert nanoseconds to milliseconds (integer division)
+    local total_ms=$((elapsed_ns / 1000000))
     
     # Extract minutes, seconds, and milliseconds using only integer arithmetic
     local minutes=$((total_ms / 60000))
@@ -46,7 +129,7 @@ format_f1_time() {
     
     # Format like F1 times
     if [[ $minutes -gt 0 ]]; then
-        printf "%d:%02d.%03d" $minutes $seconds $milliseconds
+        printf "%d:%02d.%03ds" $minutes $seconds $milliseconds
     else
         printf "%d.%03ds" $seconds $milliseconds
     fi
@@ -126,17 +209,17 @@ get_arguments() {
 
 # this function will ask for help
 function help_hcnews {
-    start_timing "help_hcnews"
     echo "🤝 *Quer contribuir com o HCNEWS?*"
     echo "- ✨ https://github.com/herijooj/HCnews"
     echo ""
-    end_timing "help_hcnews"
 }
 
 # Função para imprimir o footer
 function footer {
-    start_timing "footer"
-    end_time_precise=$(date +%s.%N)
+    # Get end time in nanoseconds using the same format as start
+    local end_date=$(date +"%s %N")
+    read end_time_seconds end_time_nanos <<< "$end_date"
+    local end_time_precise=$((end_time_seconds * 1000000000 + end_time_nanos))
     
     # Calculate F1-style elapsed time
     elapsed_f1_time=$(format_f1_time "$start_time_precise" "$end_time_precise")
@@ -153,17 +236,13 @@ function footer {
         echo ""
         print_timing_summary
     fi
-    
-    end_timing "footer"
 }
 
 function hcseguidor {
-    start_timing "hcseguidor"
     echo "🤖 *Quer ser um HCseguidor?*"
     echo "- 📢 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y"
     echo "- 💬 https://bit.ly/m/HCNews"
     echo ""
-    end_timing "hcseguidor"
 }
 
 function output {
@@ -194,10 +273,53 @@ function output {
     # Combine feeds for parallel processing
     all_feeds="${o_popular},${plantao190},${g1}"
 
-    # Write the header
-    start_timing "write_header"
-    write_header
-    end_timing "write_header"
+    # ======= PHASE 1: Start all heavy network operations in parallel =======
+    start_timing "network_parallel_start"
+    
+    # Start the slowest operations first (based on your timing data)
+    start_background_job "music_chart" "(source '$SCRIPT_DIR/scripts/musicchart.sh' $cache_options && write_music_chart)"
+    start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
+    start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
+    start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true)"
+    start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
+    start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"
+    start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
+    start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
+    start_background_job "header_moon" "(source '$SCRIPT_DIR/scripts/moonphase.sh' $cache_options && moon_phase)"
+    start_background_job "header_quote" "(source '$SCRIPT_DIR/scripts/quote.sh' $cache_options && quote)"
+    
+    end_timing "network_parallel_start"
+
+    # ======= PHASE 2: Process fast local operations while network jobs run =======
+    
+    # Write the header core (fast, no network calls)
+    start_timing "write_header_core"
+    write_header_core
+    end_timing "write_header_core"
+
+    # Add moon phase to complete the header
+    start_timing "write_moon_phase"
+    moon_phase_output=$(wait_for_job "header_moon")
+    if [[ $? -eq 0 && -n "$moon_phase_output" ]]; then
+        echo "$moon_phase_output"
+    else
+        # Fallback to synchronous if background job failed
+        moon_phase
+    fi
+    echo ""
+    end_timing "write_moon_phase"
+
+    # Add quote of the day to complete the header section
+    start_timing "write_quote"
+    quote_output=$(wait_for_job "header_quote")
+    if [[ $? -eq 0 && -n "$quote_output" ]]; then
+        echo "$quote_output"
+    else
+        # Fallback to synchronous if background job failed
+        quote
+    fi
+    echo ""
+    end_timing "write_quote"
 
     # Write the holidays
     start_timing "write_holidays"
@@ -209,17 +331,33 @@ function output {
     write_states_birthdays "$month" "$day"
     end_timing "write_states_birthdays"
 
+    # ======= PHASE 3: Collect network results and display in logical order =======
+
     # Write the saint(s) of the day
-    start_timing "write_saints"
-    (source "$SCRIPT_DIR/scripts/saints.sh" $cache_options && write_saints "$saints_verbose")
-    end_timing "write_saints"
+    saints_output=$(wait_for_job "saints")
+    if [[ $? -eq 0 && -n "$saints_output" ]]; then
+        echo "$saints_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_saints"
+        (source "$SCRIPT_DIR/scripts/saints.sh" $cache_options && write_saints "$saints_verbose")
+        end_timing "write_saints"
+    fi
 
     # Write the AI Fortune
-    start_timing "write_ai_fortune"
-    write_ai_fortune
-    end_timing "write_ai_fortune"
+    ai_fortune_output=$(wait_for_job "ai_fortune")
+    if [[ $? -eq 0 && -n "$ai_fortune_output" ]]; then
+        echo "$ai_fortune_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_ai_fortune"
+        write_ai_fortune
+        end_timing "write_ai_fortune"
+    fi
 
-    # Write the exchange rates
+    # Write the exchange rates (still synchronous as it's not in top slowest)
     start_timing "write_exchange"
     (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
     end_timing "write_exchange"
@@ -228,30 +366,65 @@ function output {
     help_hcnews
 
     # Write the music chart
-    start_timing "write_music_chart"
-    (source "$SCRIPT_DIR/scripts/musicchart.sh" $cache_options && write_music_chart)
-    end_timing "write_music_chart"
+    music_chart_output=$(wait_for_job "music_chart")
+    if [[ $? -eq 0 && -n "$music_chart_output" ]]; then
+        echo "$music_chart_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_music_chart"
+        write_music_chart
+        end_timing "write_music_chart"
+    fi
 
     # Write the weather
-    start_timing "write_weather"
-    (source "$SCRIPT_DIR/scripts/weather.sh" $cache_options && write_weather "$city" "false")
-    end_timing "write_weather"
+    weather_output=$(wait_for_job "weather")
+    if [[ $? -eq 0 && -n "$weather_output" ]]; then
+        echo "$weather_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_weather"
+        write_weather "$city"
+        end_timing "write_weather"
+    fi
 
     # Write "Did you know?"
-    start_timing "write_did_you_know"
-    write_did_you_know
-    end_timing "write_did_you_know"
+    didyouknow_output=$(wait_for_job "did_you_know")
+    if [[ $? -eq 0 && -n "$didyouknow_output" ]]; then
+        echo "$didyouknow_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_did_you_know"
+        write_did_you_know
+        end_timing "write_did_you_know"
+    fi
+
+    # Write Sanepar dam levels
+    sanepar_output=$(wait_for_job "sanepar")
+    if [[ $? -eq 0 && -n "$sanepar_output" ]]; then
+        echo "$sanepar_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_sanepar"
+        write_sanepar
+        end_timing "write_sanepar"
+    fi
 
     # Write the palpite of the day
-    start_timing "write_bicho"
-    write_bicho
-    end_timing "write_bicho"
+    bicho_output=$(wait_for_job "bicho")
+    if [[ $? -eq 0 && -n "$bicho_output" ]]; then
+        echo "$bicho_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_bicho"
+        write_bicho
+        end_timing "write_bicho"
+    fi
 
-    # UFPR 
-
-    # time to vacation
-    #write_ferias
-    
     # Help HCNEWS
     hcseguidor
 
@@ -268,23 +441,17 @@ function output {
     write_emoji
     end_timing "write_emoji"
 
-    # Write all news in parallel (major performance improvement)
-    start_timing "write_all_news"
-    (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$news_shortened" true)
-    end_timing "write_all_news"
-
-    # # cinema
-    # echo "🎬 G1 Cinema 🎬"
-    # write_news "$g1cinema" "$news_shortened" "-n"
-
-    # Write the F1 news
-    # start_timing "write_f1_news"
-    # f1_news=$(write_news "$formula1" "$news_shortened")
-    # if [[ -n "$f1_news" ]]; then
-    #     echo "🏎️ F1 🏎️"
-    #     echo "$f1_news"
-    # fi
-    # end_timing "write_f1_news"
+    # Write all news (this was the longest single operation)
+    news_output=$(wait_for_job "all_news")
+    if [[ $? -eq 0 && -n "$news_output" ]]; then
+        echo "$news_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_all_news"
+        (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$news_shortened" true)
+        end_timing "write_all_news"
+    fi
 
     # Write the footer
     footer
@@ -299,9 +466,12 @@ get_arguments "$@"
 
 # Cache all date operations at once to avoid multiple subprocess calls
 # Use nanosecond precision for F1-style timing
-current_date=$(date +"%s.%N %m %d %u %H:%M:%S %Y %-j")
-read start_time_precise month day weekday current_time year days_since <<< "$current_date"
-start_time=${start_time_precise%.*}  # Keep integer seconds for compatibility
+current_date=$(date +"%s %N %m %d %u %H:%M:%S %Y %-j")
+read start_time_seconds start_time_nanos month day weekday current_time year days_since <<< "$current_date"
+
+# Combine seconds and nanoseconds into a single nanosecond timestamp for F1 timing
+start_time_precise=$((start_time_seconds * 1000000000 + start_time_nanos))
+start_time=$start_time_seconds  # Keep integer seconds for compatibility
 
 # Export cached values so they're available to sourced scripts
 export weekday month day year days_since start_time current_time start_time_precise

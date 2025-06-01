@@ -4,8 +4,6 @@ HEADER_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 # HEADER_DIR is .../scripts/, so $(dirname "$HEADER_DIR") is .../HCnews/
 _header_CACHE_DIR="$(dirname "$HEADER_DIR")/data/cache/header"
 
-source "$HEADER_DIR/quote.sh"
-
 # Returns the current date in a pretty format.
 # Usage: pretty_date [weekday] [day] [month] [year]
 # If parameters are provided, uses them instead of calling date
@@ -82,50 +80,8 @@ function heripoch_date() {
     echo "$days_since"
 }
 
-# this function returns the moon phase from https://www.invertexto.com/fase-lua-hoje
-function moon_phase () {
-    local use_cache=true
-    local force_refresh=false
-
-    # Check for global flags from hcnews.sh if this script is sourced
-    # hc_no_cache and hc_force_refresh would be set by hcnews.sh
-    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
-        use_cache=false
-    fi
-    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
-        force_refresh=true
-    fi
-
-    local date_format
-    date_format=$(date +"%Y%m%d")
-    
-    # Ensure the cache directory exists
-    mkdir -p "$_header_CACHE_DIR"
-    local cache_file="${_header_CACHE_DIR}/${date_format}_moon_phase.cache"
-
-    if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then
-        cat "$cache_file"
-        return 0
-    fi
-
-    local fetched_moon_phase
-    # grep all the lines with <span> and </span>
-    fetched_moon_phase=$(curl -s https://www.invertexto.com/fase-lua-hoje | grep -oP '(?<=<span>).*(?=</span>)')
-    
-    # keep only the text before the first number
-    fetched_moon_phase=$(echo "$fetched_moon_phase" | sed 's/[0-9].*//')
-
-    if [[ "$use_cache" == true ]]; then
-        # Save to cache
-        echo "$fetched_moon_phase" > "$cache_file"
-    fi
-
-    # return the moon phase
-    echo "$fetched_moon_phase"
-}
-
-# this function is used to write the header of the news file
-function write_header () {
+# this function is used to write the core header of the news file (without moon phase and quote)
+function write_header_core () {
     # Use cached values if available (passed from main script)
     if [[ -n "$weekday" && -n "$day" && -n "$month" && -n "$year" && -n "$start_time" && -n "$days_since" ]]; then
         date=$(pretty_date "$weekday" "$day" "$month" "$year")
@@ -138,9 +94,6 @@ function write_header () {
         edition=$(heripoch_date)
         days_since=$(date +%-j)
     fi
-    
-    moon_phase=$(moon_phase)
-    day_quote=$(quote)
 
     # Calculate the percentage of the year passed
     year_percentage=$((days_since * 100 / 365))
@@ -153,19 +106,16 @@ function write_header () {
     empty_string=$(printf "%${empty_blocks}s" | tr ' ' '.')
     progress_bar="[$filled_string$empty_string]"
 
-    # write the header
+    # write the core header (without moon phase and quote)
     echo "📰 *HCNews* Edição $edition 🗞"
     echo "🇧🇷 De Araucária Paraná " 
-    # echo "🗺 Notícias do Brasil e do Mundo 🌎" 
     echo "📅 $date" 
-    # echo "⏳ $days_sinceº dia do ano"
     echo "⏳ Dia $days_since/365 $progress_bar ${year_percentage}%"
-    echo "🌔 $moon_phase" 
-    echo "" 
-    echo "📝 *Frase do dia:*" 
-    echo "_${day_quote}_"
-    echo ""
-    
+}
+
+# Legacy function for backward compatibility - now just calls core header
+function write_header () {
+    write_header_core
 }
 
 # -------------------------------- Running locally --------------------------------
@@ -176,7 +126,7 @@ function write_header () {
 #   -h, --help: show the help
 show_help() {
   echo "Usage: ./header.sh [options]"
-  echo "The header of the news file will be printed to the console."
+  echo "The core header of the news file will be printed to the console."
   echo "Options:"
   echo "  -h, --help: show the help"
 }
@@ -202,6 +152,6 @@ get_arguments() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   # run the script
   get_arguments "$@"
-  write_header
+  write_header_core
 fi
 

@@ -28,7 +28,12 @@ function get_didyouknow() {
     fi
 
     local date_format
-    date_format=$(date +"%Y%m%d")
+    # Use cached date_format if available, otherwise fall back to date command
+    if [[ -n "$date_format" ]]; then
+        date_format="$date_format"
+    else
+        date_format=$(date +"%Y%m%d")
+    fi
     mkdir -p "$_didyouknow_CACHE_DIR" # Ensure cache directory exists
     local cache_file="${_didyouknow_CACHE_DIR}/${date_format}_didyouknow.cache"
 

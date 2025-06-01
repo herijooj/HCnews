@@ -303,7 +303,8 @@ write_exchange() {
   # cmc_output=$(generate_exchange_CMC) # This function prints directly, adjust if needed
   # output+="$cmc_output\\n" 
 
-  output+="\\n_Atualizado em $(date +"%H:%M:%S")_\\n"
+  output+="\\n_Atualizado em $(date +"%H:%M:%S")_"
+  output+="\\n_Fonte: Banco Central do Brasil e CoinMarketCap_\\n"
 
   if [ "$_exchange_USE_CACHE" = true ]; then
     write_cache "$cache_file" "$(echo -e "$output")"

@@ -103,5 +103,6 @@ time_function() {
 # Reset all timing data
 # Usage: reset_timing_data
 reset_timing_data() {
-    declare -A TIMING_DATA
+    unset TIMING_DATA
+    declare -gA TIMING_DATA
 }

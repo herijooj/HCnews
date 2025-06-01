@@ -4,6 +4,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 from config.constants import SCRIPT_PATHS
 from config.keyboard import get_return_button
+from utils.text_utils import escape_markdownv2
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,9 @@ async def send_exchange(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         )
         
         await update.callback_query.edit_message_text(
-            text=result.stdout,
+            text=escape_markdownv2(result.stdout),
             reply_markup=get_return_button(),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
     except subprocess.CalledProcessError as e:
         logger.error("Exchange script execution failed: %s", str(e))

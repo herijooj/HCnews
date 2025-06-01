@@ -59,9 +59,15 @@ show_help() {
 
 # this function will receive the arguments
 get_arguments() {
-  # current date
-  month=$(date +%m)
-  day=$(date +%d)
+  # Use cached values if available, otherwise fall back to date commands
+  local month day
+  if [[ -n "$month" && -n "$day" ]]; then
+    month="$month"
+    day="$day"
+  else
+    month=$(date +%m)
+    day=$(date +%d)
+  fi
 
   # get the arguments
   while [[ $# -gt 0 ]]; do

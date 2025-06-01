@@ -5,7 +5,7 @@ from utils.rss_utils import (
     get_rss_feeds, get_rss_feed, save_rss_feed, remove_rss_feed, validate_rss_url,
     generate_rss_content, get_rss_filename
 )
-from utils.text_utils import split_message
+from utils.text_utils import split_message, escape_markdownv2
 from config.keyboard import get_return_button, get_rss_menu
 
 logger = logging.getLogger(__name__)
@@ -282,35 +282,66 @@ async def send_specific_rss_as_message(update: Update, context: ContextTypes.DEF
     if feed_name:
         content = f"📰 Feed: {feed_name}\n\n{content}"
     
+    # Escape content for MarkdownV2
+    escaped_content = escape_markdownv2(content)
+    
     # Split message if too long
-    messages = split_message(content)
+    messages = split_message(escaped_content)
     
     # Important: Edit the original message instead of deleting it
     for i, msg in enumerate(messages):
         if i == 0:
-            await update.callback_query.message.edit_text(
-                msg,
-                reply_markup=None,  # No button on the first message if multiple
-                disable_web_page_preview=True
-            )
+            try:
+                await update.callback_query.message.edit_text(
+                    msg,
+                    parse_mode='MarkdownV2',
+                    reply_markup=None,  # No button on the first message if multiple
+                    disable_web_page_preview=True
+                )
+            except Exception as markdown_error:
+                # If MarkdownV2 parsing fails, send without parse_mode
+                logger.warning(f"RSS MarkdownV2 parsing failed, sending without formatting: {str(markdown_error)}")
+                await update.callback_query.message.edit_text(
+                    msg,
+                    reply_markup=None,
+                    disable_web_page_preview=True
+                )
         else:
             if i == len(messages) - 1:  # Last message
-                await update.callback_query.message.reply_text(
-                    msg,
-                    reply_markup=get_return_button(),
-                    disable_web_page_preview=True
-                )
+                try:
+                    await update.callback_query.message.reply_text(
+                        msg,
+                        parse_mode='MarkdownV2',
+                        reply_markup=get_return_button(),
+                        disable_web_page_preview=True
+                    )
+                except Exception as markdown_error:
+                    logger.warning(f"RSS MarkdownV2 parsing failed, sending without formatting: {str(markdown_error)}")
+                    await update.callback_query.message.reply_text(
+                        msg,
+                        reply_markup=get_return_button(),
+                        disable_web_page_preview=True
+                    )
             else:
-                await update.callback_query.message.reply_text(
-                    msg,
-                    disable_web_page_preview=True
-                )
+                try:
+                    await update.callback_query.message.reply_text(
+                        msg,
+                        parse_mode='MarkdownV2',
+                        disable_web_page_preview=True
+                    )
+                except Exception as markdown_error:
+                    logger.warning(f"RSS MarkdownV2 parsing failed, sending without formatting: {str(markdown_error)}")
+                    await update.callback_query.message.reply_text(
+                        msg,
+                        disable_web_page_preview=True
+                    )
     
     # If there's only one message, add the return button to the original message
     if len(messages) == 1:
         try:
             await update.callback_query.message.edit_text(
                 messages[0],
+                parse_mode='MarkdownV2',
                 reply_markup=get_return_button(),
                 disable_web_page_preview=True
             )
