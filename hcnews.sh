@@ -17,6 +17,7 @@ source "$SCRIPT_DIR/scripts/UFPR/ru.sh"
 source "$SCRIPT_DIR/scripts/musicchart.sh"
 source "$SCRIPT_DIR/scripts/weather.sh"
 source "$SCRIPT_DIR/scripts/didyouknow.sh"
+source "$SCRIPT_DIR/scripts/desculpa.sh"
 source "$SCRIPT_DIR/scripts/holidays.sh"
 source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
@@ -116,7 +117,7 @@ format_f1_time() {
     local end_time_ns=$2
     
     # Calculate elapsed time in nanoseconds and convert to seconds with decimal precision
-    local elapsed_ns=$((end_time_ns - start_time_ns))
+    local elapsed_ns=$((10#$end_time_ns - 10#$start_time_ns))
     
     # Convert nanoseconds to milliseconds (integer division)
     local total_ms=$((elapsed_ns / 1000000))
@@ -141,7 +142,7 @@ format_f1_time() {
 #   -h, --help: show the help
 #   -s, --silent: the script will run silently"
 #   -sa, --saints: show the saints of the day with the verbose description
-#   -n, --news: show the news with the shortened link
+#   -n, --news: show the news with links (🔗 format with shortened URLs)
 #   -t, --timing: show function execution timing information"
 #   --no-cache: disable caching for this run
 #   --force: force refresh cache for this run
@@ -151,7 +152,7 @@ show_help() {
     echo "  -h, --help: show the help"
     echo "  -s, --silent: the script will run silently"
     echo "  -sa, --saints: show the saints of the day with the verbose description"
-    echo "  -n, --news: show the news with the shortened link"
+    echo "  -n, --news: show the news with links (🔗 format with shortened URLs)"
     echo "  -t, --timing: show function execution timing information"
     echo "  --no-cache: disable caching for this run"
     echo "  --force: force refresh cache for this run"
@@ -219,7 +220,7 @@ function footer {
     # Get end time in nanoseconds using the same format as start
     local end_date=$(date +"%s %N")
     read end_time_seconds end_time_nanos <<< "$end_date"
-    local end_time_precise=$((end_time_seconds * 1000000000 + end_time_nanos))
+    local end_time_precise=$((end_time_seconds * 1000000000 + 10#$end_time_nanos))
     
     # Calculate F1-style elapsed time
     elapsed_f1_time=$(format_f1_time "$start_time_precise" "$end_time_precise")
@@ -262,28 +263,33 @@ function output {
     
     # RSS feeds
     o_popular=https://opopularpr.com.br/feed/
+    plantao190=https://plantao190.com.br/feed/
+    xvcuritiba=https://xvcuritiba.com.br/feed/
+    bandab=https://www.bandab.com.br/web-stories/feed/
+    g1=https://g1.globo.com/rss/g1/pr/parana/
+
+    g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
     newyorker=https://www.newyorker.com/feed/magazine/rss
     folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
-    g1=https://g1.globo.com/rss/g1/parana/
     formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
     bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
-    g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
-    plantao190=https://plantao190.com.br/feed/
+
 
     # Combine feeds for parallel processing
-    all_feeds="${o_popular},${plantao190},${g1}"
+    all_feeds="${o_popular},${plantao190},${xvcuritiba}"
 
     # ======= PHASE 1: Start all heavy network operations in parallel =======
     start_timing "network_parallel_start"
     
     # Start the slowest operations first (based on your timing data)
-    start_background_job "music_chart" "(source '$SCRIPT_DIR/scripts/musicchart.sh' $cache_options && write_music_chart)"
+    start_background_job "music_chart" "cd '$SCRIPT_DIR' && bash scripts/musicchart.sh $cache_options"
     start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
     start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
     start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true)"
     start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
     start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"
     start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
+    start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
     start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
     start_background_job "header_moon" "(source '$SCRIPT_DIR/scripts/moonphase.sh' $cache_options && moon_phase)"
     start_background_job "header_quote" "(source '$SCRIPT_DIR/scripts/quote.sh' $cache_options && quote)"
@@ -453,12 +459,53 @@ function output {
         end_timing "write_all_news"
     fi
 
+    # Write the excuse of the day
+    desculpa_output=$(wait_for_job "desculpa")
+    if [[ $? -eq 0 && -n "$desculpa_output" ]]; then
+        echo "$desculpa_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_excuse"
+        write_excuse
+        end_timing "write_excuse"
+    fi
+
     # Write the footer
     footer
     
     end_timing "output"
 }
 
+# Function to calculate reading time based on word count
+calculate_reading_time() {
+    local content="$1"
+    local words_per_minute=220  # Average reading speed in Portuguese
+    
+    # Count words (remove emojis and special characters for more accurate count)
+    local word_count=$(echo "$content" | sed 's/[🔗📰⏳🇧🇷📅🌙💭🎵☀️🌧️❄️🌈⚡🔥💧🌪️🌡️📊💰📈📉🙏✨🎯📢💬🤖🔔🙌🤝📡💎🎭🎨🎪🎊🎉]//' | wc -w)
+    
+    # Calculate reading time in minutes
+    local reading_time_minutes=$((word_count / words_per_minute))
+    
+    # Ensure minimum of 1 minute
+    if [[ $reading_time_minutes -lt 1 ]]; then
+        reading_time_minutes=1
+    fi
+    
+    echo "$reading_time_minutes"
+}
+
+# Modified function to add reading time to existing header
+function write_header_with_reading_time() {
+    local reading_time="$1"
+    
+    # Get the existing header output
+    write_header_core
+    
+    # Add the reading time line after the header
+    echo "📖 Tempo total de leitura: ~${reading_time} min"
+}
 # Main =============================================================================
 
 # Get the arguments
@@ -470,7 +517,7 @@ current_date=$(date +"%s %N %m %d %u %H:%M:%S %Y %-j")
 read start_time_seconds start_time_nanos month day weekday current_time year days_since <<< "$current_date"
 
 # Combine seconds and nanoseconds into a single nanosecond timestamp for F1 timing
-start_time_precise=$((start_time_seconds * 1000000000 + start_time_nanos))
+start_time_precise=$((start_time_seconds * 1000000000 + 10#$start_time_nanos))
 start_time=$start_time_seconds  # Keep integer seconds for compatibility
 
 # Export cached values so they're available to sourced scripts
@@ -481,6 +528,16 @@ city="Curitiba"
 # Reset timing data
 reset_timing_data
 
-# The script will now always output to standard output.
-output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh"
+# Capture all output to calculate reading time, then output with reading time in header
+content_output=$(output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh")
+
+# Calculate reading time based on the complete content
+reading_time=$(calculate_reading_time "$content_output")
+
+# Output header with reading time first
+write_header_with_reading_time "$reading_time"
+
+# Extract and output everything after the header core (moon phase onwards)
+echo "$content_output" | sed '1,4d'  # Skip the first 4 lines (header core)
+
 exit 0

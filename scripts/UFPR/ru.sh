@@ -61,16 +61,16 @@ function get_inside_tags () {
 
 # Define available RU locations
 declare -A RU_LOCATIONS=(
-    ["politecnico"]="https://pra.ufpr.br/ru/ru-centro-politecnico/"
-    ["agrarias"]="https://pra.ufpr.br/ru/cardapio-ru-agrarias/"
-    ["botanico"]="https://pra.ufpr.br/ru/cardapio-ru-jardim-botanico/"
-    ["central"]="https://pra.ufpr.br/ru/ru-central/"
-    ["toledo"]="https://pra.ufpr.br/ru/6751-2/"
-    ["mirassol"]="https://pra.ufpr.br/ru/cardapio-ru-mirassol/"
-    ["jandaia"]="https://pra.ufpr.br/ru/cardapio-ru-jandaia-do-sul/"
-    ["palotina"]="https://pra.ufpr.br/ru/cardapio-ru-palotina/"
-    ["cem"]="https://pra.ufpr.br/ru/cardapio-ru-cem/"
-    ["matinhos"]="https://pra.ufpr.br/ru/cardapio-ru-matinhos/"
+    ["politecnico"]="https://proad.ufpr.br/ru/ru-centro-politecnico/"
+    ["agrarias"]="https://proad.ufpr.br/ru/cardapio-ru-agrarias/"
+    ["botanico"]="https://proad.ufpr.br/ru/cardapio-ru-jardim-botanico/"
+    ["central"]="https://proad.ufpr.br/ru/ru-central/"
+    ["toledo"]="https://proad.ufpr.br/ru/6751-2/"
+    ["mirassol"]="https://proad.ufpr.br/ru/cardapio-ru-mirassol/"
+    ["jandaia"]="https://proad.ufpr.br/ru/cardapio-ru-jandaia-do-sul/"
+    ["palotina"]="https://proad.ufpr.br/ru/cardapio-ru-palotina/"
+    ["cem"]="https://proad.ufpr.br/ru/cardapio-ru-cem/"
+    ["matinhos"]="https://proad.ufpr.br/ru/cardapio-ru-matinhos/"
 )
 
 # Default location

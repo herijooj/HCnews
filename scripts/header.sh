@@ -18,13 +18,13 @@ function pretty_date {
   if [[ -n "$date_arg" && -n "$day_arg" && -n "$month_arg" && -n "$year_arg" ]]; then
     # Use provided cached values
     case $date_arg in
-      1) date="segunda" ;;
-      2) date="terça" ;;
-      3) date="quarta" ;;
-      4) date="quinta" ;;
-      5) date="sexta" ;;
-      6) date="sábado" ;;
-      7) date="domingo" ;;
+      1) date="Segunda" ;;
+      2) date="Terça" ;;
+      3) date="Quarta" ;;
+      4) date="Quinta" ;;
+      5) date="Sexta" ;;
+      6) date="Sábado" ;;
+      7) date="Domingo" ;;
     esac
     day="$day_arg"
     
@@ -52,7 +52,7 @@ function pretty_date {
   fi
 
   # Add "-feira" if it's not Saturday or Sunday
-  if [[ $date != "sábado" && $date != "domingo" ]]; then
+  if [[ $date != "Sábado" && $date != "Domingo" ]]; then
     date+="-feira"
   fi
 
@@ -98,13 +98,26 @@ function write_header_core () {
     # Calculate the percentage of the year passed
     year_percentage=$((days_since * 100 / 365))
 
-    # Create the progress bar string
-    progress_bar_length=20 # Adjust for total length
+    # Create the progress bar string with Unicode blocks (fixed approach)
+    progress_bar_length=16 # Keep same length to avoid breaking lines in WhatsApp
     filled_blocks=$((year_percentage * progress_bar_length / 100))
     empty_blocks=$((progress_bar_length - filled_blocks))
-    filled_string=$(printf "%${filled_blocks}s" | tr ' ' '#')
-    empty_string=$(printf "%${empty_blocks}s" | tr ' ' '.')
-    progress_bar="[$filled_string$empty_string]"
+    
+    # Use printf with Unicode characters directly instead of tr
+    filled_string=""
+    empty_string=""
+    
+    # Build filled portion
+    for ((i=0; i<filled_blocks; i++)); do
+        filled_string+="█"
+    done
+    
+    # Build empty portion  
+    for ((i=0; i<empty_blocks; i++)); do
+        empty_string+="░"
+    done
+    
+    progress_bar="$filled_string$empty_string"
 
     # write the core header (without moon phase and quote)
     echo "📰 *HCNews* Edição $edition 🗞"

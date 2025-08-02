@@ -8,7 +8,7 @@ source tokens.sh
 # --- API & Prompt Settings ---
 # Use conditional readonly to prevent errors on re-sourcing
 if [[ -z "${API_ENDPOINT:-}" ]]; then
-    readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent"
+    readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent"
 fi
 if [[ -z "${MAX_OUTPUT_TOKENS:-}" ]]; then
     readonly MAX_OUTPUT_TOKENS=150
@@ -17,6 +17,25 @@ fi
 # --- Cache Settings ---
 _futuro_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 _futuro_CACHE_DIR="$(dirname "$_futuro_SCRIPT_DIR")/data/cache/futuro"
+# Default cache behavior is enabled
+_futuro_USE_CACHE=true
+# Force refresh cache
+_futuro_FORCE_REFRESH=false
+
+# Override defaults if --no-cache or --force is passed
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
+    _current_sourcing_args_for_futuro=("${@}")
+    for arg in "${_current_sourcing_args_for_futuro[@]}"; do
+      case "$arg" in
+        --no-cache)
+          _futuro_USE_CACHE=false
+          ;;
+        --force)
+          _futuro_FORCE_REFRESH=true
+          ;;
+      esac
+    done
+fi
 
 # --- Dependencies Check ---
 # Ensure curl and jq are installed
@@ -33,16 +52,8 @@ fi
 
 # Function: get_ai_fortune
 function get_ai_fortune() {
-    local local_use_cache=true
-    local local_force_refresh=false
-
-    # Check for global flags from hcnews.sh if this script is sourced
-    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
-        local_use_cache=false
-    fi
-    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
-        local_force_refresh=true
-    fi
+    local local_use_cache=$_futuro_USE_CACHE
+    local local_force_refresh=$_futuro_FORCE_REFRESH
 
     local date_format
     date_format=$(date +"%Y%m%d")
@@ -221,10 +232,47 @@ function write_ai_fortune() {
     echo "" # Add a blank line after the section
 }
 
+# Function to display help message
+function help() {
+    echo "Usage: ./futuro.sh [options]"
+    echo "Generates a futuristic prediction using a generative AI model."
+    echo ""
+    echo "Options:"
+    echo "  -h, --help     Show this help message and exit."
+    echo "  --no-cache   Do not use cached data; fetch a new prediction."
+    echo "  --force        Force a refresh of the cache, even if it is recent."
+}
+
+# Function to parse command-line arguments
+function get_arguments() {
+    for arg in "$@"; do
+        case "$arg" in
+            -h|--help)
+                help
+                exit 0
+                ;;
+            --no-cache)
+                _futuro_USE_CACHE=false
+                ;;
+            --force)
+                _futuro_FORCE_REFRESH=true
+                ;;
+            *)
+                # Allow unrecognized arguments to be handled by other parts of the script if necessary
+                # or show an error.
+                # echo "Warning: Unrecognized argument '$1'" >&2
+                ;;
+        esac
+    done
+}
+
 # -------------------------------- Running the script --------------------------------
 
 # If the script is run directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Parse command-line arguments
+    get_arguments "$@"
+
     # Check if API key exists in tokens.sh
     if [[ -z "$GEMINI_API_KEY" ]]; then
       echo "Error: GEMINI_API_KEY not found in tokens.sh file." >&2

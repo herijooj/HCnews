@@ -112,7 +112,7 @@ function get_sanepar_levels() {
         piraquara1_level=$(echo "$content" | grep -A 3 "Barragem Piraquara 1" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
         piraquara2_level=$(echo "$content" | grep -A 3 "Barragem Piraquara 2" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
         total_saic=$(echo "$content" | grep -A 3 "Total SAIC" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
-        update_time=$(echo "$content" | grep -o "Atualizado em: [0-9]\+/[0-9]\+/[0-9]\+ [0-9]\+:[0-9]\+" | head -1)
+        update_time=$(echo "$content" | grep -o "Atualizado em: [0-9]\+/[0-9]\+/[0-9]\+ [0-9]\+:[0-9]\+" | sed 's/.*\([0-9]\+:[0-9]\+\)/Atualizado às \1/' | head -1)
     fi
     
     # Check if we found at least some data
@@ -132,18 +132,10 @@ function get_sanepar_levels() {
             formatted_output+="\n🌿 Barragem Piraquara 2: \`$piraquara2_level\`"
         fi
         if [[ -n "$total_saic" ]]; then
-            formatted_output+="\n📊 Total SAIC*: \`$total_saic\`"
+            formatted_output+="\n📊 Total: \`$total_saic\`"
         fi
         
-        formatted_output+="\n"
-        
-        if [[ -n "$update_time" ]]; then
-            formatted_output+="\n$update_time"
-        else
-            formatted_output+="\nAtualizado em: $(date '+%d/%m/%Y %H:%M')"
-        fi
-        
-        formatted_output+="\n_Fonte: Sanepar/InfoHidro_"
+        formatted_output+="\n_Fonte: Sanepar/InfoHidro · ${update_time}_"
         
         # Save to cache if enabled
         if [ "$_sanepar_USE_CACHE" = true ]; then
@@ -155,7 +147,7 @@ function get_sanepar_levels() {
     else
         echo "💧 *Mananciais e nível dos reservatórios*"
         echo "⚠️ Dados não disponíveis no momento"
-        echo "_Fonte: Sanepar/InfoHidro_"
+        echo "_Fonte: Sanepar/InfoHidro · ${update_time}_"
         return 1
     fi
 }

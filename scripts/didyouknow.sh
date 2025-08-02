@@ -63,9 +63,6 @@ function get_didyouknow() {
     # decode HTML entities before handling encoding
     FACT=$(decode_html_entities "$FACT")
 
-    # remove or replace non-ASCII characters
-    FACT=$(echo "$FACT" | iconv -f utf-8 -t ascii//TRANSLIT)
-
     if [[ "$local_use_cache" == true && -n "$FACT" ]]; then
         echo "$FACT" > "$cache_file"
     fi
@@ -81,6 +78,7 @@ function write_did_you_know() {
     # write the fact to the console
     echo "📚 *Você sabia?*"
     echo "_${FACT}_"
+    echo "_Fonte: Wikipedia_"
     echo ""
 }
 

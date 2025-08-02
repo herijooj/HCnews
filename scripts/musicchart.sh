@@ -132,11 +132,15 @@ function get_music_chart () {
     if [[ "$expecting_artist" == false ]]; then
       # This should be a title
       title=$(decode_html_entities "$line")
+      # Remove (Romanized), - Genius Romanizations, and clean up extra spaces from title
+      title=$(echo "$title" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')
       expecting_artist=true
     else
       # This should be an artist
       local artist
       artist=$(decode_html_entities "$line")
+      # Remove (Romanized), - Genius Romanizations, and clean up extra spaces from artist
+      artist=$(echo "$artist" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')
       ((count++))
       output_content+="- $count. \`$title - $artist\`"$'\n'
       expecting_artist=false
@@ -155,11 +159,11 @@ function get_music_chart () {
       local artist_array=()
       
       while IFS= read -r line; do
-        [[ -n "$line" ]] && title_array+=("$(decode_html_entities "$line")")
+        [[ -n "$line" ]] && title_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')")
       done <<< "$titles"
       
       while IFS= read -r line; do
-        [[ -n "$line" ]] && artist_array+=("$(decode_html_entities "$line")")
+        [[ -n "$line" ]] && artist_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')")
       done <<< "$artists"
       
       for i in "${!title_array[@]}"; do
@@ -194,7 +198,7 @@ function write_music_chart () {
   echo "🎵 *Top 10*:"
   # write the formatted list
   echo "$TOP_10"
-  echo "📌 De Genius.com/#top-songs"
+  echo "_Fonte: Genius.com/#top-songs_"
   echo ""
 }
 

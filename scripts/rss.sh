@@ -159,9 +159,18 @@ get_news_RSS_combined() {
     local rss_cache_dir="${_rss_CACHE_DIR_BASE}/rss_feeds/${portal_identifier}"
     mkdir -p "$rss_cache_dir"
     local cache_file="${rss_cache_dir}/${date_format}.news"
+    
+    # Separate cache file for links when LINKED=true
+    local links_cache_file="${rss_cache_dir}/${date_format}.links"
 
-    if [ "$_rss_USE_CACHE" = true ] && check_cache "$cache_file"; then
-        read_cache "$cache_file"
+    # Check cache based on whether we need links or not
+    local target_cache_file="$cache_file"
+    if [[ "$LINKED" == true ]]; then
+        target_cache_file="$links_cache_file"
+    fi
+
+    if [ "$_rss_USE_CACHE" = true ] && check_cache "$target_cache_file"; then
+        read_cache "$target_cache_file"
         return
     fi
     
@@ -197,15 +206,15 @@ get_news_RSS_combined() {
             
             # Compare with our timestamp threshold
             if (( DATE_UNIX > UNIX_24H_AGO )); then
-                result+=("- 📰 $title")
+                result+=("- $title")
                 if [[ "$LINKED" == true ]]; then
                     if [[ "$FULL_URL" == true ]]; then
-                        result+=("$link")
+                        result+=("  🔗 $link")
                     else
                         # Use async URL shortening for better performance
                         local short_url
                         short_url=$(cached_shorten_url "$link")
-                        result+=("$short_url")
+                        result+=("  🔗 $short_url")
                     fi
                 fi
                 ((line_count++))
@@ -219,9 +228,9 @@ get_news_RSS_combined() {
         news_output=$(printf "%s\n" "${result[@]}")
     fi
 
-    # Async cache write for better performance
+    # Cache write using the appropriate cache file
     if [ "$_rss_USE_CACHE" = true ] && [[ -n "$news_output" ]]; then
-        (write_cache "$cache_file" "$news_output") &
+        (write_cache "$target_cache_file" "$news_output") &
     fi
     
     echo "$news_output"

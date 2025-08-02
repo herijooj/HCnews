@@ -96,7 +96,7 @@ get_exchange_BC() {
     out=$(echo "$response" | jq -r '
       .conteudo[]
       | select(.tipoCotacao == "Fechamento")
-      | "- *\(.moeda)*: Compra R$ `\( ( (.valorCompra * 100 | floor) / 100 ) )` · Venda R$ `\( ( (.valorVenda * 100 | floor) / 100 ) )`"
+      | "- *\(.moeda)*: Compra `R$ \( ( (.valorCompra * 100 | floor) / 100 ) )` · Venda `R$ \( ( (.valorVenda * 100 | floor) / 100 ) )`"
     ')
       
     if [[ -n "$out" ]]; then
@@ -303,13 +303,15 @@ write_exchange() {
   # cmc_output=$(generate_exchange_CMC) # This function prints directly, adjust if needed
   # output+="$cmc_output\\n" 
 
-  output+="\\n_Atualizado em $(date +"%H:%M:%S")_"
-  output+="\\n_Fonte: Banco Central do Brasil e CoinMarketCap_\\n"
+  output+="_Fonte: Banco Central do Brasil · Atualizado: $(date +%H:%M:%S)_\\n"
 
   if [ "$_exchange_USE_CACHE" = true ]; then
     write_cache "$cache_file" "$(echo -e "$output")"
   fi
   
+  # Print output without adding an extra newline
+  # Remove trailing backslash and rely on echo -e to handle newlines in $output
+  output="${output%\\}"
   echo -e "$output"
 }
 

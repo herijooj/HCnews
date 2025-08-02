@@ -330,10 +330,7 @@ function get_weather() {
     else
         CURRENT_TIME=$(date +"%H:%M:%S")
     fi
-    OUTPUT+="
-
-_Atualizado em ${CURRENT_TIME}_
-_Fonte: OpenWeatherMap_"
+    OUTPUT+="\\n_Fonte: OpenWeatherMap · Atualizado: ${CURRENT_TIME}_"
     
     # Save to cache if enabled
     if [ "$_weather_USE_CACHE" = true ]; then
