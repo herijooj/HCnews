@@ -24,6 +24,7 @@ source "$SCRIPT_DIR/scripts/states.sh"
 source "$SCRIPT_DIR/scripts/emoji.sh"
 source "$SCRIPT_DIR/scripts/futuro.sh"
 source "$SCRIPT_DIR/scripts/sanepar.sh"
+source "$SCRIPT_DIR/scripts/palavra.sh"
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
 
@@ -291,6 +292,7 @@ function output {
     start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
     start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
     start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
+    start_background_job "palavra" "(source '$SCRIPT_DIR/scripts/palavra.sh' $cache_options && write_palavra_do_dia)"
     start_background_job "header_moon" "(source '$SCRIPT_DIR/scripts/moonphase.sh' $cache_options && moon_phase)"
     start_background_job "header_quote" "(source '$SCRIPT_DIR/scripts/quote.sh' $cache_options && quote)"
     
@@ -429,6 +431,18 @@ function output {
         start_timing "write_bicho"
         write_bicho
         end_timing "write_bicho"
+    fi
+
+    # Write the palavra of the day
+    palavra_output=$(wait_for_job "palavra")
+    if [[ $? -eq 0 && -n "$palavra_output" ]]; then
+        echo "$palavra_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_palavra_do_dia"
+        (source "$SCRIPT_DIR/scripts/palavra.sh" $cache_options && write_palavra_do_dia)
+        end_timing "write_palavra_do_dia"
     fi
 
     # Help HCNEWS
