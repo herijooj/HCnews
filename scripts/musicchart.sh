@@ -133,16 +133,20 @@ function get_music_chart () {
       # This should be a title
       title=$(decode_html_entities "$line")
       # Remove (Romanized), - Genius Romanizations, and clean up extra spaces from title
-      title=$(echo "$title" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')
+      title=$(echo "$title" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')
       expecting_artist=true
     else
       # This should be an artist
       local artist
       artist=$(decode_html_entities "$line")
       # Remove (Romanized), - Genius Romanizations, and clean up extra spaces from artist
-      artist=$(echo "$artist" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')
+      artist=$(echo "$artist" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')
       ((count++))
-      output_content+="- $count. \`$title - $artist\`"$'\n'
+      if [[ -z "$artist" ]]; then
+        output_content+="- $count. \`$title\`"$'\n'
+      else
+        output_content+="- $count. \`$title - $artist\`"$'\n'
+      fi
       expecting_artist=false
     fi
   done <<< "$combined_data"
@@ -159,17 +163,21 @@ function get_music_chart () {
       local artist_array=()
       
       while IFS= read -r line; do
-        [[ -n "$line" ]] && title_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')")
+        [[ -n "$line" ]] && title_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')")
       done <<< "$titles"
       
       while IFS= read -r line; do
-        [[ -n "$line" ]] && artist_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/  +/ /g; s/^ //; s/ $//')")
+        [[ -n "$line" ]] && artist_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')")
       done <<< "$artists"
       
       for i in "${!title_array[@]}"; do
         if [[ $i -lt ${#artist_array[@]} ]]; then
           ((count++))
-          output_content+="- $count. \`${title_array[i]} - ${artist_array[i]}\`"$'\n'
+          if [[ -z "${artist_array[i]}" ]]; then
+            output_content+="- $count. \`${title_array[i]}\`"$'\n'
+          else
+            output_content+="- $count. \`${title_array[i]} - ${artist_array[i]}\`"$'\n'
+          fi
           [[ $count -ge 10 ]] && break
         fi
       done

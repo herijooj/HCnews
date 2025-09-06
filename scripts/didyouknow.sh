@@ -57,8 +57,7 @@ function get_didyouknow() {
     # delete the spaces before and after punctuation (.,;:?!)
     FACT=$(echo "$FACT" | sed 's/\s\([.,;:?!]\)/\1/g')
 
-    # delete everything after the second …
-    FACT=$(echo "$FACT" | sed 's/\(.*…\).*/\1/')
+    
 
     # decode HTML entities before handling encoding
     FACT=$(decode_html_entities "$FACT")
