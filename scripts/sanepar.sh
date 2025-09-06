@@ -79,7 +79,7 @@ function get_sanepar_levels() {
     fi
 
     # Use the real Sanepar API endpoint
-    local api_url="https://site.sanepar.com.br/sites/site.sanepar.com.br/themes/sanepar2012/webservice/nivel_reservatorios.php"
+    local api_url="https://ri.sanepar.com.br/"
     
     # Fetch dam levels data with proper headers
     local content
@@ -96,23 +96,45 @@ function get_sanepar_levels() {
         echo "_Fonte: SANEPAR/INFOHIDRO_"
         return 1
     fi
+    # Use the Python script to extract and format data
+    local python_output
+    python_output=$(echo "$content" | python3 scripts/parse_sanepar.py)
 
-    # Extract reservoir levels using pup and the exact HTML structure
-    local irai_level=$(echo "$content" | pup 'div:contains("Barragem Iraí") + div + div.views-field-body p text{}' | head -1)
-    local passauna_level=$(echo "$content" | pup 'div:contains("Barragem Passaúna") + div + div.views-field-body p text{}' | head -1)
-    local piraquara1_level=$(echo "$content" | pup 'div:contains("Barragem Piraquara 1") + div + div.views-field-body p text{}' | head -1)
-    local piraquara2_level=$(echo "$content" | pup 'div:contains("Barragem Piraquara 2") + div + div.views-field-body p text{}' | head -1)
-    local total_saic=$(echo "$content" | pup 'div:contains("Total SAIC") + div + div.views-field-body p text{}' | head -1)
-    local update_time=$(echo "$content" | pup '.nivel-reserv-data text{}' | head -1)
-    
-    # Fallback extraction using grep if pup doesn't work properly
-    if [[ -z "$irai_level" || -z "$passauna_level" || -z "$piraquara1_level" || -z "$piraquara2_level" || -z "$total_saic" ]]; then
-        irai_level=$(echo "$content" | grep -A 3 "Barragem Iraí" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
-        passauna_level=$(echo "$content" | grep -A 3 "Barragem Passaúna" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
-        piraquara1_level=$(echo "$content" | grep -A 3 "Barragem Piraquara 1" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
-        piraquara2_level=$(echo "$content" | grep -A 3 "Barragem Piraquara 2" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
-        total_saic=$(echo "$content" | grep -A 3 "Total SAIC" | grep -o '[0-9]\+\.[0-9]\+%' | head -1)
-        update_time=$(echo "$content" | grep -o "Atualizado em: [0-9]\+/[0-9]\+/[0-9]\+ [0-9]\+:[0-9]\+" | sed 's/.*\([0-9]\+:[0-9]\+\)/Atualizado às \1/' | head -1)
+    if [[ -z "$python_output" ]]; then
+        echo "💧 *MANANCIAIS E NÍVEL DOS RESERVATÓRIOS*"
+        echo "⚠️ Não foi possível extrair os dados da página."
+        echo "_Fonte: SANEPAR/RI_"
+        return 1
+    fi
+
+    # Read the output from the python script line by line
+    read -r irai_level_raw <<< "$(echo "$python_output" | sed -n '1p')"
+    read -r passauna_level_raw <<< "$(echo "$python_output" | sed -n '2p')"
+    read -r piraquara1_level_raw <<< "$(echo "$python_output" | sed -n '3p')"
+    read -r piraquara2_level_raw <<< "$(echo "$python_output" | sed -n '4p')"
+    read -r total_saic_raw <<< "$(echo "$python_output" | sed -n '5p')"
+    read -r update_time_raw <<< "$(echo "$python_output" | sed -n '6p')"
+
+    # Function to format decimal to percentage string (e.g., 0.753 -> 75,30%)
+    format_percentage() {
+        local raw_value="$1"
+        if [[ -n "$raw_value" && "$raw_value" != "null" ]]; then
+            # Use awk for floating point multiplication and printf for formatting
+            awk -v val="$raw_value" 'BEGIN { printf "%.2f%%", val * 100 }' | sed 's/\./,/'
+        fi
+    }
+
+    local irai_level=$(format_percentage "$irai_level_raw")
+    local passauna_level=$(format_percentage "$passauna_level_raw")
+    local piraquara1_level=$(format_percentage "$piraquara1_level_raw")
+    local piraquara2_level=$(format_percentage "$piraquara2_level_raw")
+    local total_saic=$(format_percentage "$total_saic_raw")
+
+    # Format update time
+    local update_time
+    if [[ -n "$update_time_raw" && "$update_time_raw" != "null" ]]; then
+        update_time_raw_no_z="${update_time_raw//Z/ UTC}"
+        update_time=$(TZ=UTC date -d "$update_time_raw_no_z" +"Atualizado em %d/%m/%Y às %H:%M")
     fi
     
     # Check if we found at least some data
@@ -135,7 +157,7 @@ function get_sanepar_levels() {
             formatted_output+="\n📊 Total: \`$total_saic\`"
         fi
         
-        formatted_output+="\n_Fonte: Sanepar/InfoHidro · ${update_time}_"
+        formatted_output+="\n_Fonte: Sanepar/RI · ${update_time}_"
         
         # Save to cache if enabled
         if [ "$_sanepar_USE_CACHE" = true ]; then
