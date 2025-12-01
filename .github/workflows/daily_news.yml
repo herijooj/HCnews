@@ -38,11 +38,16 @@ jobs:
 
       - name: Run HC News Script
         id: run_script
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          CoinMarketCap_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
-          openweathermap_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
         run: |
+          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+          export CoinMarketCap_API_KEY="${{ secrets.COINMARKETCAP_API_KEY }}"
+          export openweathermap_API_KEY="${{ secrets.OPENWEATHERMAP_API_KEY }}"
+          
+          # Check if secrets are set
+          if [ -z "$GEMINI_API_KEY" ]; then echo "::warning::GEMINI_API_KEY is empty"; fi
+          if [ -z "$CoinMarketCap_API_KEY" ]; then echo "::warning::CoinMarketCap_API_KEY is empty"; fi
+          if [ -z "$openweathermap_API_KEY" ]; then echo "::warning::openweathermap_API_KEY is empty"; fi
+          
           chmod +x hcnews.sh
           # Run the script and capture output to a file
           ./hcnews.sh --force > news_output.txt
