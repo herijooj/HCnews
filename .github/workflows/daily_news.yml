@@ -1,0 +1,99 @@
+name: Daily HC News
+
+on:
+  schedule:
+    # Run at 6:00 AM UTC every day (Adjust as needed)
+    - cron: '0 6 * * *'
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install System Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xmlstarlet jq bc
+          # Install pup (HTML processor) using Go
+          go install github.com/ericchiang/pup@latest
+          # Add Go bin to PATH
+          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+
+      - name: Install Python Dependencies
+        run: |
+          pip install python-telegram-bot schedule httpx pytz
+
+      - name: Create tokens.sh from Secrets
+        run: |
+          cat <<EOF > tokens.sh
+          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
+          export CoinMarketCap_API_KEY="${{ secrets.COINMARKETCAP_API_KEY }}"
+          export openweathermap_API_KEY="${{ secrets.OPENWEATHERMAP_API_KEY }}"
+          EOF
+          chmod +x tokens.sh
+
+      - name: Run HC News Script
+        id: run_script
+        run: |
+          chmod +x hcnews.sh
+          # Run the script and capture output to a file
+          ./hcnews.sh --force > news_output.txt
+
+      - name: Generate HTML
+        run: |
+          # Create a clean public directory for deployment
+          mkdir -p public
+
+          # Create a simple HTML wrapper
+          cat <<EOF > public/index.html
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>HC News - $(date +'%d/%m/%Y')</title>
+              <style>
+                  body { 
+                      font-family: 'Courier New', Courier, monospace; 
+                      white-space: pre-wrap; 
+                      background-color: #1e1e1e; 
+                      color: #d4d4d4; 
+                      padding: 20px; 
+                      line-height: 1.5;
+                      max-width: 800px;
+                      margin: 0 auto;
+                  }
+                  a { color: #3794ff; text-decoration: none; }
+                  a:hover { text-decoration: underline; }
+              </style>
+          </head>
+          <body>
+          EOF
+          
+          # Append the news content (HTML escaped to prevent breakage)
+          # We use python to escape HTML characters safely
+          python3 -c "import sys, html; print(html.escape(sys.stdin.read()))" < news_output.txt >> public/index.html
+          
+          cat <<EOF >> public/index.html
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: false
+          publish_branch: gh-pages
