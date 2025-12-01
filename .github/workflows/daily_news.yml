@@ -37,6 +37,9 @@ jobs:
         run: |
           pip install python-telegram-bot schedule httpx pytz
 
+      - name: Set Timezone
+        run: sudo timedatectl set-timezone America/Sao_Paulo
+
       - name: Run HC News Script
         id: run_script
         run: |
