@@ -1,6 +1,8 @@
 name: Daily HC News
 
 on:
+  push:
+    branches: [ "main", "Refactor" ]
   schedule:
     # Run at 6:00 AM UTC every day (Adjust as needed)
     - cron: '0 6 * * *'
