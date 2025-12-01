@@ -8,7 +8,7 @@ source tokens.sh
 # --- API & Prompt Settings ---
 # Use conditional readonly to prevent errors on re-sourcing
 if [[ -z "${API_ENDPOINT:-}" ]]; then
-    readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite-preview-06-17:generateContent"
+    readonly API_ENDPOINT="https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
 fi
 if [[ -z "${MAX_OUTPUT_TOKENS:-}" ]]; then
     readonly MAX_OUTPUT_TOKENS=150
@@ -114,7 +114,10 @@ function get_ai_fortune() {
         }],
         "generationConfig": {
           "temperature": $temp,
-          "maxOutputTokens": $max_tokens
+          "maxOutputTokens": $max_tokens,
+          "thinkingConfig": {
+            "thinkingBudget": 0
+          }
           # Consider adding safety settings if needed, though less critical for creative tasks
           # "safetySettings": [ ... ]
         }
