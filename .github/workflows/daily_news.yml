@@ -36,17 +36,12 @@ jobs:
         run: |
           pip install python-telegram-bot schedule httpx pytz
 
-      - name: Create tokens.sh from Secrets
-        run: |
-          cat <<EOF > tokens.sh
-          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
-          export CoinMarketCap_API_KEY="${{ secrets.COINMARKETCAP_API_KEY }}"
-          export openweathermap_API_KEY="${{ secrets.OPENWEATHERMAP_API_KEY }}"
-          EOF
-          chmod +x tokens.sh
-
       - name: Run HC News Script
         id: run_script
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          CoinMarketCap_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
+          openweathermap_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
         run: |
           chmod +x hcnews.sh
           # Run the script and capture output to a file

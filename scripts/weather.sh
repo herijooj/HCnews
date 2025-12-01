@@ -1,6 +1,12 @@
 #!/bin/bash
 
-source tokens.sh # Assumes openweathermap_API_KEY is defined here
+# Source tokens.sh if it exists, to load API keys locally.
+# In CI/CD, secrets are passed as environment variables.
+if [ -f "tokens.sh" ]; then
+    source tokens.sh
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
+fi
 
 # Check for telegram flag
 FOR_TELEGRAM=false

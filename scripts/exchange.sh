@@ -1,6 +1,12 @@
 #!/usr/bin/env bash
 
-source tokens.sh
+# Source tokens.sh if it exists, to load API keys locally.
+# In CI/CD, secrets are passed as environment variables.
+if [ -f "tokens.sh" ]; then
+    source tokens.sh
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
+fi
 
 # Cache configuration
 _exchange_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/exchange"
@@ -261,7 +267,7 @@ check_dependencies() {
   done
   
   if [[ -z "$CoinMarketCap_API_KEY" ]]; then
-    log_message "ERROR" "CoinMarketCap API key is missing. Please set it in tokens.sh."
+    log_message "ERROR" "CoinMarketCap API key is missing. Please set it in environment or tokens.sh."
     # No need to add to missing_deps, just return error
     return 1
   fi

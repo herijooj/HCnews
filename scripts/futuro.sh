@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 
-# Source tokens file for API keys
-source tokens.sh
+# Source tokens.sh if it exists, to load API keys locally.
+# In CI/CD, secrets are passed as environment variables.
+if [ -f "tokens.sh" ]; then
+    source tokens.sh
+elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
+    source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
+fi
 
 # === Configuration ===
 
@@ -95,7 +100,7 @@ function get_ai_fortune() {
 
     # Check for API key
     if [[ -z "$GEMINI_API_KEY" ]]; then
-        echo "Error: GEMINI_API_KEY not found in tokens.sh file." >&2
+        echo "Error: GEMINI_API_KEY not found (checked environment and tokens.sh)." >&2
         return 1
     fi
 
@@ -155,7 +160,7 @@ function get_ai_fortune() {
         # echo "Full response: $http_response" >&2 # Uncomment for debugging
         # Check for specific error codes or messages if needed
         if [[ "$api_error" == *"API key not valid"* ]]; then
-            echo "Hint: Check if GEMINI_API_KEY in tokens.sh is correct and enabled." >&2
+            echo "Hint: Check if GEMINI_API_KEY is correct and enabled." >&2
         fi
         return 1
     fi
@@ -276,10 +281,10 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # Parse command-line arguments
     get_arguments "$@"
 
-    # Check if API key exists in tokens.sh
+    # Check if API key exists
     if [[ -z "$GEMINI_API_KEY" ]]; then
-      echo "Error: GEMINI_API_KEY not found in tokens.sh file." >&2
-      echo "Please add your Gemini API key to tokens.sh" >&2
+      echo "Error: GEMINI_API_KEY not found (checked environment and tokens.sh)." >&2
+      echo "Please set GEMINI_API_KEY in environment or tokens.sh" >&2
       exit 1
     fi
 
