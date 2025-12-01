@@ -146,3 +146,5 @@ cython_debug/
 **_IGNORE_**
 # end managed by open-wa
 node_modules
+.envrc
+.direnv
