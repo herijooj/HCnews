@@ -4,19 +4,28 @@ MOONPHASE_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 # Define cache directory relative to this script's location
 _moonphase_CACHE_DIR="$(dirname "$MOONPHASE_DIR")/data/cache/header"
 
+# Default cache behavior
+_moonphase_USE_CACHE=true
+_moonphase_FORCE_REFRESH=false
+
+# Parse arguments when sourced (like other scripts)
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    for arg in "$@"; do
+        case "$arg" in
+            --no-cache)
+                _moonphase_USE_CACHE=false
+                ;;
+            --force)
+                _moonphase_FORCE_REFRESH=true
+                ;;
+        esac
+    done
+fi
+
 # this function returns the moon phase from https://www.invertexto.com/fase-lua-hoje
 function moon_phase () {
-    local use_cache=true
-    local force_refresh=false
-
-    # Check for global flags from hcnews.sh if this script is sourced
-    # hc_no_cache and hc_force_refresh would be set by hcnews.sh
-    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
-        use_cache=false
-    fi
-    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
-        force_refresh=true
-    fi
+    local use_cache=$_moonphase_USE_CACHE
+    local force_refresh=$_moonphase_FORCE_REFRESH
 
     local date_format_local
     # Use cached date_format if available, otherwise fall back to date command

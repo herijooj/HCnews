@@ -4,22 +4,32 @@ QUOTE_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 # Define cache directory relative to this script's location
 _quote_CACHE_DIR="$(dirname "$QUOTE_DIR")/data/cache/quote"
 
+# Default cache behavior
+_quote_USE_CACHE=true
+_quote_FORCE_REFRESH=false
+
+# Parse arguments when sourced (like other scripts)
+if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
+    for arg in "$@"; do
+        case "$arg" in
+            --no-cache)
+                _quote_USE_CACHE=false
+                ;;
+            --force)
+                _quote_FORCE_REFRESH=true
+                ;;
+        esac
+    done
+fi
+
 # Returns the quote of the day.
 # we retrieve the quote from the RSS feed from theysaidso.com
 # http://feeds.feedburner.com/theysaidso/qod
 # Usage: quote
 # Example output: "The best way to predict the future is to invent it." - Alan Kay
 function quote {
-    local use_cache=true
-    local force_refresh=false
-
-    # Check for global flags from hcnews.sh if this script is sourced
-    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
-        use_cache=false
-    fi
-    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
-        force_refresh=true
-    fi
+    local use_cache=$_quote_USE_CACHE
+    local force_refresh=$_quote_FORCE_REFRESH
 
     local date_format_local
     # Use cached date_format if available, otherwise fall back to date command

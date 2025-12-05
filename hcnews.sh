@@ -23,7 +23,7 @@ source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
 source "$SCRIPT_DIR/scripts/emoji.sh"
 source "$SCRIPT_DIR/scripts/futuro.sh"
-source "$SCRIPT_DIR/scripts/sanepar.sh"
+# source "$SCRIPT_DIR/scripts/sanepar.sh"  # Temporarily disabled - API offline
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
 
@@ -107,6 +107,8 @@ wait_for_job() {
             if [[ -n "$job_time" && "$job_time" =~ ^[0-9]+$ ]]; then
                 TIMING_DATA["${job_name}_elapsed"]=$job_time
                 TIMING_DATA["timed_functions"]="${TIMING_DATA["timed_functions"]} $job_name"
+                # Save to shared file for cross-subshell persistence
+                save_timing_entry "$job_name" "$job_time"
             fi
         fi
         
@@ -247,6 +249,8 @@ function footer {
     # Add timing summary if enabled
     if [[ $timing == true ]]; then
         echo ""
+        # Load timing entries from shared file (for cross-subshell persistence)
+        load_timing_entries
         print_timing_summary
     fi
 }
@@ -304,7 +308,7 @@ function output {
     start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true)"
     start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
     start_background_job "exchange" "(source '$SCRIPT_DIR/scripts/exchange.sh' $cache_options && write_exchange)"
-    start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"
+    # start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"  # Temporarily disabled - API offline
     start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
     start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
     start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
@@ -320,29 +324,29 @@ function output {
     write_header_core
     end_timing "write_header_core"
 
-    # Add moon phase to complete the header
-    start_timing "write_moon_phase"
+    # Add moon phase to complete the header (async - timing tracked by background job)
     moon_phase_output=$(wait_for_job "header_moon")
     if [[ $? -eq 0 && -n "$moon_phase_output" ]]; then
         echo "$moon_phase_output"
     else
         # Fallback to synchronous if background job failed
+        start_timing "header_moon_fallback"
         moon_phase
+        end_timing "header_moon_fallback"
     fi
     echo ""
-    end_timing "write_moon_phase"
 
-    # Add quote of the day to complete the header section
-    start_timing "write_quote"
+    # Add quote of the day to complete the header section (async - timing tracked by background job)
     quote_output=$(wait_for_job "header_quote")
     if [[ $? -eq 0 && -n "$quote_output" ]]; then
         echo "$quote_output"
     else
         # Fallback to synchronous if background job failed
+        start_timing "header_quote_fallback"
         quote
+        end_timing "header_quote_fallback"
     fi
     echo ""
-    end_timing "write_quote"
 
     # Write the holidays
     start_timing "write_holidays"
@@ -431,17 +435,17 @@ function output {
         end_timing "write_did_you_know"
     fi
 
-    # Write Sanepar dam levels
-    sanepar_output=$(wait_for_job "sanepar")
-    if [[ $? -eq 0 && -n "$sanepar_output" ]]; then
-        echo "$sanepar_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_sanepar"
-        write_sanepar
-        end_timing "write_sanepar"
-    fi
+    # Write Sanepar dam levels - Temporarily disabled (API offline)
+    # sanepar_output=$(wait_for_job "sanepar")
+    # if [[ $? -eq 0 && -n "$sanepar_output" ]]; then
+    #     echo "$sanepar_output"
+    #     echo ""
+    # else
+    #     # Fallback to synchronous if background job failed
+    #     start_timing "write_sanepar"
+    #     write_sanepar
+    #     end_timing "write_sanepar"
+    # fi
 
     # Write the palpite of the day
     bicho_output=$(wait_for_job "bicho")
@@ -561,8 +565,9 @@ export weekday month day year days_since start_time current_time start_time_prec
 
 city="Curitiba"
 
-# Reset timing data
+# Reset timing data and initialize timing file for cross-subshell persistence
 reset_timing_data
+init_timing_file
 
 # Capture all output to calculate reading time, then output with reading time in header
 content_output=$(output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh")

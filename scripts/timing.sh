@@ -4,6 +4,41 @@
 # Global array to store timing data
 declare -A TIMING_DATA
 
+# File to persist timing data across subshells
+_TIMING_DATA_FILE=""
+
+# Initialize timing data file for cross-subshell persistence
+init_timing_file() {
+    if [[ "$timing" == true && -n "$_HCNEWS_TEMP_DIR" ]]; then
+        _TIMING_DATA_FILE="${_HCNEWS_TEMP_DIR}/timing_data.txt"
+        : > "$_TIMING_DATA_FILE"  # Create/truncate file
+    fi
+}
+
+# Save a timing entry to the shared file (for subshell persistence)
+save_timing_entry() {
+    local name="$1"
+    local elapsed="$2"
+    if [[ -n "$_TIMING_DATA_FILE" && -w "$_TIMING_DATA_FILE" ]]; then
+        echo "${name}:${elapsed}" >> "$_TIMING_DATA_FILE"
+    fi
+}
+
+# Load timing entries from shared file into TIMING_DATA (avoids duplicates)
+load_timing_entries() {
+    if [[ -f "$_TIMING_DATA_FILE" ]]; then
+        while IFS=: read -r name elapsed; do
+            if [[ -n "$name" && -n "$elapsed" ]]; then
+                # Only add if not already present (avoid duplicates)
+                if [[ -z "${TIMING_DATA["${name}_elapsed"]}" ]]; then
+                    TIMING_DATA["${name}_elapsed"]=$elapsed
+                    TIMING_DATA["timed_functions"]="${TIMING_DATA["timed_functions"]} $name"
+                fi
+            fi
+        done < "$_TIMING_DATA_FILE"
+    fi
+}
+
 # Start timing a function
 # Usage: start_timing "function_name"
 start_timing() {
@@ -38,6 +73,9 @@ end_timing() {
     
     # Store the function name in the list of timed functions
     TIMING_DATA["timed_functions"]="${TIMING_DATA["timed_functions"]} $func_name"
+    
+    # Also save to file for cross-subshell persistence
+    save_timing_entry "$func_name" "$elapsed_ms"
 }
 
 # Print timing for a specific function
@@ -66,22 +104,45 @@ print_timing_summary() {
         return 0
     fi
     
-    # Create an array of functions and their times for sorting
-    declare -a sorted_functions
+    # Separate async (background) jobs from sync operations
+    declare -a async_jobs
+    declare -a sync_ops
+    
     for func in ${TIMING_DATA["timed_functions"]}; do
         elapsed=${TIMING_DATA["${func}_elapsed"]}
-        sorted_functions+=("$elapsed:$func")
+        # Background jobs have specific names (no write_ prefix typically)
+        case "$func" in
+            menu|music_chart|ai_fortune|weather|all_news|saints|exchange|sanepar|did_you_know|desculpa|bicho|header_moon|header_quote)
+                async_jobs+=("$elapsed:$func")
+                ;;
+            *)
+                sync_ops+=("$elapsed:$func")
+                ;;
+        esac
     done
     
-    # Sort the functions by time (descending)
-    IFS=$'\n' sorted_functions=($(sort -rn -t: -k1 <<< "${sorted_functions[*]}"))
-    unset IFS
+    # Print async jobs first (these run in parallel)
+    if [[ ${#async_jobs[@]} -gt 0 ]]; then
+        echo "🔀 Background Jobs (parallel):"
+        IFS=$'\n' sorted=($(sort -rn -t: -k1 <<< "${async_jobs[*]}"))
+        unset IFS
+        for entry in "${sorted[@]}"; do
+            IFS=':' read -r time func <<< "$entry"
+            printf "   ⏱️ %-26s %8d ms\n" "$func" "$time"
+        done
+        echo ""
+    fi
     
-    # Print the sorted list
-    for entry in "${sorted_functions[@]}"; do
-        IFS=':' read -r time func <<< "$entry"
-        printf "⏱️ %-30s %8d ms\n" "$func" "$time"
-    done
+    # Print sync operations
+    if [[ ${#sync_ops[@]} -gt 0 ]]; then
+        echo "🔁 Synchronous Operations:"
+        IFS=$'\n' sorted=($(sort -rn -t: -k1 <<< "${sync_ops[*]}"))
+        unset IFS
+        for entry in "${sorted[@]}"; do
+            IFS=':' read -r time func <<< "$entry"
+            printf "   ⏱️ %-26s %8d ms\n" "$func" "$time"
+        done
+    fi
     
     echo "============================="
 }
