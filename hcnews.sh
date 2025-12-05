@@ -44,21 +44,26 @@ declare -A background_jobs
 declare -A job_outputs
 declare -A job_timings
 
+# Temp directory for background job files (created once, cleaned up at exit)
+_HCNEWS_TEMP_DIR="/tmp/hcnews_$$"
+mkdir -p "$_HCNEWS_TEMP_DIR"
+trap 'rm -rf "$_HCNEWS_TEMP_DIR"' EXIT
+
 # Start a network operation in background with timing
 start_background_job() {
     local job_name="$1"
     local command="$2"
-    local temp_file=$(mktemp)
-    local timing_file=$(mktemp)
+    # Use predictable temp file names instead of spawning mktemp
+    local temp_file="${_HCNEWS_TEMP_DIR}/${job_name}.out"
+    local timing_file="${_HCNEWS_TEMP_DIR}/${job_name}.time"
     
-    # Wrap command with timing if timing is enabled
-    local timed_command="$command"
+    # Run command in background - use bash -c instead of eval for better performance
     if [[ "$timing" == true ]]; then
-        timed_command="start_time=\$(date +%s%N); $command; end_time=\$(date +%s%N); echo \$(((\$end_time - \$start_time) / 1000000)) > $timing_file"
+        # Wrap command with timing
+        bash -c "start_time=\$(date +%s%N); $command; end_time=\$(date +%s%N); echo \$(((\$end_time - \$start_time) / 1000000)) > '$timing_file'" > "$temp_file" 2>&1 &
+    else
+        bash -c "$command" > "$temp_file" 2>&1 &
     fi
-    
-    # Run command in background and store PID
-    eval "$timed_command" > "$temp_file" 2>&1 &
     local pid=$!
     
     background_jobs["$job_name"]="$pid:$temp_file:$timing_file"
@@ -75,19 +80,26 @@ wait_for_job() {
         temp_file="${temp_file%%:*}"
         local timing_file="${job_info##*:}"
         
-        # Wait for the job to complete with timeout
+        # Use bash's wait with timeout instead of polling loop
+        # This is more efficient than sleep 0.1 polling
         local timeout=30
-        local elapsed=0
-        while kill -0 "$pid" 2>/dev/null; do
-            sleep 0.1
-            elapsed=$((elapsed + 1))
-            if [[ $elapsed -gt $((timeout * 10)) ]]; then
-                kill "$pid" 2>/dev/null
-                echo "⚠️ Background job '$job_name' timed out after ${timeout}s"
-                rm -f "$temp_file" "$timing_file"
-                return 1
+        if ! wait "$pid" 2>/dev/null; then
+            # Check if process is still running (wait returns non-zero for various reasons)
+            if kill -0 "$pid" 2>/dev/null; then
+                # Process still running, fall back to polling with longer intervals
+                local elapsed=0
+                while kill -0 "$pid" 2>/dev/null; do
+                    sleep 0.5  # Longer interval reduces CPU usage
+                    elapsed=$((elapsed + 1))
+                    if [[ $elapsed -gt $((timeout * 2)) ]]; then
+                        kill "$pid" 2>/dev/null
+                        echo "⚠️ Background job '$job_name' timed out after ${timeout}s"
+                        rm -f "$temp_file" "$timing_file"
+                        return 1
+                    fi
+                done
             fi
-        done
+        fi
         
         # Store timing data if available
         if [[ "$timing" == true && -f "$timing_file" ]]; then
@@ -281,12 +293,17 @@ function output {
     # ======= PHASE 1: Start all heavy network operations in parallel =======
     start_timing "network_parallel_start"
     
-    # Start the slowest operations first (based on your timing data)
+    # Start the slowest operations first (based on timing data: RU 1308ms, futuro 984ms, weather 620ms)
+    # RU menu is the slowest - start it first (only on weekdays)
+    if [[ $weekday -lt 6 ]]; then
+        start_background_job "menu" "(export SHOW_ONLY_TODAY=true; source '$SCRIPT_DIR/scripts/UFPR/ru.sh' $cache_options && write_menu)"
+    fi
     start_background_job "music_chart" "cd '$SCRIPT_DIR' && bash scripts/musicchart.sh $cache_options"
     start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
     start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
     start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true)"
     start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
+    start_background_job "exchange" "(source '$SCRIPT_DIR/scripts/exchange.sh' $cache_options && write_exchange)"
     start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"
     start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
     start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
@@ -363,10 +380,17 @@ function output {
         end_timing "write_ai_fortune"
     fi
 
-    # Write the exchange rates (still synchronous as it's not in top slowest)
-    start_timing "write_exchange"
-    (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
-    end_timing "write_exchange"
+    # Write the exchange rates (now async)
+    exchange_output=$(wait_for_job "exchange")
+    if [[ $? -eq 0 && -n "$exchange_output" ]]; then
+        echo "$exchange_output"
+        echo ""
+    else
+        # Fallback to synchronous if background job failed
+        start_timing "write_exchange"
+        (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
+        end_timing "write_exchange"
+    fi
 
     # Ask to enter the Whatsapp Channel
     help_hcnews
@@ -434,12 +458,18 @@ function output {
     # Help HCNEWS
     hcseguidor
 
-    # menu of the day (use cached weekday instead of calling date)
+    # menu of the day (now async - wait for background job)
     if [[ $weekday -lt 6 ]]; then
-        start_timing "write_menu"
-        SHOW_ONLY_TODAY=true
-        (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu) 
-        end_timing "write_menu"
+        menu_output=$(wait_for_job "menu")
+        if [[ $? -eq 0 && -n "$menu_output" ]]; then
+            echo "$menu_output"
+        else
+            # Fallback to synchronous if background job failed
+            start_timing "write_menu"
+            SHOW_ONLY_TODAY=true
+            (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu)
+            end_timing "write_menu"
+        fi
     fi
 
     # emoji of the day
