@@ -48,7 +48,12 @@ log_message() {
 
 # Function to get today's date in YYYYMMDD format
 get_date_format() {
-  date +"%Y%m%d"
+  # Use cached date_format if available, otherwise fall back to date command
+  if [[ -n "$date_format" ]]; then
+    echo "$date_format"
+  else
+    date +"%Y%m%d"
+  fi
 }
 
 # Function to check if cache exists and is from today and within TTL
@@ -59,7 +64,12 @@ check_cache() {
     local file_mod_time
     file_mod_time=$(stat -c %Y "$cache_file_path")
     local current_time
-    current_time=$(date +%s)
+    # Use cached start_time if available, otherwise fall back to date command
+    if [[ -n "$start_time" ]]; then
+      current_time="$start_time"
+    else
+      current_time=$(date +%s)
+    fi
     if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
       # Cache exists, not forced, and within TTL
       return 0
@@ -311,7 +321,14 @@ write_exchange() {
   # cmc_output=$(generate_exchange_CMC) # This function prints directly, adjust if needed
   # output+="$cmc_output\\n" 
 
-  output+="_Fonte: Banco Central do Brasil · Atualizado: $(date +%H:%M:%S)_\\n"
+  # Use cached current_time if available (format: HH:MM:SS), otherwise fall back to date
+  local update_time
+  if [[ -n "$current_time" ]]; then
+    update_time="$current_time"
+  else
+    update_time=$(date +%H:%M:%S)
+  fi
+  output+="_Fonte: Banco Central do Brasil · Atualizado: ${update_time}_\\n"
 
   if [ "$_exchange_USE_CACHE" = true ]; then
     write_cache "$cache_file" "$(echo -e "$output")"

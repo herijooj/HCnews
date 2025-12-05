@@ -60,10 +60,15 @@ function get_ai_fortune() {
     local local_use_cache=$_futuro_USE_CACHE
     local local_force_refresh=$_futuro_FORCE_REFRESH
 
-    local date_format
-    date_format=$(date +"%Y%m%d")
+    local date_format_local
+    # Use cached date_format if available, otherwise fall back to date command
+    if [[ -n "$date_format" ]]; then
+        date_format_local="$date_format"
+    else
+        date_format_local=$(date +"%Y%m%d")
+    fi
     [[ -d "$_futuro_CACHE_DIR" ]] || mkdir -p "$_futuro_CACHE_DIR" # Ensure cache directory exists
-    local cache_file="${_futuro_CACHE_DIR}/${date_format}_fortune.cache"
+    local cache_file="${_futuro_CACHE_DIR}/${date_format_local}_fortune.cache"
 
     if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then
         cat "$cache_file"
@@ -74,9 +79,30 @@ function get_ai_fortune() {
     local word_limit=30
 
     # Add date/day context for the AI model
-    local date=$(date +"%d/%m/%Y")
-    local day_of_week=$(date +"%A")
-    local pre_prompt="Contexto: hoje é ${day_of_week}, ${date}." # Re-added date context
+    # Use cached values if available, otherwise fall back to date command
+    local date_str
+    local day_of_week_str
+    if [[ -n "$day" && -n "$month" && -n "$year" ]]; then
+        date_str="${day}/${month}/${year}"
+    else
+        date_str=$(date +"%d/%m/%Y")
+    fi
+    if [[ -n "$weekday" ]]; then
+        # Convert weekday number to Portuguese day name
+        case "$weekday" in
+            1) day_of_week_str="Segunda-feira" ;;
+            2) day_of_week_str="Terça-feira" ;;
+            3) day_of_week_str="Quarta-feira" ;;
+            4) day_of_week_str="Quinta-feira" ;;
+            5) day_of_week_str="Sexta-feira" ;;
+            6) day_of_week_str="Sábado" ;;
+            7) day_of_week_str="Domingo" ;;
+            *) day_of_week_str=$(date +"%A") ;;
+        esac
+    else
+        day_of_week_str=$(date +"%A")
+    fi
+    local pre_prompt="Contexto: hoje é ${day_of_week_str}, ${date_str}." # Re-added date context
 
     # --- Improved Prompts ---
     # Instructions added: Respond ONLY with the phrase, no date/day mentions.

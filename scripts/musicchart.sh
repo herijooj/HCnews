@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 
-# Function to decode HTML entities
+# Function to decode HTML entities using pure Bash/sed (avoids spawning Python)
 decode_html_entities() {
   local input="$1"
-  if command -v python3 &> /dev/null; then
-    # Use Python for reliable HTML entity decoding if available
-    python3 -c "import html, sys; print(html.unescape('''$input'''))" 2>/dev/null || echo "$input"
-  else
-    # Fallback to sed for basic entity replacement
-    echo "$input" | sed 's/&amp;/\&/g; s/&quot;/"/g; s/&lt;/</g; s/&gt;/>/g; s/&apos;/'\''/g'
-  fi
+  # Handle common HTML entities and numeric/hex character references
+  printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
 }
 
 # Cache configuration

@@ -329,9 +329,9 @@ function get_weather() {
     # Add timestamp
     local CURRENT_TIME
     # Use cached current_time if available, otherwise fall back to date command
+    # Note: current_time from hcnews.sh is in %H:%M:%S format
     if [[ -n "$current_time" ]]; then
-        # Extract just the time part from the cached current_time (format: %d/%m/%Y %H:%M:%S)
-        CURRENT_TIME="${current_time#* }"
+        CURRENT_TIME="$current_time"
     else
         CURRENT_TIME=$(date +"%H:%M:%S")
     fi

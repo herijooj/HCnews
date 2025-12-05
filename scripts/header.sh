@@ -62,10 +62,12 @@ function pretty_date {
 
 # calculates the HERIPOCH (the HCnews epoch)
 # the start of the project was in 07/10/2021
+# Pre-computed constant: date -d "2021-10-07" +%s = 1633564800
+_HERIPOCH_START_TIMESTAMP=1633564800
+
 # Usage: heripoch_date [current_timestamp]
 function heripoch_date() {
     local current_timestamp="$1"
-    local start_date="2021-10-07"
     
     if [[ -n "$current_timestamp" ]]; then
         # Use provided timestamp
@@ -75,7 +77,7 @@ function heripoch_date() {
         local current_date=$(date +%s)
     fi
     
-    local difference=$((current_date - $(date -d "$start_date" +%s)))
+    local difference=$((current_date - _HERIPOCH_START_TIMESTAMP))
     local days_since=$((difference / 86400))
     echo "$days_since"
 }

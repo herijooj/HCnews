@@ -1,15 +1,10 @@
 #!/usr/bin/env bash
 
-# Function to decode HTML entities
+# Function to decode HTML entities using pure Bash/sed (avoids spawning Python)
 decode_html_entities() {
   local input="$1"
-  if command -v python3 &> /dev/null; then
-    # Use Python for reliable HTML entity decoding if available
-    python3 -c "import html, sys; print(html.unescape('''$input'''))" 2>/dev/null || echo "$input"
-  else
-    # Fallback to sed for basic entity replacement
-    echo "$input" | sed 's/&amp;/\&/g; s/&quot;/"/g; s/&lt;/</g; s/&gt;/>/g; s/&apos;/'\''/g'
-  fi
+  # Handle common HTML entities and numeric/hex character references
+  printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
 }
 
 _didyouknow_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
@@ -27,15 +22,15 @@ function get_didyouknow() {
         local_force_refresh=true
     fi
 
-    local date_format
+    local date_format_local
     # Use cached date_format if available, otherwise fall back to date command
     if [[ -n "$date_format" ]]; then
-        date_format="$date_format"
+        date_format_local="$date_format"
     else
-        date_format=$(date +"%Y%m%d")
+        date_format_local=$(date +"%Y%m%d")
     fi
     [[ -d "$_didyouknow_CACHE_DIR" ]] || mkdir -p "$_didyouknow_CACHE_DIR" # Ensure cache directory exists
-    local cache_file="${_didyouknow_CACHE_DIR}/${date_format}_didyouknow.cache"
+    local cache_file="${_didyouknow_CACHE_DIR}/${date_format_local}_didyouknow.cache"
 
     if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then
         cat "$cache_file"

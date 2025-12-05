@@ -513,15 +513,21 @@ get_arguments "$@"
 
 # Cache all date operations at once to avoid multiple subprocess calls
 # Use nanosecond precision for F1-style timing
-current_date=$(date +"%s %N %m %d %u %H:%M:%S %Y %-j")
-read start_time_seconds start_time_nanos month day weekday current_time year days_since <<< "$current_date"
+# Format: seconds nanoseconds month day weekday time year day_of_year YYYYMMDD
+current_date=$(date +"%s %N %m %d %u %H:%M:%S %Y %-j %Y%m%d")
+read start_time_seconds start_time_nanos month day weekday current_time year days_since date_format <<< "$current_date"
 
 # Combine seconds and nanoseconds into a single nanosecond timestamp for F1 timing
 start_time_precise=$((start_time_seconds * 1000000000 + 10#$start_time_nanos))
 start_time=$start_time_seconds  # Keep integer seconds for compatibility
 
+# Pre-compute commonly used date values to avoid subprocess spawning in child scripts
+# These values are used by caching functions across all scripts
+unix_24h_ago=$((start_time - 86400))  # 24 hours = 86400 seconds
+
 # Export cached values so they're available to sourced scripts
-export weekday month day year days_since start_time current_time start_time_precise
+# Scripts should check for these variables before calling date commands
+export weekday month day year days_since start_time current_time start_time_precise date_format unix_24h_ago
 
 city="Curitiba"
 

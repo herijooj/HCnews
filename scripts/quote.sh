@@ -21,12 +21,17 @@ function quote {
         force_refresh=true
     fi
 
-    local date_format
-    date_format=$(date +"%Y%m%d")
+    local date_format_local
+    # Use cached date_format if available, otherwise fall back to date command
+    if [[ -n "$date_format" ]]; then
+        date_format_local="$date_format"
+    else
+        date_format_local=$(date +"%Y%m%d")
+    fi
     
     # Ensure the cache directory exists
     [[ -d "$_quote_CACHE_DIR" ]] || mkdir -p "$_quote_CACHE_DIR"
-    local cache_file="${_quote_CACHE_DIR}/${date_format}_quote.cache"
+    local cache_file="${_quote_CACHE_DIR}/${date_format_local}_quote.cache"
 
     # Check cache first (unless force refresh is requested)
     if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then
