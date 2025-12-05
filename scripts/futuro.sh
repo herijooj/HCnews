@@ -62,7 +62,7 @@ function get_ai_fortune() {
 
     local date_format
     date_format=$(date +"%Y%m%d")
-    mkdir -p "$_futuro_CACHE_DIR" # Ensure cache directory exists
+    [[ -d "$_futuro_CACHE_DIR" ]] || mkdir -p "$_futuro_CACHE_DIR" # Ensure cache directory exists
     local cache_file="${_futuro_CACHE_DIR}/${date_format}_fortune.cache"
 
     if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then

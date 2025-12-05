@@ -15,7 +15,7 @@ decode_html_entities() {
 # Cache configuration
 _saints_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/saints"
 # Ensure the cache directory exists
-mkdir -p "$_saints_CACHE_DIR"
+[[ -d "$_saints_CACHE_DIR" ]] || mkdir -p "$_saints_CACHE_DIR"
 CACHE_TTL_SECONDS=$((23 * 60 * 60)) # 23 hours
 # Default cache behavior is enabled
 _saints_USE_CACHE=true
@@ -78,9 +78,11 @@ read_cache() {
 write_cache() {
   local cache_file_path="$1"
   local content="$2"
+  local cache_dir
+  cache_dir="$(dirname "$cache_file_path")"
   
   # Ensure the directory exists
-  mkdir -p "$(dirname "$cache_file_path")"
+  [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
   
   # Write the content to the cache file
   printf "%s" "$content" > "$cache_file_path"

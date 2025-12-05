@@ -100,7 +100,7 @@ fi
 # Cache directory path
 _ru_CACHE_DIR="$(dirname "$(dirname "$(dirname "$0")")")/data/cache/ru"
 # Ensure cache directory exists
-mkdir -p "$_ru_CACHE_DIR"
+[[ -d "$_ru_CACHE_DIR" ]] || mkdir -p "$_ru_CACHE_DIR"
 
 function list_locations() {
     echo "Available RU locations:"
@@ -176,9 +176,11 @@ function write_cache() {
     local menu="$2"
     local date_format=$(get_date_format)
     local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
+    local cache_dir
+    cache_dir="$(dirname "$cache_file")"
     
     # Ensure the directory exists
-    mkdir -p "$(dirname "$cache_file")"
+    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
     
     # Write menu to cache file
     echo "$menu" > "$cache_file"

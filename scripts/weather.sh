@@ -19,11 +19,8 @@ fi
 # Cache directory - use the same directory as ru.sh
 CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/weather"
 # Ensure the cache directory exists
-if [[ ! -d "$CACHE_DIR" ]]; then
-    mkdir -p "$CACHE_DIR"
-fi
+[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
 CACHE_TTL_SECONDS=$((3 * 60 * 60)) # 3 hours
-mkdir -p "$CACHE_DIR"
 
 # Default cache behavior is enabled
 _weather_USE_CACHE=true
@@ -121,9 +118,11 @@ function read_cache() {
 function write_cache() {
     local cache_file_path="$1"
     local weather_data="$2"
+    local cache_dir
+    cache_dir="$(dirname "$cache_file_path")"
     
     # Ensure the directory exists
-    mkdir -p "$(dirname "$cache_file_path")"
+    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
     
     # Write weather to cache file
     echo "$weather_data" > "$cache_file_path"

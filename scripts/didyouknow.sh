@@ -34,7 +34,7 @@ function get_didyouknow() {
     else
         date_format=$(date +"%Y%m%d")
     fi
-    mkdir -p "$_didyouknow_CACHE_DIR" # Ensure cache directory exists
+    [[ -d "$_didyouknow_CACHE_DIR" ]] || mkdir -p "$_didyouknow_CACHE_DIR" # Ensure cache directory exists
     local cache_file="${_didyouknow_CACHE_DIR}/${date_format}_didyouknow.cache"
 
     if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then

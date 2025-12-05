@@ -11,7 +11,7 @@ fi
 # Cache configuration
 _exchange_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/exchange"
 # Ensure the cache directory exists
-mkdir -p "$_exchange_CACHE_DIR"
+[[ -d "$_exchange_CACHE_DIR" ]] || mkdir -p "$_exchange_CACHE_DIR"
 CACHE_TTL_SECONDS=$((4 * 60 * 60)) # 4 hours
 # Default cache behavior is enabled
 _exchange_USE_CACHE=true
@@ -78,9 +78,11 @@ read_cache() {
 write_cache() {
   local cache_file_path="$1"
   local content="$2"
+  local cache_dir
+  cache_dir="$(dirname "$cache_file_path")"
   
   # Ensure the directory exists
-  mkdir -p "$(dirname "$cache_file_path")"
+  [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
   
   # Write content to cache file
   echo "$content" > "$cache_file_path"

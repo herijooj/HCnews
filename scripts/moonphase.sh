@@ -27,7 +27,7 @@ function moon_phase () {
     fi
     
     # Ensure the cache directory exists
-    mkdir -p "$_moonphase_CACHE_DIR"
+    [[ -d "$_moonphase_CACHE_DIR" ]] || mkdir -p "$_moonphase_CACHE_DIR"
     local cache_file="${_moonphase_CACHE_DIR}/${date_format_local}_moon_phase.cache"
 
     if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then

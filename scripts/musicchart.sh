@@ -15,7 +15,7 @@ decode_html_entities() {
 # Cache configuration
 _musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/musicchart"
 # Ensure the cache directory exists
-mkdir -p "$_musicchart_CACHE_BASE_DIR"
+[[ -d "$_musicchart_CACHE_BASE_DIR" ]] || mkdir -p "$_musicchart_CACHE_BASE_DIR"
 CACHE_TTL_SECONDS=$((12 * 60 * 60)) # 12 hours
 _musicchart_USE_CACHE=true
 _musicchart_FORCE_REFRESH=false
@@ -77,7 +77,9 @@ read_cache() {
 write_cache() {
   local cache_file_path="$1"
   local content="$2"
-  mkdir -p "$(dirname "$cache_file_path")"
+  local cache_dir
+  cache_dir="$(dirname "$cache_file_path")"
+  [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
   echo "$content" > "$cache_file_path"
 }
 

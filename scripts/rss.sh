@@ -7,7 +7,7 @@ source "$RSS_DIR/shortening.sh"
 # Cache directory for URL shortening and RSS content
 _rss_CACHE_DIR_BASE="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/rss"
 # Ensure the base cache directory exists
-mkdir -p "$_rss_CACHE_DIR_BASE"
+[[ -d "$_rss_CACHE_DIR_BASE" ]] || mkdir -p "$_rss_CACHE_DIR_BASE"
 _rss_URL_CACHE_DIR="${_rss_CACHE_DIR_BASE}/url_cache"
 URL_CACHE_FILE="${_rss_URL_CACHE_DIR}/url_shorten_cache.txt"
 CACHE_TTL_SECONDS=$((2 * 60 * 60)) # 2 hours for general RSS feeds
@@ -33,8 +33,8 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
     done
 fi
 
-mkdir -p "$_rss_CACHE_DIR_BASE"
-mkdir -p "$_rss_URL_CACHE_DIR"
+[[ -d "$_rss_CACHE_DIR_BASE" ]] || mkdir -p "$_rss_CACHE_DIR_BASE"
+[[ -d "$_rss_URL_CACHE_DIR" ]] || mkdir -p "$_rss_URL_CACHE_DIR"
 touch "$URL_CACHE_FILE"
 
 # Limit cache file size to prevent performance degradation
@@ -138,7 +138,9 @@ read_cache() {
 write_cache() {
     local cache_file_path="$1"
     local content="$2"
-    mkdir -p "$(dirname "$cache_file_path")"
+    local cache_dir
+    cache_dir="$(dirname "$cache_file_path")"
+    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
     echo "$content" > "$cache_file_path"
 }
 
@@ -157,7 +159,7 @@ get_news_RSS_combined() {
     
     # Create individual folder for each RSS feed
     local rss_cache_dir="${_rss_CACHE_DIR_BASE}/rss_feeds/${portal_identifier}"
-    mkdir -p "$rss_cache_dir"
+    [[ -d "$rss_cache_dir" ]] || mkdir -p "$rss_cache_dir"
     local cache_file="${rss_cache_dir}/${date_format}.news"
     
     # Separate cache file for links when LINKED=true

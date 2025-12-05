@@ -25,7 +25,7 @@ function quote {
     date_format=$(date +"%Y%m%d")
     
     # Ensure the cache directory exists
-    mkdir -p "$_quote_CACHE_DIR"
+    [[ -d "$_quote_CACHE_DIR" ]] || mkdir -p "$_quote_CACHE_DIR"
     local cache_file="${_quote_CACHE_DIR}/${date_format}_quote.cache"
 
     # Check cache first (unless force refresh is requested)

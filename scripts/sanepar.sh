@@ -24,7 +24,7 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
 fi
 
 # Ensure cache directory exists
-mkdir -p "$_sanepar_CACHE_DIR"
+[[ -d "$_sanepar_CACHE_DIR" ]] || mkdir -p "$_sanepar_CACHE_DIR"
 
 # Function to get date in YYYYMMDD format
 function get_date_format() {
@@ -58,9 +58,11 @@ function read_cache() {
 function write_cache() {
     local cache_file_path="$1"
     local content="$2"
+    local cache_dir
+    cache_dir="$(dirname "$cache_file_path")"
     
     # Ensure the directory exists
-    mkdir -p "$(dirname "$cache_file_path")"
+    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
     
     # Write content to cache file with proper newline interpretation
     echo -e "$content" > "$cache_file_path"

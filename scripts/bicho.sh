@@ -22,7 +22,7 @@ function get_bicho_data {
   date_format=$(date +"%Y%m%d")
   
   # Ensure the cache directory exists
-  mkdir -p "$_bicho_CACHE_DIR"
+  [[ -d "$_bicho_CACHE_DIR" ]] || mkdir -p "$_bicho_CACHE_DIR"
   local cache_file="${_bicho_CACHE_DIR}/${date_format}_bicho.cache"
 
   # Check cache first (unless force refresh is requested)
