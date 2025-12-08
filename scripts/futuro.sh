@@ -168,60 +168,50 @@ function get_ai_fortune() {
     # Handle curl errors
     if [[ $curl_exit_code -ne 0 ]]; then
       echo "Error: curl command failed with exit code $curl_exit_code." >&2
-      # Attempt to extract API error from potential JSON error response curl might still output
-      api_error=$(echo "$http_response" | jq -r '.error.message // ""' 2>/dev/null)
-      if [[ -n "$api_error" ]]; then
-         echo "API Error Hint: $api_error" >&2
-      else
-         echo "Check network connection, API key validity, endpoint correctness (${API_ENDPOINT}), or firewall issues." >&2
-      fi
       return 1
     fi
 
-    # Handle API errors within the JSON response
-    # Use jq's // operator for safer default value handling
-    api_error=$(echo "$http_response" | jq -r '.error.message // ""' 2>/dev/null)
+    # SINGLE jq call to extract everything we need: error, finishReason, and text
+    local parsed_response
+    parsed_response=$(echo "$http_response" | jq -r '
+      {
+        error: (.error.message // ""),
+        finish_reason: (.candidates[0].finishReason // "REASON_UNKNOWN"),
+        text: (.candidates[0].content.parts[0].text // "")
+      } | "\(.error)|\(.finish_reason)|\(.text)"
+    ')
+    
+    local api_error finish_reason fortune_raw
+    IFS='|' read -r api_error finish_reason fortune_raw <<< "$parsed_response"
+
+    # Handle API errors
     if [[ -n "$api_error" ]]; then
         echo "Error: API returned an error message: $api_error" >&2
-        # echo "Full response: $http_response" >&2 # Uncomment for debugging
-        # Check for specific error codes or messages if needed
         if [[ "$api_error" == *"API key not valid"* ]]; then
             echo "Hint: Check if GEMINI_API_KEY is correct and enabled." >&2
         fi
         return 1
     fi
 
-     # Check if candidates array exists and has content before extracting text
-    fortune_raw=$(echo "$http_response" | jq -r '.candidates[0].content.parts[0].text // ""')
-
-    # Add an explicit check for safety blocks / finishReason
-    local finish_reason
-    finish_reason=$(echo "$http_response" | jq -r '.candidates[0].finishReason // "REASON_UNKNOWN"')
+    # Check finish reason
     if [[ "$finish_reason" != "STOP" && "$finish_reason" != "MAX_TOKENS" ]]; then
         echo "Warning: Generation finished unexpectedly. Reason: $finish_reason" >&2
-        # Check if content is empty due to safety filters
         if [[ -z "$fortune_raw" && "$finish_reason" == "SAFETY" ]]; then
            echo "Error: Content blocked due to safety settings." >&2
-           # echo "Full response: $http_response" >&2 # Uncomment for debugging
            return 1
         elif [[ -z "$fortune_raw" ]]; then
-           echo "Error: Could not extract fortune text. Reason: $finish_reason. Response might be empty or malformed." >&2
-           # echo "Full response: $http_response" >&2 # Uncomment for debugging
+           echo "Error: Could not extract fortune text. Reason: $finish_reason." >&2
            return 1
         fi
-        # Decide if you want to proceed even if finishReason isn't STOP/MAX_TOKENS but text exists
-        # For now, we proceed if text was extracted.
     fi
 
-
     if [[ -z "$fortune_raw" ]]; then
-      echo "Error: Could not extract fortune text from API response (it might be empty or missing)." >&2
-      # echo "Full response: $http_response" >&2 # Uncomment for debugging
+      echo "Error: Could not extract fortune text from API response." >&2
       return 1
     fi
 
     # Output raw fortune text if successful
-    if [[ "$local_use_cache" == true && $? -eq 0 && -n "$fortune_raw" ]]; then
+    if [[ "$local_use_cache" == true ]]; then
         echo "$fortune_raw" > "$cache_file"
     fi
     echo "$fortune_raw"

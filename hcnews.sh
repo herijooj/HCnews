@@ -59,8 +59,8 @@ start_background_job() {
     
     # Run command in background - use bash -c instead of eval for better performance
     if [[ "$timing" == true ]]; then
-        # Wrap command with timing
-        bash -c "start_time=\$(date +%s%N); $command; end_time=\$(date +%s%N); echo \$(((\$end_time - \$start_time) / 1000000)) > '$timing_file'" > "$temp_file" 2>&1 &
+        # Wrap command with timing (use _job_start/_job_end to avoid shadowing exported start_time)
+        bash -c "_job_start=\$(date +%s%N); $command; _job_end=\$(date +%s%N); echo \$(((_job_end - _job_start) / 1000000)) > '$timing_file'" > "$temp_file" 2>&1 &
     else
         bash -c "$command" > "$temp_file" 2>&1 &
     fi
@@ -467,12 +467,14 @@ function output {
         menu_output=$(wait_for_job "menu")
         if [[ $? -eq 0 && -n "$menu_output" ]]; then
             echo "$menu_output"
+            echo ""
         else
             # Fallback to synchronous if background job failed
             start_timing "write_menu"
             SHOW_ONLY_TODAY=true
             (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu)
             end_timing "write_menu"
+            echo ""
         fi
     fi
 

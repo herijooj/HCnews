@@ -164,27 +164,25 @@ function get_weather() {
         return
     fi
     
-    # Make both API calls in parallel for speed
+    # TWO parallel API calls (free tier doesn't have a single endpoint with all data)
+    # But we optimize by: using /dev/shm, parallel requests, and single jq parse each
     local CURRENT_WEATHER_URL="https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${openweathermap_API_KEY}&lang=${LANG}&units=${UNITS}"
     local FORECAST_URL="https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${openweathermap_API_KEY}&lang=${LANG}&units=${UNITS}"
     
-    # Use background processes for parallel requests
-    local current_temp=$(mktemp)
-    local forecast_temp=$(mktemp)
+    # Use /dev/shm (RAM-backed tmpfs) for faster temp file I/O
+    local tmp_dir="/dev/shm"
+    [[ -d "$tmp_dir" && -w "$tmp_dir" ]] || tmp_dir="/tmp"
+    local current_temp="${tmp_dir}/.weather_cur_$$"
+    local forecast_temp="${tmp_dir}/.weather_fc_$$"
     
+    # Parallel curl requests
     curl -s "$CURRENT_WEATHER_URL" > "$current_temp" &
-    local current_pid=$!
     curl -s "$FORECAST_URL" > "$forecast_temp" &
-    local forecast_pid=$!
+    wait
     
-    # Wait for both requests to complete
-    wait $current_pid
-    wait $forecast_pid
-    
-    local CURRENT_WEATHER=$(cat "$current_temp")
-    local FORECAST_DATA=$(cat "$forecast_temp")
-    
-    # Clean up temp files
+    local CURRENT_WEATHER FORECAST_DATA
+    CURRENT_WEATHER=$(<"$current_temp")
+    FORECAST_DATA=$(<"$forecast_temp")
     rm -f "$current_temp" "$forecast_temp"
     
     # Check if current weather request was successful
@@ -193,7 +191,7 @@ function get_weather() {
         return 1
     fi
     
-    # Pre-compute all dates once
+    # Get current timestamp for day calculations
     local CURRENT_DATE_TS
     if [[ -n "$start_time" ]]; then
         CURRENT_DATE_TS="$start_time"
@@ -201,141 +199,104 @@ function get_weather() {
         CURRENT_DATE_TS=$(date +%s)
     fi
     
-    # Pre-compute next 3 days and day names
-    local NEXT_DATES=()
-    local DAY_NAMES_SHORT=("Seg" "Ter" "Qua" "Qui" "Sex" "Sáb" "Dom")
-    local COMPUTED_DAY_NAMES=()
+    # Compute the 3 future dates once
+    local D1_DATE D2_DATE D3_DATE
+    D1_DATE=$(LC_ALL=C date -d "@$((CURRENT_DATE_TS + 86400))" +"%Y-%m-%d")
+    D2_DATE=$(LC_ALL=C date -d "@$((CURRENT_DATE_TS + 172800))" +"%Y-%m-%d")
+    D3_DATE=$(LC_ALL=C date -d "@$((CURRENT_DATE_TS + 259200))" +"%Y-%m-%d")
     
-    for i in {1..3}; do
-        local NEXT_TS=$((CURRENT_DATE_TS + (i * 86400)))
-        local NEXT_DATE=$(LC_ALL=C date -d "@$NEXT_TS" +"%Y-%m-%d")
-        NEXT_DATES+=("$NEXT_DATE")
+    # SINGLE jq call to extract current weather + process all 3 days of forecast
+    # The forecast API returns 3-hour intervals; we find min/max per day
+    local ALL_DATA
+    ALL_DATA=$(jq -r -n --argjson cur "$CURRENT_WEATHER" --argjson fc "$FORECAST_DATA" --arg d1 "$D1_DATE" --arg d2 "$D2_DATE" --arg d3 "$D3_DATE" '
+        # Helper to get day stats
+        def day_stats($date):
+            [$fc.list[] | select(.dt_txt | startswith($date))] |
+            if length > 0 then
+                [(.[].main.temp | floor)] as $temps |
+                {
+                    min: ($temps | min),
+                    max: ($temps | max),
+                    hum: (([.[].main.humidity] | add / length) | floor),
+                    cond: ([.[].weather[0].id] | group_by(.) | max_by(length) | .[0])
+                }
+            else
+                {min: "N/A", max: "N/A", hum: "N/A", cond: ""}
+            end;
         
-        local day_num=$(LC_ALL=C date -d "@$NEXT_TS" +"%u")
-        day_num=$((day_num - 1))
-        COMPUTED_DAY_NAMES+=("${DAY_NAMES_SHORT[$day_num]}")
-    done
-    
-    # Extract ALL current weather data in a single jq call
-    local CURRENT_DATA=$(echo "$CURRENT_WEATHER" | jq -r '
+        day_stats($d1) as $day1 |
+        day_stats($d2) as $day2 |
+        day_stats($d3) as $day3 |
+        
         [
-            .weather[0].description,
-            .weather[0].id,
-            (.main.temp | floor),
-            (.main.feels_like | floor),
-            (.main.temp_min | floor),
-            (.main.temp_max | floor),
-            (.main.humidity | floor),
-            .sys.sunrise,
-            .sys.sunset
-        ] | join("|")')
+            # Current weather
+            $cur.weather[0].description,
+            $cur.weather[0].id,
+            ($cur.main.temp | floor),
+            ($cur.main.feels_like | floor),
+            ($cur.main.temp_min | floor),
+            ($cur.main.temp_max | floor),
+            ($cur.main.humidity | floor),
+            $cur.sys.sunrise,
+            $cur.sys.sunset,
+            # Day 1
+            $day1.min, $day1.max, $day1.hum, $day1.cond,
+            # Day 2
+            $day2.min, $day2.max, $day2.hum, $day2.cond,
+            # Day 3
+            $day3.min, $day3.max, $day3.hum, $day3.cond
+        ] | map(tostring) | join("|")
+    ')
     
-    # Parse current data
-    IFS='|' read -r CONDITION CONDITION_ID TEMP FEELS_LIKE TEMP_MIN TEMP_MAX HUMIDITY SUNRISE SUNSET <<< "$CURRENT_DATA"
+    # Parse all data at once
+    IFS='|' read -r CONDITION CONDITION_ID TEMP FEELS_LIKE TEMP_MIN TEMP_MAX HUMIDITY SUNRISE SUNSET \
+        D1_MIN D1_MAX D1_HUM D1_COND \
+        D2_MIN D2_MAX D2_HUM D2_COND \
+        D3_MIN D3_MAX D3_HUM D3_COND <<< "$ALL_DATA"
     
     # Format sunrise/sunset times
     local SUNRISE_TIME="N/A"
     local SUNSET_TIME="N/A"
-    if [[ "$SUNRISE" =~ ^[0-9]+$ ]]; then
-        SUNRISE_TIME=$(LC_ALL=C date -d "@$SUNRISE" +"%H:%M" 2>/dev/null || echo "N/A")
-    fi
-    if [[ "$SUNSET" =~ ^[0-9]+$ ]]; then
-        SUNSET_TIME=$(LC_ALL=C date -d "@$SUNSET" +"%H:%M" 2>/dev/null || echo "N/A")
-    fi
+    [[ "$SUNRISE" =~ ^[0-9]+$ ]] && SUNRISE_TIME=$(LC_ALL=C date -d "@$SUNRISE" +"%H:%M" 2>/dev/null || echo "N/A")
+    [[ "$SUNSET" =~ ^[0-9]+$ ]] && SUNSET_TIME=$(LC_ALL=C date -d "@$SUNSET" +"%H:%M" 2>/dev/null || echo "N/A")
     
-    # Get condition emoji
-    local CONDITION_EMOJI=$(get_weather_emoji "$CONDITION_ID")
+    # Get emojis using lookup table (no subshells)
+    local CONDITION_EMOJI="${WEATHER_EMOJIS[$CONDITION_ID]:-🌡️}"
+    local D1_EMOJI="${WEATHER_EMOJIS[$D1_COND]:-🌡️}"
+    local D2_EMOJI="${WEATHER_EMOJIS[$D2_COND]:-🌡️}"
+    local D3_EMOJI="${WEATHER_EMOJIS[$D3_COND]:-🌡️}"
     
-    # Process ALL forecast data in a single jq call
-    local FORECAST_PROCESSED=$(echo "$FORECAST_DATA" | jq -r --argjson dates '["'"${NEXT_DATES[0]}"'","'"${NEXT_DATES[1]}"'","'"${NEXT_DATES[2]}"'"]' '
-        [
-            $dates[] as $date |
-            (
-                [.list[] | select(.dt_txt | startswith($date))] as $day_data |
-                if ($day_data | length) > 0 then
-                    {
-                        date: $date,
-                        min_temp: ([$day_data[].main.temp] | min | floor),
-                        max_temp: ([$day_data[].main.temp] | max | floor),
-                        avg_humidity: ([$day_data[].main.humidity] | add / length | floor),
-                        most_common_condition: ([$day_data[].weather[0].id] | group_by(.) | max_by(length) | .[0])
-                    }
-                else
-                    {
-                        date: $date,
-                        min_temp: null,
-                        max_temp: null,
-                        avg_humidity: null,
-                        most_common_condition: null
-                    }
-                end
-            )
-        ] | .[] | [.min_temp, .max_temp, .avg_humidity, .most_common_condition] | join("|")')
+    # Compute day names using modular arithmetic (single date call for base)
+    local DAY_NAMES_SHORT=("Dom" "Seg" "Ter" "Qua" "Qui" "Sex" "Sáb")
+    local base_dow
+    base_dow=$(LC_ALL=C date -d "@$CURRENT_DATE_TS" +"%w")
+    local D1_NAME="${DAY_NAMES_SHORT[$(( (base_dow + 1) % 7 ))]}"
+    local D2_NAME="${DAY_NAMES_SHORT[$(( (base_dow + 2) % 7 ))]}"
+    local D3_NAME="${DAY_NAMES_SHORT[$(( (base_dow + 3) % 7 ))]}"
     
-    # Parse forecast data
-    local DAY_EMOJIS=()
-    local DAY_TEMP_MIN=()
-    local DAY_TEMP_MAX=()
-    local DAY_HUMIDITY=()
+    # Timestamp
+    local CURRENT_TIME="${current_time:-$(date +"%H:%M:%S")}"
     
-    local day_index=0
-    while IFS= read -r line; do
-        if [[ -n "$line" && "$line" != "null" ]]; then
-            IFS='|' read -r min_temp max_temp avg_humidity condition_id <<< "$line"
-            
-            # Handle null values from jq
-            [[ "$min_temp" == "null" ]] && min_temp="N/A"
-            [[ "$max_temp" == "null" ]] && max_temp="N/A"
-            [[ "$avg_humidity" == "null" ]] && avg_humidity="N/A"
-            [[ "$condition_id" == "null" ]] && condition_id=""
-            
-            DAY_TEMP_MIN+=("${min_temp}")
-            DAY_TEMP_MAX+=("${max_temp}")
-            DAY_HUMIDITY+=("${avg_humidity}")
-            
-            # Only try to get emoji if we have a valid condition_id
-            if [[ -n "$condition_id" && "$condition_id" != "null" ]]; then
-                DAY_EMOJIS+=("$(get_weather_emoji "$condition_id")")
-            else
-                DAY_EMOJIS+=("🌡️")
-            fi
-        else
-            DAY_TEMP_MIN+=("N/A")
-            DAY_TEMP_MAX+=("N/A")
-            DAY_HUMIDITY+=("N/A")
-            DAY_EMOJIS+=("🌡️")
-        fi
-        ((day_index++))
-        [[ $day_index -ge 3 ]] && break
-    done <<< "$FORECAST_PROCESSED"
-    
-    # Build output string efficiently
-    local OUTPUT="🌦️ *Clima em ${CITY}:*
-- ${CONDITION_EMOJI} _${CONDITION^}_
-- 🌡️ \`${TEMP}\` °C
-- ↗️ Máx: \`${TEMP_MAX}\` °C  ↘️ Mín: \`${TEMP_MIN}\` °C
-- Sensação: \`${FEELS_LIKE}\` °C  💧 \`${HUMIDITY}\` %
-- 🌅 \`${SUNRISE_TIME}\`  🌇 \`${SUNSET_TIME}\`"
+    # Build output with single printf
+    local OUTPUT
+    printf -v OUTPUT '🌦️ *Clima em %s:*
+- %s _%s_
+- 🌡️ `%s` °C
+- ↗️ Máx: `%s` °C  ↘️ Mín: `%s` °C
+- Sensação: `%s` °C  💧 `%s` %%
+- 🌅 `%s`  🌇 `%s`
 
-    OUTPUT+="
-
-🗓️ *Próximos Dias:*"
-    
-    for i in {0..2}; do
-        OUTPUT+="
-- *${COMPUTED_DAY_NAMES[$i]}:* ${DAY_EMOJIS[$i]} \`${DAY_TEMP_MIN[$i]}\` °→ \`${DAY_TEMP_MAX[$i]}\` °C  💧 \`${DAY_HUMIDITY[$i]}\` %"
-    done
-
-    # Add timestamp
-    local CURRENT_TIME
-    # Use cached current_time if available, otherwise fall back to date command
-    # Note: current_time from hcnews.sh is in %H:%M:%S format
-    if [[ -n "$current_time" ]]; then
-        CURRENT_TIME="$current_time"
-    else
-        CURRENT_TIME=$(date +"%H:%M:%S")
-    fi
-    OUTPUT+="\\n_Fonte: OpenWeatherMap · Atualizado: ${CURRENT_TIME}_"
+🗓️ *Próximos Dias:*
+- *%s:* %s `%s` °→ `%s` °C  💧 `%s` %%
+- *%s:* %s `%s` °→ `%s` °C  💧 `%s` %%
+- *%s:* %s `%s` °→ `%s` °C  💧 `%s` %%
+_Fonte: OpenWeatherMap · Atualizado: %s_' \
+        "$CITY" "$CONDITION_EMOJI" "${CONDITION^}" "$TEMP" "$TEMP_MAX" "$TEMP_MIN" \
+        "$FEELS_LIKE" "$HUMIDITY" "$SUNRISE_TIME" "$SUNSET_TIME" \
+        "$D1_NAME" "$D1_EMOJI" "$D1_MIN" "$D1_MAX" "$D1_HUM" \
+        "$D2_NAME" "$D2_EMOJI" "$D2_MIN" "$D2_MAX" "$D2_HUM" \
+        "$D3_NAME" "$D3_EMOJI" "$D3_MIN" "$D3_MAX" "$D3_HUM" \
+        "$CURRENT_TIME"
     
     # Save to cache if enabled
     if [ "$_weather_USE_CACHE" = true ]; then

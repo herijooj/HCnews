@@ -50,23 +50,28 @@ function quote {
     fi
 
     # get the quote from the RSS feed
-    URL="http://feeds.feedburner.com/theysaidso/qod"
+    local URL="http://feeds.feedburner.com/theysaidso/qod"
+    local response
+    response=$(curl -s "$URL")
 
-    # pick the second description tag
-    QUOTE=$(curl -s "$URL" | xmlstarlet sel -t -m "/rss/channel/item" -v "description" -n | sed -n 2p)
-
-    # convert the quote to ASCII and decode HTML entities
-    # Format the quote with markdown and decode HTML entities
-    QUOTE=$(echo "$QUOTE" | iconv -f utf-8 -t ascii//TRANSLIT | sed -e "s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/\"/g; s/&#039;/'/g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&#[0-9]\+;//g")
-    QUOTE="📝 *Frase do dia:*\n_${QUOTE}_\n\n"
+    # Use xmlstarlet with inline text processing to avoid multiple subshells
+    # Extract second description, then decode HTML entities in one pass
+    local QUOTE
+    QUOTE=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "description" 2>/dev/null)
+    
+    # Decode HTML entities and normalize quotes in a single sed call
+    QUOTE=$(echo "$QUOTE" | LC_ALL=C sed -e "s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/\"/g; s/&#039;/'/g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&#[0-9]*;//g")
+    
+    # Build output
+    local output="📝 *Frase do dia:*\n_${QUOTE}_\n\n"
 
     # Save to cache if caching is enabled
     if [[ "$use_cache" == true ]]; then
-        echo -e "$QUOTE" > "$cache_file"
+        echo -e "$output" > "$cache_file"
     fi
 
     # return the quote
-    echo -e "$QUOTE"
+    echo -e "$output"
 }
 
 # -------------------------------- Running locally --------------------------------
@@ -80,6 +85,8 @@ show_help() {
   echo "The quote of the day will be printed to the console."
   echo "Options:"
   echo "  -h, --help: show the help"
+  echo "  --no-cache: do not use cached data"
+  echo "  --force: force refresh cache"
 }
 
 # this function will receive the arguments
@@ -90,6 +97,14 @@ get_arguments() {
       -h|--help)
         show_help
         exit 0
+        ;;
+      --no-cache)
+        _quote_USE_CACHE=false
+        shift
+        ;;
+      --force)
+        _quote_FORCE_REFRESH=true
+        shift
         ;;
       *)
         echo "Invalid argument: $1"

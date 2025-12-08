@@ -100,7 +100,7 @@ write_cache() {
 
 # Function to get exchange rates from the Brazilian Central Bank
 get_exchange_BC() {
-  local JSON_URL="https://www.bcb.gov.br/api/servico/sitebcb/indicadorCambio" # Renamed for clarity
+  local JSON_URL="https://www.bcb.gov.br/api/servico/sitebcb/indicadorCambio"
   local retry_count=0
   local response=""
   local out=""
@@ -108,21 +108,19 @@ get_exchange_BC() {
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
     response=$(curl -s -m 10 "$JSON_URL")
     
-    # Attempt to process with jq. If successful, $out will be non-empty.
-    # jq handles JSON validation implicitly.
-    # Formatting (including backticks and two decimal places) is done in jq.
+    # Single jq call: filter, format with 2 decimal places, output final lines
     out=$(echo "$response" | jq -r '
       .conteudo[]
       | select(.tipoCotacao == "Fechamento")
-      | "- *\(.moeda)*: Compra `R$ \( ( (.valorCompra * 100 | floor) / 100 ) )` · Venda `R$ \( ( (.valorVenda * 100 | floor) / 100 ) )`"
-    ')
+      | "- *\(.moeda)*: Compra `R$ \(.valorCompra | . * 100 | floor | . / 100)` · Venda `R$ \(.valorVenda | . * 100 | floor | . / 100)`"
+    ' 2>/dev/null)
       
     if [[ -n "$out" ]]; then
       echo "$out"
       return 0
     fi
     
-    log_message "WARNING" "Failed to fetch BC exchange rates (attempt $((retry_count+1))). Retrying in $RETRY_DELAY seconds..."
+    log_message "WARNING" "Failed to fetch BC exchange rates (attempt $((retry_count+1))). Retrying..."
     sleep "$RETRY_DELAY"
     ((retry_count++))
   done
@@ -184,8 +182,7 @@ fetch_and_display_batch() {
   
   local API_URL="https://pro-api.coinmarketcap.com/v1/cryptocurrency/quotes/latest"
   local retry_count=0
-  local raw_data="" # Renamed from 'data' to avoid confusion
-  local success=false
+  local raw_data=""
   
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
     raw_data=$(curl -s -m 15 -G \
@@ -194,72 +191,53 @@ fetch_and_display_batch() {
       --data-urlencode "id=$ids" \
       --data-urlencode "convert=BRL" \
       "$API_URL")
-      
-    # Single jq call to extract ID, price, and change_24h for all relevant items
-    # Output format: id\tprice\tchange_24h\n...
-    # Using // "null" to handle cases where price or change might be missing for an ID
-    local extracted_data
-    extracted_data=$(echo "$raw_data" | jq -r '
+    
+    # Build symbol map as JSON for jq (id -> symbol)
+    local symbol_map_json="{"
+    local first=true
+    for id in "${!currency_map_ref[@]}"; do
+      local symbol="${currency_map_ref[$id]%%:*}"
+      [[ "$first" == "true" ]] && first=false || symbol_map_json+=","
+      symbol_map_json+="\"$id\":\"$symbol\""
+    done
+    symbol_map_json+="}"
+    
+    # SINGLE jq call: extract, format prices, calculate arrows, output final lines
+    local formatted_output
+    formatted_output=$(echo "$raw_data" | jq -r --argjson symbols "$symbol_map_json" '
       if .data then
         .data | to_entries[] |
-        select(.value.quote.BRL) | # Ensure BRL quote exists
-        "\(.key)\t\(.value.quote.BRL.price // "null")\t\(.value.quote.BRL.percent_change_24h // "null")"
+        select(.value.quote.BRL.price != null and .value.quote.BRL.percent_change_24h != null) |
+        .key as $id |
+        ($symbols[$id] // "???") as $sym |
+        .value.quote.BRL.price as $price |
+        .value.quote.BRL.percent_change_24h as $change |
+        
+        # Format price: divide by 1000 if >= 1000, add K suffix
+        (if $price >= 1000 then
+          (($price / 1000 * 100 | floor) / 100 | tostring) + "K"
+        else
+          (($price * 100 | floor) / 100 | tostring)
+        end) as $price_fmt |
+        
+        # Format change with arrow
+        (if $change > 0.001 then "⬆️"
+         elif $change < -0.001 then "⬇️"
+         else "↔️" end) as $arrow |
+        (($change * 100 | floor) / 100) as $change_fmt |
+        
+        "- \($sym | . + "     "[0:(5 - length)]): R$ `\($price_fmt)` \($arrow) `\($change_fmt)`%"
       else
         empty
       end
     ')
-
-    if [[ -n "$extracted_data" ]]; then
-      # Process each line from jq output
-      while IFS=$'\t' read -r id price change_24h; do
-        if [[ "$price" == "null" || "$change_24h" == "null" || -z "$price" || -z "$change_24h" ]]; then
-          log_message "WARNING" "Incomplete data for ID $id (Price: $price, Change: $change_24h). Skipping."
-          continue
-        fi
-
-        # Retrieve symbol and name using the ID from the map
-        local symbol_name_pair="${currency_map_ref[$id]}"
-        local symbol="${symbol_name_pair%%:*}"
-        # local name="${symbol_name_pair#*:}" # Name not used in output, but available
-
-        # Format price (with K for thousands) and change percentage using a single bc call each
-        local price_formatting_result
-        price_formatting_result=$(echo "
-            scale=10; p = $price; is_k = 0;
-            if (p >= 1000) { p /= 1000; is_k = 1; }
-            scale=2; p_fmt = p / 1;
-            print p_fmt, \" \", is_k;
-        " | bc -l)
-        read -r formatted_price_num is_k_val <<< "$price_formatting_result"
-        
-        local formatted_price="$formatted_price_num"
-        if [[ "$is_k_val" -eq 1 ]]; then
-            formatted_price="${formatted_price_num}K"
-        fi
-
-        local change_formatting_result
-        change_formatting_result=$(echo "
-            scale=10; c = $change_24h;
-            up = 0; down = 0;
-            if (c > 0.001) { up = 1; }
-            else if (c < -0.001) { down = 1; }
-            scale=2; c_fmt = c / 1;
-            print c_fmt, \" \", up, \" \", down;
-        " | bc -l)
-        read -r formatted_change up_val down_val <<< "$change_formatting_result"
-
-        local change_symbol="↔️"
-        if [[ "$up_val" -eq 1 ]]; then change_symbol="⬆️";
-        elif [[ "$down_val" -eq 1 ]]; then change_symbol="⬇️"; fi
-        
-        printf "%s %-5s: R$ %-8s %s %6s%%\n" "-" "$symbol" "\`$formatted_price\`" "$change_symbol" "\`$formatted_change\`"
-        success=true
-      done
-      
-      [[ "$success" == "true" ]] && return 0 # If any item was successfully processed
+    
+    if [[ -n "$formatted_output" ]]; then
+      echo "$formatted_output"
+      return 0
     fi
     
-    log_message "WARNING" "Failed to fetch/process batch data (attempt $((retry_count+1))). Raw response: ${raw_data:0:200}..." # Log snippet of raw data
+    log_message "WARNING" "Failed to fetch/process batch data (attempt $((retry_count+1)))."
     sleep "$RETRY_DELAY"
     ((retry_count++))
   done
@@ -272,7 +250,7 @@ fetch_and_display_batch() {
 check_dependencies() {
   local missing_deps=()
   
-  for cmd in curl jq bc; do # awk and sed are no longer direct dependencies of the core logic
+  for cmd in curl jq; do # bc no longer needed - all math done in jq
     if ! command -v "$cmd" &> /dev/null; then
       missing_deps+=("$cmd")
     fi
