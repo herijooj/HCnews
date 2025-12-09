@@ -4,8 +4,8 @@ on:
   push:
     branches: [ "main", "Refactor" ]
   schedule:
-    # Run at 6:00 AM UTC every day (Adjust as needed)
-    - cron: '0 6 * * *'
+    # Run once daily at 06:07 UTC (offset from top of the hour to reduce scheduling contention)
+    - cron: '7 6 * * *'
   workflow_dispatch: # Allows manual triggering
 
 permissions:
@@ -14,28 +14,35 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Prevent overlapping scheduled runs — only one instance of this job will run at a time.
+    concurrency:
+      group: hcnews-daily
+      cancel-in-progress: false
     environment: HCNews
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install System Dependencies
+      - name: Install System Dependencies (slim)
         run: |
+          # Keep this list minimal: the scripts rely on xmlstarlet, jq and curl
           sudo apt-get update
-          sudo apt-get install -y xmlstarlet jq bc
-          # Install pup (HTML processor) using Go
-          go install github.com/ericchiang/pup@latest
-          # Add Go bin to PATH
-          echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
+          sudo apt-get install -y xmlstarlet jq curl
+          # Use prebuilt pup binary instead of installing Go (slimmer)
+          curl -sL https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64 -o pup
+          sudo mv pup /usr/local/bin/pup
+          sudo chmod +x /usr/local/bin/pup
 
-      - name: Install Python Dependencies
+      - name: Verify installed tools
         run: |
-          pip install python-telegram-bot schedule httpx pytz
+          echo "== Tools versions =="
+          for cmd in xmlstarlet jq curl pup; do
+            if command -v $cmd >/dev/null 2>&1; then
+              echo "$cmd: $(command -v $cmd)";
+            else
+              echo "::warning::$cmd not found";
+            fi
+          done
 
       - name: Set Timezone
         run: sudo timedatectl set-timezone America/Sao_Paulo
