@@ -29,9 +29,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y xmlstarlet jq curl
           # Use prebuilt pup binary instead of installing Go (slimmer)
-          curl -sL https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64 -o pup
+          # Download the latest pup binary asset for linux/amd64 and validate it's a binary
+          curl -fsSL https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64 -o pup
           sudo mv pup /usr/local/bin/pup
           sudo chmod +x /usr/local/bin/pup
+          # Validate pup is an ELF binary and works by running a small test
+          if ! file /usr/local/bin/pup | grep -qi 'ELF'; then
+            echo 'pup download does not appear to be a binary' >&2
+            file /usr/local/bin/pup
+            exit 1
+          fi
+          /usr/local/bin/pup -v || true
+          echo '<div><p>pup-test</p></div>' | /usr/local/bin/pup 'p text{}' || (echo 'pup test failed' >&2; exit 1)
 
       - name: Verify installed tools
         run: |
@@ -50,6 +59,7 @@ jobs:
       - name: Run HC News Script
         id: run_script
         run: |
+          set -euxo pipefail
           export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
           export CoinMarketCap_API_KEY="${{ secrets.COINMARKETCAP_API_KEY }}"
           export openweathermap_API_KEY="${{ secrets.OPENWEATHERMAP_API_KEY }}"
@@ -60,8 +70,15 @@ jobs:
           if [ -z "$openweathermap_API_KEY" ]; then echo "::warning::openweathermap_API_KEY is empty"; fi
           
           chmod +x hcnews.sh
+          # Quick sanity check: show help to verify it's runnable and required tools are in PATH
+          ./hcnews.sh --help
           # Run the script and capture output to a file
           ./hcnews.sh --force > news_output.txt
+          if [ ! -s news_output.txt ]; then
+            echo 'news_output.txt is empty — exitting' >&2
+            tail -100 news_output.txt || true
+            exit 1
+          fi
 
       - name: Generate HTML
         run: |
