@@ -44,7 +44,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           chmod +x hcnews.sh
-          ./hcnews.sh --force > news_output.txt
+          ./hcnews.sh -n --force > news_output.txt
           if [ ! -s news_output.txt ]; then
             echo "Error: news_output.txt is empty" >&2
             exit 1
@@ -54,38 +54,7 @@ jobs:
         run: |
           mkdir -p public
           DATE=$(date +'%d/%m/%Y')
-          
-          cat > public/index.html <<EOF
-          <!DOCTYPE html>
-          <html lang="pt-BR">
-          <head>
-              <meta charset="UTF-8">
-              <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>HC News - $DATE</title>
-              <style>
-                  body { 
-                      font-family: 'Courier New', Courier, monospace; 
-                      white-space: pre-wrap; 
-                      background-color: #1e1e1e; 
-                      color: #d4d4d4; 
-                      padding: 20px; 
-                      line-height: 1.5;
-                      max-width: 800px;
-                      margin: 0 auto;
-                  }
-                  a { color: #3794ff; text-decoration: none; }
-                  a:hover { text-decoration: underline; }
-              </style>
-          </head>
-          <body>
-          EOF
-          
-          cat news_output.txt >> public/index.html
-          
-          cat >> public/index.html <<EOF
-          </body>
-          </html>
-          EOF
+          sed "s|{{DATE}}|$DATE|g" .github/template.html | sed -e '/{{CONTENT}}/r news_output.txt' -e '/{{CONTENT}}/d' > public/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

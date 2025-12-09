@@ -257,6 +257,7 @@ function footer {
 
 function hcseguidor {
     echo "🤖 *Quer ser um HCseguidor?*"
+    echo "- 🌐 https://herijooj.github.io/HCnews/"
     echo "- 📢 https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y"
     echo "- 💬 https://bit.ly/m/HCNews"
     echo ""

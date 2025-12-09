@@ -225,12 +225,12 @@ get_news_RSS_combined() {
                 result+=("- $title")
                 if [[ "$LINKED" == true ]]; then
                     if [[ "$FULL_URL" == true ]]; then
-                        result+=("  🔗 $link")
+                        result+=("    $link")
                     else
                         # Use async URL shortening for better performance
                         local short_url
                         short_url=$(cached_shorten_url "$link")
-                        result+=("  🔗 $short_url")
+                        result+=("    $short_url")
                     fi
                 fi
                 ((line_count++))
