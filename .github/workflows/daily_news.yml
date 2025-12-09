@@ -39,7 +39,7 @@ jobs:
 
       - name: Run HC News
         env:
-          openweathermap_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          openweathermap_API_KEY: ${{ secrets.OPENWEATHERMAP_API_KEY }}
           CoinMarketCap_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
