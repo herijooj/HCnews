@@ -9,7 +9,13 @@ on:
     - cron: '2 23 * * *'   # 20:02 BRT
     - cron: '1 3 * * *'    # 00:01 BRT
     - cron: '10 4 * * *'   # 01:10 BRT
-  workflow_dispatch: # Allows manual triggering
+  workflow_dispatch:
+    # Allows manual triggering with an optional `force` input to bypass cached data
+    inputs:
+      force:
+        description: 'Set to "true" to force refresh cache for this manual run'
+        required: false
+        default: 'false'
 
 permissions:
   contents: write
@@ -70,7 +76,12 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           chmod +x hcnews.sh
-          ./hcnews.sh -n --force > news_output.txt
+          # Only pass --force when run via workflow_dispatch with the `force` input set to 'true'
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force }}" = "true" ]; then
+            ./hcnews.sh -n --force > news_output.txt
+          else
+            ./hcnews.sh -n > news_output.txt
+          fi
           if [ ! -s news_output.txt ]; then
             echo "Error: news_output.txt is empty" >&2
             exit 1
