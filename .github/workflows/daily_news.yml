@@ -38,6 +38,10 @@ jobs:
           pup --version
 
       - name: Run HC News
+        env:
+          openweathermap_API_KEY: ${{ secrets.OPENWEATHER_API_KEY }}
+          CoinMarketCap_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           chmod +x hcnews.sh
           ./hcnews.sh --force > news_output.txt
