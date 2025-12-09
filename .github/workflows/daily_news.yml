@@ -2,8 +2,13 @@ name: Daily HC News
 
 on:
   schedule:
-    # Run daily at 06:07 UTC (3:07 AM BRT / 2:07 AM BRST)
-    - cron: '7 6 * * *'
+    # Offset runs slightly to avoid pile-ups on the hour (BRT→UTC +3)
+    - cron: '9 9 * * *'    # 06:09 BRT
+    - cron: '12 15 * * *'  # 12:12 BRT
+    - cron: '6 19 * * *'   # 16:06 BRT
+    - cron: '2 23 * * *'   # 20:02 BRT
+    - cron: '1 3 * * *'    # 00:01 BRT
+    - cron: '10 4 * * *'   # 01:10 BRT
   workflow_dispatch: # Allows manual triggering
 
 permissions:
@@ -21,6 +26,27 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Compute cache key
+        id: cache-key
+        run: |
+          SLOT=$(date -u +'%Y%m%d%H')
+          DAY=$(date -u +'%Y%m%d')
+          echo "slot=$SLOT" >> "$GITHUB_OUTPUT"
+          echo "day=$DAY" >> "$GITHUB_OUTPUT"
+
+      - name: Prepare cache directory
+        run: mkdir -p data/cache
+
+      - name: Restore script caches
+        uses: actions/cache@v4
+        with:
+          path: |
+            data/cache
+          key: hcnews-cache-${{ runner.os }}-${{ steps.cache-key.outputs.slot }}
+          restore-keys: |
+            hcnews-cache-${{ runner.os }}-${{ steps.cache-key.outputs.day }}-
+            hcnews-cache-${{ runner.os }}-
 
       - name: Install dependencies
         run: |
