@@ -14,6 +14,11 @@ permissions:
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
+    # Use a Debian slim container for a smaller, reproducible environment
+    container:
+      image: debian:bookworm-slim
+    env:
+      TZ: America/Sao_Paulo
     # Prevent overlapping scheduled runs — only one instance of this job will run at a time.
     concurrency:
       group: hcnews-daily
@@ -27,12 +32,49 @@ jobs:
         run: |
           # Keep this list minimal: the scripts rely on xmlstarlet, jq and curl
           sudo apt-get update
-          sudo apt-get install -y xmlstarlet jq curl
+          sudo apt-get install -y --no-install-recommends xmlstarlet jq curl python3 file ca-certificates unzip
           # Use prebuilt pup binary instead of installing Go (slimmer)
           # Download the latest pup binary asset for linux/amd64 and validate it's a binary
-          curl -fsSL https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64 -o pup
-          sudo mv pup /usr/local/bin/pup
-          sudo chmod +x /usr/local/bin/pup
+          set -euxo pipefail
+          # Try a handful of pup asset names (release asset names change occasionally)
+          PUP_ASSETS=(pup_linux_amd64 pup_linux_x86_64 pup_linux_x64 pup_linux_amd64.zip pup_linux_x86_64.tar.gz)
+          PUP_URL_BASE='https://github.com/ericchiang/pup/releases/latest/download'
+          dl_ok=false
+          for asset in "${PUP_ASSETS[@]}"; do
+            echo "Trying asset: $asset"
+            if curl -fsSL -o pup "${PUP_URL_BASE}/${asset}"; then
+              # If it's an archive, try to extract; otherwise keep as binary
+              if file pup | grep -qi 'Zip archive\|gzip compressed data'; then
+                mkdir -p /tmp/pupdl
+                if file pup | grep -qi 'Zip archive'; then
+                  unzip -o pup -d /tmp/pupdl || true
+                else
+                  tar -xzf pup -C /tmp/pupdl || true
+                fi
+                # find bin
+                if [ -f /tmp/pupdl/pup ]; then
+                  sudo mv /tmp/pupdl/pup /usr/local/bin/pup
+                  rm -rf /tmp/pupdl
+                fi
+              else
+                sudo mv pup /usr/local/bin/pup
+              fi
+              sudo chmod +x /usr/local/bin/pup
+              if file /usr/local/bin/pup | grep -qi 'ELF'; then
+                dl_ok=true
+                break
+              fi
+            fi
+          done
+          if [ "$dl_ok" = false ]; then
+            echo 'Failed to download a prebuilt pup binary; falling back to building from source'
+            sudo apt-get update && sudo apt-get install -y --no-install-recommends golang-go git build-essential
+            export GOPATH="/tmp/go"
+            mkdir -p "$GOPATH/bin"
+            GOPATH=$GOPATH PATH=$PATH:$GOPATH/bin go install github.com/ericchiang/pup@latest
+            sudo mv "$GOPATH/bin/pup" /usr/local/bin/pup
+            sudo chmod +x /usr/local/bin/pup
+          fi
           # Validate pup is an ELF binary and works by running a small test
           if ! file /usr/local/bin/pup | grep -qi 'ELF'; then
             echo 'pup download does not appear to be a binary' >&2
@@ -45,7 +87,7 @@ jobs:
       - name: Verify installed tools
         run: |
           echo "== Tools versions =="
-          for cmd in xmlstarlet jq curl pup; do
+          for cmd in xmlstarlet jq curl pup python3 file unzip; do
             if command -v $cmd >/dev/null 2>&1; then
               echo "$cmd: $(command -v $cmd)";
             else
@@ -53,8 +95,10 @@ jobs:
             fi
           done
 
-      - name: Set Timezone
-        run: sudo timedatectl set-timezone America/Sao_Paulo
+      - name: Print Timezone (container)
+        run: |
+          echo "TZ=${TZ}"
+          date
 
       - name: Run HC News Script
         id: run_script
