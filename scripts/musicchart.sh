@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-# Function to decode HTML entities using pure Bash/sed (avoids spawning Python)
-decode_html_entities() {
-  local input="$1"
-  # Handle common HTML entities and numeric/hex character references
-  printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
-}
-
 # Cache configuration
 _musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/musicchart"
 # Ensure the cache directory exists
@@ -90,100 +83,22 @@ function get_music_chart () {
     return
   fi
   
-  # Optimized curl with aggressive timeouts and better headers
-  local html
-  html=$(timeout 8s curl -s --compressed --max-time 6 --connect-timeout 2 \
-         --retry 1 --retry-delay 0 --fail \
-         -H "User-Agent: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36" \
-         -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
-         -H "Accept-Language: en-US,en;q=0.5" \
-         -H "Accept-Encoding: gzip, deflate" \
-         "https://genius.com/#top-songs" 2>/dev/null)
+  # Fetch from Apple Music RSS (Brazil)
+  local json
+  json=$(curl -sL --max-time 10 --connect-timeout 5 \
+         "https://rss.applemarketingtools.com/api/v2/br/music/most-played/10/songs.json")
     
-  # Quick validation - fail fast if no data
-  if [[ -z "$html" || ${#html} -lt 1000 ]]; then
+  if [[ -z "$json" ]]; then
     echo "Failed to retrieve chart data" >&2
     return 1
   fi
 
-  # Single-pass HTML processing - extract both titles and artists in one go
-  local combined_data
-  combined_data=$(echo "$html" | timeout 5s pup 'div[class*="ChartSong-desktop"] json{}' 2>/dev/null | \
-    timeout 3s jq -r '.[] | 
-      select(.children and (.children | length > 0)) |
-      .children[] | 
-      select(.tag == "div" and (.class // "" | contains("ChartSongDesktop__Right"))) |
-      (.children[] | select(.tag == "div" and (.class // "" | contains("ChartSong-desktop__Title"))) | .text // empty),
-      (.children[] | select(.tag == "h4") | .text // empty)' 2>/dev/null | \
-    head -20)
-  
-  # Build output efficiently
+  # Parse JSON with jq
   local output_content=""
-  local count=0
-  local title=""
-  local expecting_artist=false
+  output_content=$(echo "$json" | jq -r '.feed.results | to_entries | .[] | "- \(.key + 1). `\(.value.name) - \(.value.artistName)`"')
   
-  while IFS= read -r line && [[ $count -lt 10 ]]; do
-    [[ -z "$line" ]] && continue
-    
-    if [[ "$expecting_artist" == false ]]; then
-      # This should be a title
-      title=$(decode_html_entities "$line")
-      # Remove (Romanized), - Genius Romanizations, and clean up extra spaces from title
-      title=$(echo "$title" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')
-      expecting_artist=true
-    else
-      # This should be an artist
-      local artist
-      artist=$(decode_html_entities "$line")
-      # Remove (Romanized), - Genius Romanizations, and clean up extra spaces from artist
-      artist=$(echo "$artist" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')
-      ((count++))
-      if [[ -z "$artist" ]]; then
-        output_content+="- $count. \`$title\`"$'\n'
-      else
-        output_content+="- $count. \`$title - $artist\`"$'\n'
-      fi
-      expecting_artist=false
-    fi
-  done <<< "$combined_data"
-  
-  # Fallback method if the above doesn't work
-  if [[ $count -eq 0 ]]; then
-    # Simple fallback extraction
-    local titles artists
-    titles=$(echo "$html" | timeout 3s pup 'div[class*="ChartSong-desktop__Title"] text{}' 2>/dev/null | head -10)
-    artists=$(echo "$html" | timeout 3s pup 'h4[class*="ChartSong-desktop"] text{}' 2>/dev/null | head -10)
-    
-    if [[ -n "$titles" && -n "$artists" ]]; then
-      local title_array=()
-      local artist_array=()
-      
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && title_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')")
-      done <<< "$titles"
-      
-      while IFS= read -r line; do
-        [[ -n "$line" ]] && artist_array+=("$(decode_html_entities "$line" | sed -E 's/ ?\(?[Rr]omanized\)?//Ig; s/ ?-? ?[Gg]enius [Rr]omanizations//Ig; s/ ?[Rr]omanizations//Ig; s/ ?\([Ee]nglish [Tt]ranslations?\)//Ig; s/ ?-? ?[Gg]enius English translations?//Ig; s/  +/ /g; s/[[:space:]]*[-–—]+[[:space:]]*$//; s/^ //; s/ $//')")
-      done <<< "$artists"
-      
-      for i in "${!title_array[@]}"; do
-        if [[ $i -lt ${#artist_array[@]} ]]; then
-          ((count++))
-          if [[ -z "${artist_array[i]}" ]]; then
-            output_content+="- $count. \`${title_array[i]}\`"$'\n'
-          else
-            output_content+="- $count. \`${title_array[i]} - ${artist_array[i]}\`"$'\n'
-          fi
-          [[ $count -ge 10 ]] && break
-        fi
-      done
-    fi
-  fi
-  
-  # Final fallback if still no data
-  if [[ $count -eq 0 ]]; then
-    output_content="- Chart data temporarily unavailable"$'\n'
+  if [[ -z "$output_content" ]]; then
+    output_content="- Chart data temporarily unavailable"
   fi
   
   # Async cache write for better performance
@@ -200,10 +115,10 @@ function write_music_chart () {
   TOP_10=$(get_music_chart)
 
   # write the header
-  echo "🎵 *Top 10*:"
+  echo "🎵 *Top 10 (Apple Music BR)*:"
   # write the formatted list
   echo "$TOP_10"
-  echo "_Fonte: Genius.com/#top-songs_"
+  echo "_Fonte: Apple Music_"
   echo ""
 }
 
