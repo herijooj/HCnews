@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+
+# Function to decode HTML entities using pure Bash/sed (avoids spawning Python)
+decode_html_entities() {
+  local input="$1"
+  # Handle common HTML entities and numeric/hex character references
+  printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
+}
+
+_didyouknow_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+_didyouknow_CACHE_DIR="$(dirname "$_didyouknow_SCRIPT_DIR")/data/cache/didyouknow"
+
+function get_didyouknow() {
+    local local_use_cache=true
+    local local_force_refresh=false
+
+    # Check for global flags from hcnews.sh if this script is sourced
+    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
+        local_use_cache=false
+    fi
+    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
+        local_force_refresh=true
+    fi
+
+    local date_format_local
+    # Use cached date_format if available, otherwise fall back to date command
+    if [[ -n "$date_format" ]]; then
+        date_format_local="$date_format"
+    else
+        date_format_local=$(date +"%Y%m%d")
+    fi
+    [[ -d "$_didyouknow_CACHE_DIR" ]] || mkdir -p "$_didyouknow_CACHE_DIR" # Ensure cache directory exists
+    local cache_file="${_didyouknow_CACHE_DIR}/${date_format_local}_didyouknow.cache"
+
+    if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then
+        cat "$cache_file"
+        return 0
+    fi
+
+    local URL="https://pt.wikipedia.org/wiki/Wikip%C3%A9dia:Sabia_que"
+    local HTML FACT
+
+    # get the HTML
+    HTML=$(curl -s "$URL")
+
+    # extract the second <p> tag
+    FACT=$(echo "$HTML" | pup 'p:nth-of-type(2) text{}')
+
+    # delete the break lines and multiple spaces
+    FACT=$(echo "$FACT" | tr -s '\n' ' ' | tr -s ' ')
+
+    # delete the spaces before and after punctuation (.,;:?!)
+    FACT=$(echo "$FACT" | sed 's/\s\([.,;:?!]\)/\1/g')
+
+    
+
+    # decode HTML entities before handling encoding
+    FACT=$(decode_html_entities "$FACT")
+
+    if [[ "$local_use_cache" == true && -n "$FACT" ]]; then
+        echo "$FACT" > "$cache_file"
+    fi
+
+    # return the fact
+    echo "$FACT"
+}
+
+function write_did_you_know() {
+    # get the fact
+    FACT=$(get_didyouknow)
+
+    # write the fact to the console
+    echo "📚 *Você sabia?*"
+    echo "_${FACT}_"
+    echo "_Fonte: Wikipedia_"
+    echo ""
+}
+
+# -------------------------------- Running locally --------------------------------
+
+# help function
+# Usage: ./didyouknow.sh [options]
+# Options:
+#   -h, --help: show the help
+show_help() {
+  echo "Usage: ./didyouknow.sh [options]"
+  echo "The command will be printed to the console."
+  echo "Options:"
+  echo "  -h, --help: show the help"
+}
+
+# this function will receive the arguments
+get_arguments() {
+  # Get the arguments
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+      -h|--help)
+        show_help
+        exit 0
+        ;;
+      *)
+        show_help
+        exit 1
+        ;;
+    esac
+    shift
+  done
+}
+
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    get_arguments "$@"
+    echo 
+    write_did_you_know
+fi

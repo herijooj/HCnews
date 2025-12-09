@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
-SCRIPT_DIR=$(dirname "$0")
+STATES_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+PROJECT_ROOT=$(realpath "$STATES_SCRIPT_DIR/..")
+# Only set STATES_FILE if it's not already set (allows for testing)
+if [[ -z "${STATES_FILE}" ]]; then
+    STATES_FILE="$PROJECT_ROOT/data/states.csv"
+fi
 
 function get_states() {
     # get the date from arguments
     local month=$1
     local day=$2
-    # get the states
-    local states=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$SCRIPT_DIR/states.csv")
+    # get the states - improved to avoid extra whitespace
+    local states=$(awk -v month="$month" -v day="$day" -F, '$1 == month && $2 == day { 
+        # Join fields 3 onwards with commas to preserve CSV structure if needed
+        result = $3
+        for(i=4; i<=NF; i++) result = result "," $i
+        print result 
+    }' "$STATES_FILE")
     echo "$states"
 }
 
@@ -17,14 +27,21 @@ function write_states_birthdays() {
     
     # if there are no states, print a message
     if [[ -z $states ]]; then
-        echo "📅 Sem estados com aniversário hoje..."
-        echo ""
+        # echo "📅 Sem estados com aniversário hoje..."
+        # echo ""
         return
     fi
     
     # write the states
     echo "📅 *Estados com aniversário hoje:*"
-    echo "$states"
+    
+    # Process each state and format as markdown list with emoji
+    echo "$states" | while IFS= read -r state; do
+        if [[ ! -z "$state" ]]; then
+            echo "- 🏛️  $state"
+        fi
+    done
+    
     echo ""
 }
 
@@ -41,9 +58,15 @@ show_help() {
 
 # this function will receive the arguments
 get_arguments() {
-    # current date
-    local month=$(date +%m)
-    local day=$(date +%d)
+    # Use cached values if available, otherwise fall back to date commands
+    local month day
+    if [[ -n "$month" && -n "$day" ]]; then
+        month="$month"
+        day="$day"
+    else
+        month=$(date +%m)
+        day=$(date +%d)
+    fi
 
     # get the arguments
     while [[ $# -gt 0 ]]; do

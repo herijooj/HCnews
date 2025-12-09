@@ -1,773 +1,252 @@
 import logging
-from telegram import ForceReply, Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application, CommandHandler, ContextTypes, MessageHandler, filters, JobQueue, CallbackQueryHandler
-)
-import telegram.error  # Add this import
 import os
-from subprocess import PIPE, run
-from datetime import datetime, timezone
-from tokens import TOKEN  # Add this import
-import json
-import pytz  # Add this import
-import re  # Add this import
-
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+from datetime import datetime
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
+from config.constants import MESSAGE_TYPES, RU_LOCATIONS, SCRIPT_PATHS, TIMEZONE
+from utils.schedule_utils import load_schedules, add_schedule, remove_schedule
+from utils.text_utils import clean_ansi, split_message
+from tokens import TOKEN
+from handlers.news_handler import handle_news_menu, send_news_as_message, send_news_as_file
+from config.keyboard import get_main_menu, get_return_button
+from handlers.weather_handler import send_weather
+from handlers.exchange_handler import send_exchange
+from handlers.bicho_handler import send_bicho
+from handlers.horoscope_handler import send_horoscope
+from handlers.ru_handler import send_ru_menu, handle_ru_selection
+from handlers.rss_handler import (
+    handle_rss_menu, handle_set_rss, handle_url_input, handle_clear_rss,
+    handle_remove_feed, handle_feed_name_input, handle_view_feed,
+    send_rss_as_message, send_rss_as_file, send_specific_rss_as_message,
+    send_specific_rss_as_file,  # Added the missing import
+    WAITING_FOR_URL, WAITING_FOR_FEED_NAME, SELECTING_FEED
 )
-logging.getLogger("httpx").setLevel(logging.WARNING)
+from handlers.schedule_handler import (
+    SELECTING_ACTION, SELECTING_TYPE, SELECTING_LOCATION, SELECTING_TIME, CUSTOM_TIME, SELECTING_RSS_FEED, ENTERING_CITY,
+    handle_schedule_menu, handle_type_selection, handle_location_selection, handle_time_selection,
+    handle_custom_time, handle_remove_schedule, handle_remove_selection, handle_rss_feed_selection, handle_custom_city
+)
+
+# Configure logging
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO  # Changed from INFO to DEBUG
+)
+logging.getLogger('httpx').setLevel(logging.WARNING)
 logger = logging.getLogger(__name__)
 
-# Initialize constants
-NEWS_DIR = "news"
-RU_CACHE_FORMAT = "{date}_{location}.ru"  # Add this
-DEFAULT_SEND_TIME = "07:00"
-SCHEDULE_FILE = "schedules.json"
-ZODIAC_SIGNS = ["aries", "peixes", "aquario", "capricornio", "sagitario", 
-                "escorpiao", "libra", "virgem", "leao", "cancer", "gemeos", "touro"]
-MESSAGE_TYPES = {
-    "news": "Notícias",
-    "horoscope": "Horóscopo",
-    "weather": "Previsão do Tempo",
-    "exchange": "Cotações",
-    "bicho": "Jogo do Bicho",
-    "ru": "Cardápio RU"
-}
-MAX_MESSAGE_SIZE = 4000  # Using 4000 to have some safety margin
-SCHEDULE_MESSAGES = {
-    "news": "📰 Notícias diárias",
-    "horoscope": "🔮 Horóscopo do dia",
-    "weather": "🌤️ Previsão do tempo",
-    "exchange": "💱 Cotações",
-    "bicho": "🎲 Palpites do jogo do bicho"
-}
-DEFAULT_SEND_AS_MESSAGE = True  # Default to sending as message instead of file
-
-RU_LOCATIONS = {
-    "politecnico": "Politécnico",
-    "agrarias": "Agrárias",
-    "botanico": "Jardim Botânico",
-    "central": "Central",
-    "toledo": "Toledo",
-    "mirassol": "Mirassol",
-    "jandaia": "Jandaia do Sul",
-    "palotina": "Palotina",
-    "cem": "CEM",
-    "matinhos": "Matinhos"
-}
-
-# Utility Functions
-def ensure_news_directory():
-    """Ensure the news directory exists."""
-    if not os.path.exists(NEWS_DIR):
-        os.makedirs(NEWS_DIR, exist_ok=True)
-
-def generate_news_file(force_generation: bool) -> str:
-    """Generate the news file using the bash script."""
-    ensure_news_directory()
-    today = datetime.now().strftime("%Y%m%d")
-    filename = f"{NEWS_DIR}/{today}.news"
-
-    if force_generation or not os.path.exists(filename):
-        # Add -y flag to run in non-interactive mode
-        result = run(['bash', 'hcnews.sh', '-f', '-sa', '-s'], stdout=PIPE, stderr=PIPE)
-        if result.returncode != 0:
-            logger.error("Failed to generate news file: %s", result.stderr.decode())
-            return ""
-    return filename if os.path.exists(filename) else ""
-
-def generate_horoscope(force_generation: bool = False, sign: str = None) -> str:
-    """Generate horoscope using the bash script and cache it."""
-    ensure_news_directory()
-    today = datetime.now().strftime("%Y%m%d")
-    filename = f"{NEWS_DIR}/{today}.hrcp"
-
-    if force_generation or not os.path.exists(filename):
-        cmd = ['bash', 'horoscopo.sh', '-s']
-        if sign:
-            cmd.append(sign)
-        result = run(cmd, stdout=PIPE, stderr=PIPE, text=True)
-        if result.returncode != 0:
-            logger.error("Failed to generate horoscope: %s", result.stderr)
-            return ""
-    
-    if not sign:
-        return filename if os.path.exists(filename) else ""
-        
-    try:
-        with open(filename, 'r') as f:
-            content = f.read()
-            lines = content.split('\n')
-            for i, line in enumerate(lines):
-                if f"📌 {sign}" in line.lower():
-                    return f"{lines[i-1]}\n{line}"
-            return ""
-    except FileNotFoundError:
-        logger.error(f"Horoscope file not found: {filename}")
-        return ""
-
-def load_schedules() -> dict:
-    """Load scheduled times from file."""
-    try:
-        with open(SCHEDULE_FILE, 'r') as f:
-            return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
-        return {}
-
-def save_schedule(chat_id: int, time: str, msg_type: str = "news", **kwargs) -> None:
-    """Save scheduled time and message type for a chat."""
-    schedules = load_schedules()
-    chat_id_str = str(chat_id)
-    if chat_id_str not in schedules:
-        schedules[chat_id_str] = []
-    schedule_entry = {"time": time, "type": msg_type, **kwargs}
-    if schedule_entry not in schedules[chat_id_str]:
-        schedules[chat_id_str].append(schedule_entry)
-    with open(SCHEDULE_FILE, 'w') as f:
-        json.dump(schedules, f)
-
-def remove_schedule(chat_id: int, time: str = None, msg_type: str = None) -> None:
-    """Remove scheduled time(s) for a chat."""
-    schedules = load_schedules()
-    chat_id_str = str(chat_id)
-    if chat_id_str in schedules:
-        if time is None:
-            del schedules[chat_id_str]
-        else:
-            schedules[chat_id_str] = [
-                s for s in schedules[chat_id_str] 
-                if s["time"] != time or (msg_type and s["type"] != msg_type)
-            ]
-            if not schedules[chat_id_str]:
-                del schedules[chat_id_str]
-        with open(SCHEDULE_FILE, 'w') as f:
-            json.dump(schedules, f)
-
-def convert_to_utc(time_str: str) -> datetime.time:
-    """Convert local time string to UTC time object."""
-    local = pytz.timezone('America/Sao_Paulo')  # Or your local timezone
-    naive_dt = datetime.strptime(time_str, "%H:%M")
-    local_dt = local.localize(datetime.combine(datetime.now().date(), naive_dt.time()))
-    utc_dt = local_dt.astimezone(pytz.UTC)
-    return utc_dt.time()
-
-def clean_ansi(text: str) -> str:
-    """Remove ANSI escape codes from text."""
-    ansi_escape = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
-    return ansi_escape.sub('', text)
-
-def split_long_message(text: str) -> list[str]:
-    """Split message into chunks respecting message size limit and line breaks."""
-    if not text or len(text) <= MAX_MESSAGE_SIZE:
-        return [text] if text else []
-    
-    messages = []
-    current_msg = ""
-    
-    for line in text.split('\n'):
-        # Check if adding this line would exceed limit
-        if len(current_msg) + len(line) + 1 > MAX_MESSAGE_SIZE:
-            if current_msg:
-                messages.append(current_msg.strip())
-                current_msg = line + '\n'
-            else:
-                # Single line is too long, force split it
-                while line:
-                    messages.append(line[:MAX_MESSAGE_SIZE])
-                    line = line[MAX_MESSAGE_SIZE:]
-        else:
-            current_msg += line + '\n'
-    
-    if current_msg:
-        messages.append(current_msg.strip())
-    
-    return messages
-
-async def get_ru_menu(location: str = "politecnico") -> str:
-    """Get RU menu from ru.sh script with caching."""
-    ensure_news_directory()
-    today = datetime.now().strftime("%Y%m%d")
-    cache_file = os.path.join(NEWS_DIR, RU_CACHE_FORMAT.format(date=today, location=location))
-
-    # Check if we have a cached version for today
-    if os.path.exists(cache_file):
-        try:
-            with open(cache_file, 'r', encoding='utf-8') as f:
-                return f.read()
-        except Exception as e:
-            logger.error(f"Error reading RU cache file: {e}")
-            # Continue to generate new menu if cache read fails
-    
-    # Generate new menu
-    result = run(['bash', './UFPR/ru.sh', '-r', location], stdout=PIPE, stderr=PIPE, text=True)
-    if result.returncode != 0:
-        logger.error("Failed to get RU menu: %s", result.stderr)
-        return ""
-
-    # Cache the result
-    try:
-        with open(cache_file, 'w', encoding='utf-8') as f:
-            f.write(result.stdout)
-    except Exception as e:
-        logger.error(f"Error writing RU cache file: {e}")
-    
-    return result.stdout
-
-# Command Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a welcome message with available options."""
-    user = update.effective_user
-    buttons = [
-        [InlineKeyboardButton("Enviar Notícias", callback_data="send_news")],
-        [InlineKeyboardButton("Horóscopo", callback_data="horoscope")],
-        [InlineKeyboardButton("Previsão do Tempo", callback_data="weather")],
-        [InlineKeyboardButton("Cotações", callback_data="exchange")],
-        [InlineKeyboardButton("Jogo do Bicho", callback_data="bicho")],
-        [InlineKeyboardButton("Cardápio RU", callback_data="ru")],
-        [InlineKeyboardButton("Ajuda", callback_data="help")]
-    ]
-    keyboard = InlineKeyboardMarkup(buttons)
+    """Send welcome message and main menu"""
     await update.message.reply_html(
-        rf"Olá {user.mention_html()}! Bem-vindo ao HCNEWS. Aqui estão suas opções:",
-        reply_markup=keyboard
+        f"Olá {update.effective_user.first_name}! 👋\n"
+        f"Bem-vindo ao *HCNEWS*!\n"
+        f"Selecione uma opção abaixo:",
+        reply_markup=get_main_menu()
     )
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send a detailed help message."""
-    help_text = (
-        "Aqui estão os comandos disponíveis:\n"
-        "/start - Mostra a mensagem de boas-vindas e opções.\n"
-        "/help - Exibe esta mensagem de ajuda.\n"
-        "/send [force] [file] - Envia as notícias. Opções:\n"
-        "  • force: Força geração de novo arquivo\n"
-        "  • file: Envia como arquivo em vez de mensagem\n"
-        "/horoscope [sign] [file] - Mostra o horóscopo.\n"
-        "/ru [location] - Mostra o cardápio do RU.\n"
-        "/schedule - Gerencia agendamentos\n\n"
-        f"RUs disponíveis: {', '.join(RU_LOCATIONS.values())}"
-    )
-    await update.message.reply_text(help_text)
-
-async def send_news(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send the news file or generate it if missing."""
-    force_generation = False
-    send_as_file = False
-    
-    # Parse arguments
-    if context.args:
-        force_generation = "force" in context.args
-        send_as_file = "file" in context.args
-    
-    filename = generate_news_file(force_generation)
-    if not filename:
-        await update.message.reply_text("Não foi possível criar o arquivo de notícias.")
-        return
-
-    try:
-        with open(filename, "r", encoding='utf-8') as f:
-            content = f.read()
-            
-        if send_as_file:
-            with open(filename, "rb") as f:
-                await update.message.reply_text("📰 Notícias do dia (arquivo)")
-                await update.message.reply_document(
-                    document=f,
-                    filename=f"noticias_{datetime.now().strftime('%Y%m%d')}.txt"
-                )
-        else:
-            messages = split_long_message(content)
-            await update.message.reply_text("📰 Notícias do dia")
-            for msg in messages:
-                if msg:  # Don't send empty messages
-                    await update.message.reply_text(msg)
-            
-            if len(messages) > 3:  # If message was split into many parts, offer file option
-                await update.message.reply_text(
-                    "💡 Muitas mensagens? Use '/send file' para receber como arquivo."
-                )
-    except Exception as e:
-        logger.error(f"Error sending news: {str(e)}")
-        await update.message.reply_text("Erro ao enviar as notícias.")
-
-async def show_horoscope_menu(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show the horoscope selection menu."""
-    buttons = []
-    row = []
-    for i, sign in enumerate(ZODIAC_SIGNS, 1):
-        row.append(InlineKeyboardButton(sign.capitalize(), callback_data=f"horoscope_{sign}"))
-        if i % 3 == 0:  # Create rows of 3 buttons
-            buttons.append(row)
-            row = []
-    if row:  # Add any remaining buttons
-        buttons.append(row)
-    buttons.append([InlineKeyboardButton("Todos os signos", callback_data="horoscope_all")])
-    
-    keyboard = InlineKeyboardMarkup(buttons)
-    message = "Escolha um signo:"
-    
-    # Handle both direct commands and callback queries
-    if update.callback_query:
-        await update.callback_query.message.reply_text(message, reply_markup=keyboard)
-    else:
-        await update.message.reply_text(message, reply_markup=keyboard)
-
-async def horoscope_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send daily horoscope menu or specific sign."""
-    if context.args:
-        sign = context.args[0].lower()
-        force = "force" in context.args
-        if sign in ZODIAC_SIGNS:
-            horoscope_text = generate_horoscope(force, sign)
-        else:
-            await update.message.reply_text("Signo inválido. Use o menu para selecionar um signo.")
-            await show_horoscope_menu(update, context)
-            return
-    else:
-        await show_horoscope_menu(update, context)
-        return
-
-    if horoscope_text:
-        await update.message.reply_text(horoscope_text, parse_mode='Markdown')
-    else:
-        await update.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
-
-async def schedule_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Schedule messages at specified times."""
-    if not update.message:
-        return
-        
-    chat_id = update.message.chat_id
-    
-    if len(context.args) == 0:
-        # Show current schedules
-        schedules = load_schedules()
-        entries = schedules.get(str(chat_id), [])
-        if entries:
-            schedule_text = "📅 *Horários Agendados*\n\n"
-            for entry in sorted(entries, key=lambda x: x["time"]):
-                msg_type = entry['type']
-                time = entry['time']
-                if msg_type == "ru":
-                    location = entry.get('location', 'politecnico')
-                    schedule_text += f"• {time} - {MESSAGE_TYPES[msg_type]} ({RU_LOCATIONS[location]})\n"
-                else:
-                    schedule_text += f"• {time} - {MESSAGE_TYPES[msg_type]}\n"
-            await update.message.reply_text(schedule_text, parse_mode='Markdown')
-        else:
-            await update.message.reply_text("📅 Nenhum horário agendado.\n\nUse /schedule HH:MM tipo [local] para agendar.")
-        return
-
-    if context.args[0].lower() == "off":
-        remove_schedule(chat_id)
-        current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
-        for job in current_jobs:
-            job.schedule_removal()
-        await update.message.reply_text("Todos os agendamentos foram removidos.")
-        return
-
-    if context.args[0].lower() == "remove":
-        if len(context.args) < 2:
-            await update.message.reply_text("Uso: /schedule remove HH:MM [tipo]")
-            return
-        try:
-            time_to_remove = datetime.strptime(context.args[1], "%H:%M").strftime("%H:%M")
-            msg_type = context.args[2] if len(context.args) > 2 else None
-            if msg_type and msg_type not in MESSAGE_TYPES:
-                await update.message.reply_text(f"Tipo de mensagem inválido. Opções: {', '.join(MESSAGE_TYPES.keys())}")
-                return
-            remove_schedule(chat_id, time_to_remove, msg_type)
-            current_jobs = context.job_queue.get_jobs_by_name(f"{chat_id}_{time_to_remove}_{msg_type if msg_type else ''}")
-            for job in current_jobs:
-                job.schedule_removal()
-            await update.message.reply_text(f"Agendamento para {time_to_remove} removido.")
-        except ValueError:
-            await update.message.reply_text("Formato de horário inválido. Use HH:MM")
-        return
-
-    if len(context.args) < 2:
-        await update.message.reply_text(
-            f"Uso: /schedule HH:MM tipo [local]\n"
-            f"Tipos disponíveis: {', '.join(MESSAGE_TYPES.keys())}\n"
-            f"Para cardápio RU, especifique o local: {', '.join(RU_LOCATIONS.keys())}"
-        )
-        return
-
-    try:
-        local_time = datetime.strptime(context.args[0], "%H:%M")
-        time_str = local_time.strftime("%H:%M")
-        msg_type = context.args[1].lower()
-        location = None
-
-        if msg_type not in MESSAGE_TYPES:
-            await update.message.reply_text(f"Tipo de mensagem inválido. Opções: {', '.join(MESSAGE_TYPES.keys())}")
-            return
-
-        # Handle RU location parameter
-        if msg_type == "ru":
-            if len(context.args) < 3:
-                await update.message.reply_text(
-                    f"Para agendar cardápio RU, especifique o local:\n{', '.join(RU_LOCATIONS.keys())}"
-                )
-                return
-            location = context.args[2].lower()
-            if location not in RU_LOCATIONS:
-                await update.message.reply_text(f"Local inválido. Opções: {', '.join(RU_LOCATIONS.keys())}")
-                return
-
-        utc_time = convert_to_utc(time_str)
-        
-        # Add new job with location data if it's an RU job
-        job_data = {"type": msg_type}
-        if location:
-            job_data["location"] = location
-
-        job = context.job_queue.run_daily(
-            scheduled_send_message, 
-            time=utc_time,
-            chat_id=chat_id,
-            name=f"{chat_id}_{time_str}_{msg_type}",
-            data=job_data
-        )
-        
-        if job:
-            # Save schedule with location if it's an RU job
-            if location:
-                save_schedule(chat_id, time_str, msg_type, location=location)
-            else:
-                save_schedule(chat_id, time_str, msg_type)
-
-            location_text = f" ({RU_LOCATIONS[location]})" if location else ""
-            logger.info(f"Scheduled new {msg_type} job for chat {chat_id} at {time_str} (UTC: {utc_time})")
-            await update.message.reply_text(
-                f"Envio diário de {MESSAGE_TYPES[msg_type]}{location_text} agendado para {time_str}."
-            )
-        else:
-            await update.message.reply_text("Não foi possível agendar o envio. Tente novamente.")
-            
-    except ValueError as e:
-        logger.error(f"Schedule error for chat {chat_id}: {str(e)}")
-        await update.message.reply_text(
-            "Formato de horário inválido.\n"
-            "Uso:\n"
-            "/schedule - mostra horários agendados\n"
-            f"/schedule HH:MM tipo - adiciona novo horário ({', '.join(MESSAGE_TYPES.keys())})\n"
-            "/schedule HH:MM ru local - agenda cardápio RU\n"
-            "/schedule remove HH:MM [tipo] - remove horário específico\n"
-            "/schedule off - remove todos os horários"
-        )
-
-async def scheduled_send_message(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send scheduled message based on type."""
-    try:
-        chat_id = context.job.chat_id
-        msg_type = context.job.data["type"]
-        location = context.job.data.get("location", "politecnico")  # Default to Politecnico
-        logger.info(f"Running scheduled {msg_type} job for chat {chat_id}")
-
-        if msg_type == "news":
-            filename = generate_news_file(force_generation=False)
-            if filename:
-                with open(filename, "r", encoding='utf-8') as f:
-                    content = f.read()
-                messages = split_long_message(content)
-                
-                await context.bot.send_message(chat_id=chat_id, text="📰 Notícias do dia")
-                for msg in messages:
-                    if msg:
-                        await context.bot.send_message(chat_id=chat_id, text=msg)
-                
-                if len(messages) > 3:
-                    # Also send as file for convenience when there are many messages
-                    with open(filename, "rb") as f:
-                        await context.bot.send_document(
-                            chat_id=chat_id,
-                            document=f,
-                            filename=f"noticias_{datetime.now().strftime('%Y%m%d')}.txt",
-                            caption="📎 Arquivo completo das notícias"
-                        )
-        
-        elif msg_type == "horoscope":
-            filename = generate_horoscope()
-            if filename:
-                with open(filename, "r", encoding='utf-8') as f:
-                    content = f.read()
-                messages = split_long_message(content)
-                
-                await context.bot.send_message(chat_id=chat_id, text="🔮 Horóscopo do dia")
-                for msg in messages:
-                    if msg:
-                        await context.bot.send_message(chat_id=chat_id, text=msg)
-                
-                if len(messages) > 3:
-                    with open(filename, "rb") as f:
-                        await context.bot.send_document(
-                            chat_id=chat_id,
-                            document=f,
-                            filename=f"horoscopo_{datetime.now().strftime('%Y%m%d')}.txt",
-                            caption="📎 Arquivo completo do horóscopo"
-                        )
-
-        elif msg_type == "ru":
-            menu = await get_ru_menu(location)
-            if menu:
-                await context.bot.send_message(
-                    chat_id=chat_id,
-                    text=f"🍽️ Cardápio RU {RU_LOCATIONS[location]}\n\n{menu}",
-                    parse_mode='Markdown'
-                )
-            else:
-                logger.error(f"Failed to get RU menu for chat {chat_id}")
-
-        # ... rest of the message types remain unchanged ...
-
-    except Exception as e:
-        logger.error(f"Error in scheduled_send_message: {str(e)}")
-
-async def scheduled_send_news(context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send news daily as per the scheduled time."""
-    try:
-        chat_id = context.job.chat_id
-        logger.info(f"Running scheduled job for chat {chat_id}")
-        
-        filename = generate_news_file(force_generation=False)
-        if not filename:
-            logger.error(f"Scheduled task: Failed to generate news file for chat {chat_id}")
-            return
-
-        with open(filename, "rb") as f:
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text="📰 Notícias do dia"
-            )
-            await context.bot.send_document(
-                chat_id=chat_id, 
-                document=f, 
-                filename=f"{datetime.now().strftime('%Y%m%d')}.txt"
-            )
-            logger.info(f"Successfully sent scheduled news to chat {chat_id}")
-    except Exception as e:
-        logger.error(f"Error in scheduled_send_news: {str(e)}")
-
-async def send_news_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send news file for callback queries."""
-    force_generation = False
-    filename = generate_news_file(force_generation)
-    
-    if not filename:
-        await update.callback_query.message.reply_text(
-            "Não foi possível criar o arquivo de notícias. Verifique os logs para mais detalhes."
-        )
-        return
-
-    with open(filename, "rb") as f:
-        await update.callback_query.message.reply_text("📰 Notícias do dia")
-        await update.callback_query.message.reply_document(
-            document=f, 
-            filename=f"{datetime.now().strftime('%Y%m%d')}.txt"
-        )
-
-async def help_command_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send help message for callback queries."""
-    help_text = (
-        "Aqui estão os comandos disponíveis:\n"
-        "/start - Mostra a mensagem de boas-vindas e opções.\n"
-        "/help - Exibe esta mensagem de ajuda.\n"
-        "/send [force] - Gera e envia o arquivo de notícias de hoje. Use 'force' para regenerar o arquivo.\n"
-        "/schedule HH:MM - Agenda o envio diário de notícias no horário especificado."
-    )
-    await update.callback_query.message.reply_text(help_text)
-
-async def get_weather_info() -> str:
-    """Get weather information from weather.sh script."""
-    result = run(['bash', 'weather.sh'], stdout=PIPE, stderr=PIPE, text=True)
-    if result.returncode != 0:
-        logger.error("Failed to get weather info: %s", result.stderr)
-        return ""
-    return clean_ansi(result.stdout)
-
-async def get_exchange_rates() -> str:
-    """Get exchange rates from exchange.sh script."""
-    result = run(['bash', 'exchange.sh'], stdout=PIPE, stderr=PIPE, text=True)
-    if result.returncode != 0:
-        logger.error("Failed to get exchange rates: %s", result.stderr)
-        return ""
-    return result.stdout
-
-async def get_bicho_info() -> str:
-    """Get jogo do bicho information from bicho.sh script."""
-    result = run(['bash', 'bicho.sh'], stdout=PIPE, stderr=PIPE, text=True)
-    if result.returncode != 0:
-        logger.error("Failed to get bicho info: %s", result.stderr)
-        return ""
-    return result.stdout
-
-async def show_ru_menu_locations(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Show the RU location selection menu."""
-    buttons = []
-    row = []
-    for code, name in RU_LOCATIONS.items():
-        row.append(InlineKeyboardButton(name, callback_data=f"ru_{code}"))
-        if len(row) == 2:  # Create rows of 2 buttons
-            buttons.append(row)
-            row = []
-    if row:  # Add any remaining buttons
-        buttons.append(row)
-    
-    keyboard = InlineKeyboardMarkup(buttons)
-    message = "📍 Escolha um restaurante universitário:"
-    
-    if update.callback_query:
-        await update.callback_query.message.reply_text(message, reply_markup=keyboard)
-    else:
-        await update.message.reply_text(message, reply_markup=keyboard)
-
-async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Handle inline keyboard button clicks."""
+async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle button presses"""
     query = update.callback_query
     await query.answer()
     
-    if query.data == "send_news":
-        await send_news_callback(update, context)
-    elif query.data == "help":
-        await help_command_callback(update, context)
-    elif query.data == "horoscope":
-        await show_horoscope_menu(update, context)
-    elif query.data == "weather":
-        weather_info = await get_weather_info()
-        if weather_info:
-            try:
-                await query.message.reply_text(weather_info, parse_mode='MarkdownV2')
-            except telegram.error.BadRequest:
-                await query.message.reply_text(weather_info)
-        else:
-            await query.message.reply_text("Não foi possível obter a previsão do tempo.")
-    elif query.data == "exchange":
-        exchange_info = await get_exchange_rates()
-        if exchange_info:
-            await query.message.reply_text(exchange_info, parse_mode='Markdown')
-        else:
-            await query.message.reply_text("Não foi possível obter as cotações.")
-    elif query.data == "bicho":
-        bicho_info = await get_bicho_info()
-        if bicho_info:
-            await query.message.reply_text(bicho_info, parse_mode='Markdown')
-        else:
-            await query.message.reply_text("Não foi possível obter os palpites do jogo do bicho.")
-    elif query.data == "ru":
-        await show_ru_menu_locations(update, context)
-    elif query.data.startswith("ru_"):
-        location = query.data.split("_")[1]
-        menu = await get_ru_menu(location)
-        if menu:
-            await query.message.reply_text(f"🍽️ Cardápio RU {RU_LOCATIONS[location]}")
-            await query.message.reply_text(menu, parse_mode='Markdown')
-        else:
-            await query.message.reply_text("Não foi possível obter o cardápio do RU.")
-    elif query.data.startswith("horoscope_"):
-        sign = query.data.split("_")[1]
-        if sign == "all":
-            filename = generate_horoscope()
-            if filename:
-                with open(filename, "rb") as f:
-                    await query.message.reply_text("🔮 Horóscopo do dia para todos os signos")
-                    await query.message.reply_document(
-                        document=f,
-                        filename=f"horoscopo_{datetime.now().strftime('%Y%m%d')}.txt"
-                    )
-            else:
-                await query.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
-        else:
-            horoscope_text = generate_horoscope(sign=sign)
-            if horoscope_text:
-                await query.message.reply_text(horoscope_text, parse_mode='Markdown')
-            else:
-                await query.message.reply_text("Não foi possível obter o horóscopo. Tente novamente mais tarde.")
-
-async def ru_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
-    """Send RU menu for specified location or show location selection."""
-    if context.args:
-        location = context.args[0].lower()
-        if location in RU_LOCATIONS:
-            menu = await get_ru_menu(location)
-            if menu:
-                await update.message.reply_text(
-                    f"🍽️ Cardápio RU {RU_LOCATIONS[location]}\n\n{menu}",
-                    parse_mode='Markdown'
-                )
-            else:
-                await update.message.reply_text("Não foi possível obter o cardápio do RU.")
-        else:
-            await update.message.reply_text(
-                f"Local inválido. RUs disponíveis: {', '.join(RU_LOCATIONS.keys())}"
-            )
-    else:
-        await show_ru_menu_locations(update, context)
-
-# Main Function
-def main() -> None:
-    """Start the bot."""
-    token = TOKEN  # Change this line to use the imported TOKEN
-    if not token:
-        logger.error("TOKEN environment variable is missing.")
+    # Don't handle schedule-related callbacks here
+    if query.data.startswith("schedule"):
         return
+    
+    # Don't handle RSS-related callbacks that need conversation
+    if query.data in ["rss_set", "rss_clear"]:
+        return
+    
+    if query.data == "settings":
+        await query.message.reply_text(
+            "⚙️ Configurações ainda não implementadas.",
+            reply_markup=get_return_button()
+        )
+        return
+    
+    if query.data == "news":
+        await handle_news_menu(update, context)
+    elif query.data == "news_message":
+        # Assumes send_news_as_message (in news_handler.py) now directly executes hcnews.sh,
+        # captures its stdout, and sends it as a message.
+        # Python-level caching for news content itself is removed from news_handler.py;
+        # hcnews.sh handles its own component caching.
+        await send_news_as_message(update, context)
+    elif query.data == "news_file":
+        # Assumes send_news_as_file (in news_handler.py) now directly executes hcnews.sh,
+        # captures its stdout, and sends it as an in-memory file.
+        await send_news_as_file(update, context)
+    elif query.data == "news_force":
+        await query.message.reply_text("🔄 Forçando atualização das notícias...")
+        # Assumes send_news_as_message from news_handler.py now accepts force_refresh.
+        # It will call hcnews.sh with --force, get content, and send as message.
+        # Error handling is expected to be within send_news_as_message.
+        await send_news_as_message(update, context, force_refresh=True)
+    elif query.data == "news_regenerate":
+        await query.message.reply_text("🔄 Atualizando e preparando arquivo de notícias...")
+        # Assumes send_news_as_file from news_handler.py now accepts force_refresh.
+        # It will call hcnews.sh with --force, get content, and send as an in-memory file.
+        # Error handling is expected to be within send_news_as_file.
+        await send_news_as_file(update, context, force_refresh=True)
+    elif query.data == "rss":
+        # rss_handler.py functions should now rely on rss.sh for caching.
+        # Any Python-level caching in rss_handler.py should be removed.
+        await handle_rss_menu(update, context)
+    elif query.data == "rss_message":
+        # rss_handler.py functions should now rely on rss.sh for caching.
+        await send_rss_as_message(update, context)
+    elif query.data == "rss_file":
+        # rss_handler.py functions should now rely on rss.sh for caching.
+        await send_rss_as_file(update, context)
+    elif query.data == "horoscope":
+        # horoscope_handler.py functions should now rely on horoscopo.sh for caching.
+        # Any Python-level caching in horoscope_handler.py should be removed.
+        await send_horoscope(update, context)
+    elif query.data == "weather":
+        # weather_handler.py functions should now rely on weather.sh for caching.
+        # Any Python-level caching in weather_handler.py should be removed.
+        await send_weather(update, context)
+    elif query.data == "exchange":
+        # exchange_handler.py functions should now rely on exchange.sh for caching.
+        # Any Python-level caching in exchange_handler.py should be removed.
+        await send_exchange(update, context)
+    elif query.data == "bicho":
+        # bicho_handler.py functions should now rely on bicho.sh for caching (if applicable).
+        # Any Python-level caching in bicho_handler.py should be removed.
+        await send_bicho(update, context)
+    elif query.data == "ru":
+        # ru_handler.py functions should now rely on ru.sh for caching.
+        # Any Python-level caching in ru_handler.py should be removed.
+        await send_ru_menu(update, context)
+    elif query.data.startswith("ru_"):
+        # ru_handler.py functions should now rely on ru.sh for caching.
+        await handle_ru_selection(update, context, query.data)
+    elif query.data == "main_menu":
+        try:
+            # Try to edit the original message
+            await query.message.edit_text(
+                "Selecione uma opção:",
+                reply_markup=get_main_menu()
+            )
+        except Exception as e:
+            # If editing fails (e.g., for document messages), send a new message
+            logger.info(f"Could not edit message, sending new: {str(e)}")
+            await query.message.reply_text(
+                "Selecione uma opção:",
+                reply_markup=get_main_menu()
+            )
 
-    application = Application.builder().token(token).build()
+def main() -> None:
+    """Start the bot"""
+    # check if the scripts exist and are executable
+    for script in SCRIPT_PATHS.values():
+        if not os.path.exists(script):
+            raise FileNotFoundError(f"Script {script} not found.")
+        if not os.access(script, os.X_OK):
+            raise PermissionError(f"Script {script} is not executable.")
 
-    # Load all scheduled jobs
-    schedules = load_schedules()
-    for chat_id, entries in schedules.items():
-        for entry in entries:
-            try:
-                time_str = entry["time"]
-                msg_type = entry.get("type", "news")
-                job_data = {"type": msg_type}
-                
-                # Add location data for RU jobs
-                if msg_type == "ru" and "location" in entry:
-                    job_data["location"] = entry["location"]
-
-                utc_time = convert_to_utc(time_str)
-                job = application.job_queue.run_daily(
-                    scheduled_send_message,
-                    time=utc_time,
-                    chat_id=int(chat_id),
-                    name=f"{chat_id}_{time_str}_{msg_type}",
-                    data=job_data
-                )
-                if job:
-                    logger.info(f"Loaded scheduled {msg_type} job for chat {chat_id} at {time_str}")
-                else:
-                    logger.error(f"Failed to load {msg_type} job for chat {chat_id} at {time_str}")
-            except ValueError as e:
-                logger.error(f"Failed to load schedule for chat {chat_id}: {e}")
-
-    # Schedule default news sending
-    default_utc_time = convert_to_utc(DEFAULT_SEND_TIME)
-    application.job_queue.run_daily(scheduled_send_news, time=default_utc_time)
-
-    # Add command handlers
+    application = Application.builder().token(TOKEN).build()
+    
+    # Make application available globally for job creation
+    from telegram.ext import ApplicationBuilder
+    ApplicationBuilder.application = application
+    
+    # Setup existing schedule jobs
+    from utils.schedule_utils import setup_jobs
+    setup_jobs(application)
+    
+    # Add the start command handler
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("send", send_news))
-    application.add_handler(CommandHandler("horoscope", horoscope_command))
-    application.add_handler(CommandHandler("schedule", schedule_command))
-    application.add_handler(CommandHandler("ru", ru_command))
-    application.add_handler(CallbackQueryHandler(button_handler))
+    
+    # Add conversation handler for RSS operations
+    rss_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_set_rss, pattern="^rss_set$"),
+            CallbackQueryHandler(handle_clear_rss, pattern="^rss_clear$"),
+            CallbackQueryHandler(handle_remove_feed, pattern="^rss_delete_"),
+            CallbackQueryHandler(handle_view_feed, pattern="^rss_view_"),
+            CallbackQueryHandler(send_specific_rss_as_message, pattern="^rss_message_"),
+            CallbackQueryHandler(send_specific_rss_as_file, pattern="^rss_file_"),
+        ],
+        states={
+            WAITING_FOR_URL: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_url_input),
+                CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            ],
+            WAITING_FOR_FEED_NAME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_feed_name_input),
+                CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            ],
+            SELECTING_FEED: [
+                CallbackQueryHandler(handle_remove_feed, pattern="^rss_delete_"),
+                CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            ],
+        },
+        fallbacks=[
+            CallbackQueryHandler(handle_rss_menu, pattern="^rss$"),
+            CallbackQueryHandler(button_callback, pattern="^main_menu$"),
+            MessageHandler(filters.COMMAND, lambda u, c: ConversationHandler.END),
+        ],
+        per_message=False,
+        name="rss_conversation"
+    )
+    
+    # Add conversation handler for scheduling
+    schedule_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(handle_schedule_menu, pattern="^schedule$")
+        ],
+        states={
+            SELECTING_ACTION: [
+                CallbackQueryHandler(handle_type_selection, pattern="^schedule_add$"),
+                CallbackQueryHandler(handle_remove_schedule, pattern="^schedule_remove$"),
+                CallbackQueryHandler(handle_remove_selection, pattern="^schedule_remove_"),
+                CallbackQueryHandler(button_callback, pattern="^main_menu$")
+            ],
+            SELECTING_TYPE: [
+                CallbackQueryHandler(handle_location_selection, pattern="^schedule_type_"),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
+            ],
+            SELECTING_LOCATION: [
+                CallbackQueryHandler(handle_time_selection, pattern="^schedule_loc_"),
+                CallbackQueryHandler(handle_time_selection, pattern="^schedule_city_"),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
+            ],
+            SELECTING_RSS_FEED: [  # Add RSS feed selection state
+                CallbackQueryHandler(handle_rss_feed_selection, pattern="^schedule_feed_"),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
+            ],
+            SELECTING_TIME: [
+                CallbackQueryHandler(handle_time_selection, pattern="^schedule_time_"),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$")
+            ],
+            CUSTOM_TIME: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_time),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$"),
+                CallbackQueryHandler(button_callback, pattern="^main_menu$")
+            ],
+            ENTERING_CITY: [
+                MessageHandler(filters.TEXT & ~filters.COMMAND, handle_custom_city),
+                CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$"),
+                CallbackQueryHandler(button_callback, pattern="^main_menu$")
+            ],
+        },
+        fallbacks=[
+            CallbackQueryHandler(handle_schedule_menu, pattern="^schedule_menu$"),
+            CallbackQueryHandler(button_callback, pattern="^main_menu$"),
+            MessageHandler(filters.ALL, lambda u, c: ConversationHandler.END)
+        ],
+        per_message=False,  # Changed from True to False
+        name="schedule_conversation"  # Add a name for debugging
+    )
+    
+    # Important: Add handlers before the general callback handler
+    application.add_handler(rss_handler)
+    application.add_handler(schedule_handler)
+    application.add_handler(CallbackQueryHandler(button_callback))
+    
+    # Start the bot
+    application.run_polling()
 
-    # Run the bot
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-    application.add_handler(CommandHandler("send", send_news))
-
-if __name__ == "__main__":
-    main()
-
-    application.add_handler(CommandHandler("horoscope", horoscope_command))
-    application.add_handler(CommandHandler("schedule", schedule_command))
-    application.add_handler(CallbackQueryHandler(button_handler))
-
-    # Run the bot
-    application.run_polling(allowed_updates=Update.ALL_TYPES)
-
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

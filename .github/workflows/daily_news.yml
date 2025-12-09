@@ -1,0 +1,131 @@
+name: Daily HC News
+
+on:
+  schedule:
+    # Run daily at 06:07 UTC (3:07 AM BRT / 2:07 AM BRST)
+    - cron: '7 6 * * *'
+  workflow_dispatch: # Allows manual triggering
+
+permissions:
+  contents: write
+
+jobs:
+  generate-and-deploy:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: hcnews-daily
+      cancel-in-progress: false
+    environment: HCNews
+    env:
+      TZ: America/Sao_Paulo
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xmlstarlet jq curl unzip
+
+      - name: Install pup
+        run: |
+          set -e
+          PUP_URL="https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64.zip"
+          curl -fsSL -o /tmp/pup.zip "$PUP_URL"
+          unzip -o /tmp/pup.zip -d /tmp
+          sudo mv /tmp/pup /usr/local/bin/pup
+          sudo chmod +x /usr/local/bin/pup
+          pup --version
+
+      - name: Run HC News
+        run: |
+          chmod +x hcnews.sh
+          ./hcnews.sh --force > news_output.txt
+          if [ ! -s news_output.txt ]; then
+            echo "Error: news_output.txt is empty" >&2
+            exit 1
+          fi
+
+      - name: Generate HTML
+        run: |
+          mkdir -p public
+          cat > public/index.html <<'EOF'
+          <!DOCTYPE html>
+          <html lang="pt-BR">
+          <head>
+              <meta charset="UTF-8">
+              <meta name="viewport" content="width=device-width, initial-scale=1.0">
+              <title>HC News</title>
+              <style>
+                  body {
+                      font-family: 'Courier New', monospace;
+                      white-space: pre-wrap;
+                      background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+                      color: #d4d4d4;
+                      padding: 40px 20px;
+                      line-height: 1.6;
+                      margin: 0;
+                  }
+                  .container {
+                      max-width: 900px;
+                      margin: 0 auto;
+                      background-color: rgba(0,0,0,0.3);
+                      padding: 30px;
+                      border-radius: 8px;
+                      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                  }
+                  h1 {
+                      text-align: center;
+                      color: #00ff41;
+                      text-shadow: 0 0 10px rgba(0,255,65,0.3);
+                      margin-bottom: 30px;
+                  }
+                  .timestamp {
+                      text-align: center;
+                      color: #888;
+                      font-size: 0.9em;
+                      margin-bottom: 20px;
+                  }
+                  a {
+                      color: #3794ff;
+                      text-decoration: none;
+                  }
+                  a:hover {
+                      color: #5aafff;
+                      text-decoration: underline;
+                  }
+              </style>
+          </head>
+          <body>
+              <div class="container">
+                  <h1>📰 HC News</h1>
+                  <div class="timestamp">Updated: <span id="update-time"></span></div>
+                  <pre id="content"></pre>
+              </div>
+              <script>
+                  document.getElementById('update-time').textContent = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+                  document.getElementById('content').textContent = `EOF
+          
+          # Escape content for safe HTML display
+          python3 << 'PYTHON'
+          import sys
+          import html
+          with open('news_output.txt', 'r', encoding='utf-8') as f:
+              content = f.read()
+          print(html.escape(content))
+          PYTHON
+          
+          cat >> public/index.html <<'EOF'
+                  `;
+              </script>
+          </body>
+          </html>
+          EOF
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./public
+          keep_files: false
+          publish_branch: gh-pages

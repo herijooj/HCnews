@@ -1,34 +1,45 @@
 #!/usr/bin/env bash
-SCRIPT_DIR=$(dirname "$0")
+
+HOLIDAYS_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+PROJECT_ROOT=$(realpath "$HOLIDAYS_SCRIPT_DIR/..")
+HOLIDAY_FILE="$PROJECT_ROOT/data/holidays.csv"
 
 # get holidays
 # the holidays are in the holidays.csv file
-# the file is in the format: "month day holiday"
-# example: 01	01	🎉 Ano Novo
+# the file is in the format: "month,day,emoji,holiday"
+# example: 01,01,🎉,Ano Novo
 function get_holidays() {
     # get the date from arguments
     local month=$1
     local day=$2
     # get the holidays
-    local holidays=$(awk -v month="$month" -v day="$day" '$1 == month && $2 == day { $1=$2=""; print $0 }' "$SCRIPT_DIR/holidays.csv")
+    local holidays=$(awk -F, -v month="$month" -v day="$day" '$1 == month && $2 == day { print $3 " " $4 }' "$HOLIDAY_FILE")
     echo "$holidays"
 }
 
 # write the holidays
 function write_holidays() {
+    # Check if file exists
+    if [[ ! -f "$HOLIDAY_FILE" ]]; then
+        echo "Error: Holiday file not found at $HOLIDAY_FILE"
+        exit 1
+    fi
+
     # get the holidays
     local holidays=$(get_holidays "$1" "$2")
 
     # if there are no holidays, print a message
     if [[ -z $holidays ]]; then
-        echo "📅 Sem feriados hoje..."
-        echo ""
+        # echo "📅 Sem feriados hoje..."
+        # echo ""
         return
     fi
 
     # write the holidays
     echo "📅 *Hoje é:*"
-    echo "$holidays"
+    echo "$holidays" | while read -r line; do
+        echo "- $line"
+    done
     echo ""
 }
 
@@ -48,9 +59,15 @@ show_help() {
 
 # this function will receive the arguments
 get_arguments() {
-  # current date
-  month=$(date +%m)
-  day=$(date +%d)
+  # Use cached values if available, otherwise fall back to date commands
+  local month day
+  if [[ -n "$month" && -n "$day" ]]; then
+    month="$month"
+    day="$day"
+  else
+    month=$(date +%m)
+    day=$(date +%d)
+  fi
 
   # get the arguments
   while [[ $# -gt 0 ]]; do

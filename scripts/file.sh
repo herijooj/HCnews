@@ -7,8 +7,8 @@ new_file() {
     local silent=$3
 
     # If the directory doesn't exist, create it.
-    if [[ ! -d "./news" ]]; then
-        mkdir news
+    if [[ ! -d "data/news" ]]; then
+        mkdir -p data/news
     fi
 
     # Always overwrite the file without asking for user confirmation.
