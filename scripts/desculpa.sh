@@ -3,7 +3,7 @@
 _desculpa_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
 function get_desculpa() {
-    local desculpas_file="$(dirname "$_desculpa_SCRIPT_DIR")/data/desculpas.txt"
+    local desculpas_file="$(dirname "$_desculpa_SCRIPT_DIR")/data/desculpas.json"
     
     # Check if the file exists
     if [[ ! -f "$desculpas_file" ]]; then
@@ -38,7 +38,7 @@ function write_excuse() {
     # write the excuse to the console
     echo "🚫 *Desculpa do Dia:*"
     echo "_${EXCUSE}_"
-    echo "_Fonte: No-as-a-Service_"
+    echo "_Fonte: programming-excuse-as-a-Service_"
     echo ""
 }
 
