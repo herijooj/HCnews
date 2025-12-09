@@ -30,7 +30,7 @@ jobs:
       - name: Install pup
         run: |
           set -e
-          PUP_URL="https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64.zip"
+          PUP_URL="https://github.com/ericchiang/pup/releases/download/v0.4.0/pup_v0.4.0_linux_amd64.zip"
           curl -fsSL -o /tmp/pup.zip "$PUP_URL"
           unzip -o /tmp/pup.zip -d /tmp
           sudo mv /tmp/pup /usr/local/bin/pup
