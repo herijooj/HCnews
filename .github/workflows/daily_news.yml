@@ -1,10 +1,8 @@
 name: Daily HC News
 
 on:
-  push:
-    branches: [ "main", "Refactor" ]
   schedule:
-    # Run once daily at 06:07 UTC (offset from top of the hour to reduce scheduling contention)
+    # Run daily at 06:07 UTC (3:07 AM BRT / 2:07 AM BRST)
     - cron: '7 6 * * *'
   workflow_dispatch: # Allows manual triggering
 
@@ -12,154 +10,114 @@ permissions:
   contents: write
 
 jobs:
-  build-and-deploy:
+  generate-and-deploy:
     runs-on: ubuntu-latest
-    # Use a Debian slim container for a smaller, reproducible environment
-    container:
-      image: debian:bookworm-slim
-    env:
-      TZ: America/Sao_Paulo
-    # Prevent overlapping scheduled runs — only one instance of this job will run at a time.
     concurrency:
       group: hcnews-daily
       cancel-in-progress: false
     environment: HCNews
+    env:
+      TZ: America/Sao_Paulo
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install System Dependencies (slim)
+      - name: Install dependencies
         run: |
-          # Keep this list minimal: the scripts rely on xmlstarlet, jq and curl
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends xmlstarlet jq curl python3 file ca-certificates unzip
-          # Use prebuilt pup binary instead of installing Go (slimmer)
-          # Download the latest pup binary asset for linux/amd64 and validate it's a binary
-          set -euxo pipefail
-          # Try a handful of pup asset names (release asset names change occasionally)
-          PUP_ASSETS=(pup_linux_amd64 pup_linux_x86_64 pup_linux_x64 pup_linux_amd64.zip pup_linux_x86_64.tar.gz)
-          PUP_URL_BASE='https://github.com/ericchiang/pup/releases/latest/download'
-          dl_ok=false
-          for asset in "${PUP_ASSETS[@]}"; do
-            echo "Trying asset: $asset"
-            if curl -fsSL -o pup "${PUP_URL_BASE}/${asset}"; then
-              # If it's an archive, try to extract; otherwise keep as binary
-              if file pup | grep -qi 'Zip archive\|gzip compressed data'; then
-                mkdir -p /tmp/pupdl
-                if file pup | grep -qi 'Zip archive'; then
-                  unzip -o pup -d /tmp/pupdl || true
-                else
-                  tar -xzf pup -C /tmp/pupdl || true
-                fi
-                # find bin
-                if [ -f /tmp/pupdl/pup ]; then
-                  sudo mv /tmp/pupdl/pup /usr/local/bin/pup
-                  rm -rf /tmp/pupdl
-                fi
-              else
-                sudo mv pup /usr/local/bin/pup
-              fi
-              sudo chmod +x /usr/local/bin/pup
-              if file /usr/local/bin/pup | grep -qi 'ELF'; then
-                dl_ok=true
-                break
-              fi
-            fi
-          done
-          if [ "$dl_ok" = false ]; then
-            echo 'Failed to download a prebuilt pup binary; falling back to building from source'
-            sudo apt-get update && sudo apt-get install -y --no-install-recommends golang-go git build-essential
-            export GOPATH="/tmp/go"
-            mkdir -p "$GOPATH/bin"
-            GOPATH=$GOPATH PATH=$PATH:$GOPATH/bin go install github.com/ericchiang/pup@latest
-            sudo mv "$GOPATH/bin/pup" /usr/local/bin/pup
-            sudo chmod +x /usr/local/bin/pup
-          fi
-          # Validate pup is an ELF binary and works by running a small test
-          if ! file /usr/local/bin/pup | grep -qi 'ELF'; then
-            echo 'pup download does not appear to be a binary' >&2
-            file /usr/local/bin/pup
-            exit 1
-          fi
-          /usr/local/bin/pup -v || true
-          echo '<div><p>pup-test</p></div>' | /usr/local/bin/pup 'p text{}' || (echo 'pup test failed' >&2; exit 1)
+          sudo apt-get install -y xmlstarlet jq curl unzip
 
-      - name: Verify installed tools
+      - name: Install pup
         run: |
-          echo "== Tools versions =="
-          for cmd in xmlstarlet jq curl pup python3 file unzip; do
-            if command -v $cmd >/dev/null 2>&1; then
-              echo "$cmd: $(command -v $cmd)";
-            else
-              echo "::warning::$cmd not found";
-            fi
-          done
+          set -e
+          PUP_URL="https://github.com/ericchiang/pup/releases/latest/download/pup_linux_amd64.zip"
+          curl -fsSL -o /tmp/pup.zip "$PUP_URL"
+          unzip -o /tmp/pup.zip -d /tmp
+          sudo mv /tmp/pup /usr/local/bin/pup
+          sudo chmod +x /usr/local/bin/pup
+          pup --version
 
-      - name: Print Timezone (container)
+      - name: Run HC News
         run: |
-          echo "TZ=${TZ}"
-          date
-
-      - name: Run HC News Script
-        id: run_script
-        run: |
-          set -euxo pipefail
-          export GEMINI_API_KEY="${{ secrets.GEMINI_API_KEY }}"
-          export CoinMarketCap_API_KEY="${{ secrets.COINMARKETCAP_API_KEY }}"
-          export openweathermap_API_KEY="${{ secrets.OPENWEATHERMAP_API_KEY }}"
-          
-          # Check if secrets are set
-          if [ -z "$GEMINI_API_KEY" ]; then echo "::warning::GEMINI_API_KEY is empty"; fi
-          if [ -z "$CoinMarketCap_API_KEY" ]; then echo "::warning::CoinMarketCap_API_KEY is empty"; fi
-          if [ -z "$openweathermap_API_KEY" ]; then echo "::warning::openweathermap_API_KEY is empty"; fi
-          
           chmod +x hcnews.sh
-          # Quick sanity check: show help to verify it's runnable and required tools are in PATH
-          ./hcnews.sh --help
-          # Run the script and capture output to a file
           ./hcnews.sh --force > news_output.txt
           if [ ! -s news_output.txt ]; then
-            echo 'news_output.txt is empty — exitting' >&2
-            tail -100 news_output.txt || true
+            echo "Error: news_output.txt is empty" >&2
             exit 1
           fi
 
       - name: Generate HTML
         run: |
-          # Create a clean public directory for deployment
           mkdir -p public
-
-          # Create a simple HTML wrapper
-          cat <<EOF > public/index.html
+          cat > public/index.html <<'EOF'
           <!DOCTYPE html>
           <html lang="pt-BR">
           <head>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
-              <title>HC News - $(date +'%d/%m/%Y')</title>
+              <title>HC News</title>
               <style>
-                  body { 
-                      font-family: 'Courier New', Courier, monospace; 
-                      white-space: pre-wrap; 
-                      background-color: #1e1e1e; 
-                      color: #d4d4d4; 
-                      padding: 20px; 
-                      line-height: 1.5;
-                      max-width: 800px;
-                      margin: 0 auto;
+                  body {
+                      font-family: 'Courier New', monospace;
+                      white-space: pre-wrap;
+                      background: linear-gradient(135deg, #1e1e1e 0%, #2d2d2d 100%);
+                      color: #d4d4d4;
+                      padding: 40px 20px;
+                      line-height: 1.6;
+                      margin: 0;
                   }
-                  a { color: #3794ff; text-decoration: none; }
-                  a:hover { text-decoration: underline; }
+                  .container {
+                      max-width: 900px;
+                      margin: 0 auto;
+                      background-color: rgba(0,0,0,0.3);
+                      padding: 30px;
+                      border-radius: 8px;
+                      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+                  }
+                  h1 {
+                      text-align: center;
+                      color: #00ff41;
+                      text-shadow: 0 0 10px rgba(0,255,65,0.3);
+                      margin-bottom: 30px;
+                  }
+                  .timestamp {
+                      text-align: center;
+                      color: #888;
+                      font-size: 0.9em;
+                      margin-bottom: 20px;
+                  }
+                  a {
+                      color: #3794ff;
+                      text-decoration: none;
+                  }
+                  a:hover {
+                      color: #5aafff;
+                      text-decoration: underline;
+                  }
               </style>
           </head>
           <body>
-          EOF
+              <div class="container">
+                  <h1>📰 HC News</h1>
+                  <div class="timestamp">Updated: <span id="update-time"></span></div>
+                  <pre id="content"></pre>
+              </div>
+              <script>
+                  document.getElementById('update-time').textContent = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+                  document.getElementById('content').textContent = `EOF
           
-          # Append the news content (HTML escaped to prevent breakage)
-          # We use python to escape HTML characters safely
-          python3 -c "import sys, html; print(html.escape(sys.stdin.read()))" < news_output.txt >> public/index.html
+          # Escape content for safe HTML display
+          python3 << 'PYTHON'
+          import sys
+          import html
+          with open('news_output.txt', 'r', encoding='utf-8') as f:
+              content = f.read()
+          print(html.escape(content))
+          PYTHON
           
-          cat <<EOF >> public/index.html
+          cat >> public/index.html <<'EOF'
+                  `;
+              </script>
           </body>
           </html>
           EOF
