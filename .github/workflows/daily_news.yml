@@ -76,11 +76,14 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           chmod +x hcnews.sh
+          # Generate both full and short variants of the news output.
           # Only pass --force when run via workflow_dispatch with the `force` input set to 'true'
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force }}" = "true" ]; then
-            ./hcnews.sh -n --force > news_output.txt
+            ./hcnews.sh -n --force --full-url > news_full.txt
+            ./hcnews.sh -n --force > news_short.txt
           else
-            ./hcnews.sh -n > news_output.txt
+            ./hcnews.sh -n --full-url > news_full.txt
+            ./hcnews.sh -n > news_short.txt
           fi
           if [ ! -s news_output.txt ]; then
             echo "Error: news_output.txt is empty" >&2
@@ -91,7 +94,9 @@ jobs:
         run: |
           mkdir -p public
           DATE=$(date +'%d/%m/%Y')
-          sed "s|{{DATE}}|$DATE|g" .github/template.html | sed -e '/{{CONTENT}}/r news_output.txt' -e '/{{CONTENT}}/d' > public/index.html
+          sed "s|{{DATE}}|$DATE|g" .github/template.html \
+            | sed -e '/{{CONTENT_FULL}}/r news_full.txt' -e '/{{CONTENT_FULL}}/d' \
+                  -e '/{{CONTENT_SHORT}}/r news_short.txt' -e '/{{CONTENT_SHORT}}/d' > public/index.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

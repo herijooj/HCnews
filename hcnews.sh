@@ -170,6 +170,8 @@ show_help() {
     echo "  -t, --timing: show function execution timing information"
     echo "  --no-cache: disable caching for this run"
     echo "  --force: force refresh cache for this run"
+    echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
+    echo "  --variants: generate both full and short news outputs in one run (news_full.txt and news_short.txt)"
 }
 
 # this function will receive the arguments
@@ -179,8 +181,10 @@ get_arguments() {
     saints_verbose=true
     news_shortened=false
     timing=false
-    hc_no_cache=false 
+    hc_no_cache=false
     hc_force_refresh=false
+    hc_variants=false
+    hc_full_url=false
 
     # Get the arguments
     while [[ $# -gt 0 ]]; do
@@ -211,6 +215,14 @@ get_arguments() {
                 ;;
             --force)
                 hc_force_refresh=true
+                shift
+                ;;
+            --full-url)
+                hc_full_url=true
+                shift
+                ;;
+            --variants)
+                hc_variants=true
                 shift
                 ;;
             *)
@@ -263,6 +275,186 @@ function hcseguidor {
     echo ""
 }
 
+# Prepare network-heavy jobs in background (excluding RSS news)
+prepare_output_jobs() {
+    # cache_options variable should be set by caller
+    start_timing "network_parallel_start"
+    if [[ $weekday -lt 6 ]]; then
+        start_background_job "menu" "(export SHOW_ONLY_TODAY=true; source '$SCRIPT_DIR/scripts/UFPR/ru.sh' $cache_options && write_menu)"
+    fi
+    start_background_job "music_chart" "cd '$SCRIPT_DIR' && bash scripts/musicchart.sh $cache_options"
+    start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
+    start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
+    start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
+    start_background_job "exchange" "(source '$SCRIPT_DIR/scripts/exchange.sh' $cache_options && write_exchange)"
+    start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
+    start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
+    start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
+    start_background_job "header_moon" "(source '$SCRIPT_DIR/scripts/moonphase.sh' $cache_options && moon_phase)"
+    start_background_job "header_quote" "(source '$SCRIPT_DIR/scripts/quote.sh' $cache_options && quote)"
+    # Do NOT start all_news here; we will render news on demand for each variant
+    end_timing "network_parallel_start"
+}
+
+collect_prepared_data() {
+    # Collect results of the prepared background jobs into variables
+    moon_phase_output=$(wait_for_job "header_moon") || moon_phase_output=""
+    quote_output=$(wait_for_job "header_quote") || quote_output=""
+    saints_output=$(wait_for_job "saints") || saints_output=""
+    ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""
+    exchange_output=$(wait_for_job "exchange") || exchange_output=""
+    music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""
+    weather_output=$(wait_for_job "weather") || weather_output=""
+    didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""
+    desculpa_output=$(wait_for_job "desculpa") || desculpa_output=""
+    bicho_output=$(wait_for_job "bicho") || bicho_output=""
+    if [[ $weekday -lt 6 ]]; then
+        menu_output=$(wait_for_job "menu") || menu_output=""
+    fi
+}
+
+render_output() {
+    # Parameters: $1 - news_shortened flag
+    local NEWS_SHORTENED_FLAG=$1
+
+    # Header core
+    write_header_core
+    if [[ -n "$moon_phase_output" ]]; then
+        echo "$moon_phase_output"
+    else
+        moon_phase
+    fi
+    echo ""
+    if [[ -n "$quote_output" ]]; then
+        echo "$quote_output"
+    else
+        quote
+    fi
+    echo ""
+    write_holidays "$month" "$day"
+    write_states_birthdays "$month" "$day"
+
+    # Saints
+    if [[ -n "$saints_output" ]]; then
+        echo "$saints_output"
+        echo ""
+    else
+        (source "$SCRIPT_DIR/scripts/saints.sh" $cache_options && write_saints "$saints_verbose")
+        echo ""
+    fi
+
+    # AI fortune
+    if [[ -n "$ai_fortune_output" ]]; then
+        echo "$ai_fortune_output"
+        echo ""
+    else
+        write_ai_fortune
+        echo ""
+    fi
+
+    # Exchange
+    if [[ -n "$exchange_output" ]]; then
+        echo "$exchange_output"
+        echo ""
+    else
+        (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
+        echo ""
+    fi
+
+    help_hcnews
+
+    # Music chart
+    if [[ -n "$music_chart_output" ]]; then
+        echo "$music_chart_output"
+        echo ""
+    else
+        write_music_chart
+        echo ""
+    fi
+
+    # Weather
+    if [[ -n "$weather_output" ]]; then
+        echo "$weather_output"
+        echo ""
+    else
+        write_weather "$city"
+        echo ""
+    fi
+
+    # Did you know?
+    if [[ -n "$didyouknow_output" ]]; then
+        echo "$didyouknow_output"
+        echo ""
+    else
+        write_did_you_know
+        echo ""
+    fi
+
+    # Bicho
+    if [[ -n "$bicho_output" ]]; then
+        echo "$bicho_output"
+        echo ""
+    else
+        write_bicho
+        echo ""
+    fi
+
+    # Menu
+    if [[ $weekday -lt 6 ]]; then
+        if [[ -n "$menu_output" ]]; then
+            echo "$menu_output"
+            echo ""
+        else
+            SHOW_ONLY_TODAY=true
+            (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu)
+            echo ""
+        fi
+    fi
+
+    # Emoji
+    write_emoji
+
+    # News - render with chosen shortening flag
+    (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$NEWS_SHORTENED_FLAG" true ${hc_full_url})
+    echo ""
+
+    # Desculpa
+    if [[ -n "$desculpa_output" ]]; then
+        echo "$desculpa_output"
+        echo ""
+    else
+        write_excuse
+        echo ""
+    fi
+
+    footer
+}
+
+output_variants() {
+    prepare_output_jobs
+    collect_prepared_data
+
+    # Full URLs (news_shortened=false)
+    content_full=$(render_output false)
+    # Short URLs (news_shortened=true)
+    content_short=$(render_output true)
+
+    reading_time_full=$(calculate_reading_time "$content_full")
+    reading_time_short=$(calculate_reading_time "$content_short")
+
+    # Write files
+    {
+        write_header_with_reading_time "$reading_time_full"
+        echo "$content_full" | sed '1,4d'
+    } > news_full.txt
+
+    {
+        write_header_with_reading_time "$reading_time_short"
+        echo "$content_short" | sed '1,4d'
+    } > news_short.txt
+}
+
+
 function output {
     start_timing "output"
 
@@ -278,22 +470,7 @@ function output {
         cache_options+=" --force"
     fi
     
-    # RSS feeds
-    o_popular=https://opopularpr.com.br/feed/
-    plantao190=https://plantao190.com.br/feed/
-    xvcuritiba=https://xvcuritiba.com.br/feed/
-    bandab=https://www.bandab.com.br/web-stories/feed/
-    g1=https://g1.globo.com/rss/g1/pr/parana/
-
-    g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
-    newyorker=https://www.newyorker.com/feed/magazine/rss
-    folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
-    formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
-    bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
-
-
-    # Combine feeds for parallel processing
-    all_feeds="${o_popular},${plantao190},${xvcuritiba}"
+    # RSS feeds (defined globally)
 
     # ======= PHASE 1: Start all heavy network operations in parallel =======
     start_timing "network_parallel_start"
@@ -306,7 +483,9 @@ function output {
     start_background_job "music_chart" "cd '$SCRIPT_DIR' && bash scripts/musicchart.sh $cache_options"
     start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
     start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
-    start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true)"
+    if [[ "$hc_variants" == false ]]; then
+        start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true ${hc_full_url})"
+    fi
     start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
     start_background_job "exchange" "(source '$SCRIPT_DIR/scripts/exchange.sh' $cache_options && write_exchange)"
     # start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"  # Temporarily disabled - API offline
@@ -492,7 +671,7 @@ function output {
     else
         # Fallback to synchronous if background job failed
         start_timing "write_all_news"
-        (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$news_shortened" true)
+        (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$news_shortened" true ${hc_full_url})
         end_timing "write_all_news"
     fi
 
@@ -570,7 +749,36 @@ city="Curitiba"
 
 # Reset timing data and initialize timing file for cross-subshell persistence
 reset_timing_data
+# Reset timing data and initialize timing file for cross-subshell persistence
 init_timing_file
+
+# Compute run-specific cache options (also used by output_variants)
+cache_options=""
+if [[ "$hc_no_cache" == true ]]; then
+    cache_options+=" --no-cache"
+fi
+if [[ "$hc_force_refresh" == true ]]; then
+    cache_options+=" --force"
+fi
+
+# If the user asked for variants, render both files in a single run and exit
+if [[ "$hc_variants" == true ]]; then
+    output_variants
+    exit 0
+fi
+
+# RSS feed globals (used both by output() and output_variants())
+o_popular=https://opopularpr.com.br/feed/
+plantao190=https://plantao190.com.br/feed/
+xvcuritiba=https://xvcuritiba.com.br/feed/
+bandab=https://www.bandab.com.br/web-stories/feed/
+g1=https://g1.globo.com/rss/g1/pr/parana/
+g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
+newyorker=https://www.newyorker.com/feed/magazine/rss
+folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
+formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
+bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
+all_feeds="${o_popular},${plantao190},${xvcuritiba}"
 
 # Capture all output to calculate reading time, then output with reading time in header
 content_output=$(output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh")

@@ -176,13 +176,18 @@ get_news_RSS_combined() {
     [[ -d "$rss_cache_dir" ]] || mkdir -p "$rss_cache_dir"
     local cache_file="${rss_cache_dir}/${date_format}.news"
     
-    # Separate cache file for links when LINKED=true
+    # Separate cache files for links
     local links_cache_file="${rss_cache_dir}/${date_format}.links"
+    local links_full_cache_file="${rss_cache_dir}/${date_format}.links_full"
 
     # Check cache based on whether we need links or not
     local target_cache_file="$cache_file"
     if [[ "$LINKED" == true ]]; then
-        target_cache_file="$links_cache_file"
+        if [[ "$FULL_URL" == true ]]; then
+            target_cache_file="$links_full_cache_file"
+        else
+            target_cache_file="$links_cache_file"
+        fi
     fi
 
     if [ "$_rss_USE_CACHE" = true ] && check_cache "$target_cache_file"; then
@@ -222,6 +227,7 @@ get_news_RSS_combined() {
             
             # Compare with our timestamp threshold
             if (( DATE_UNIX > UNIX_24H_AGO )); then
+                # Title line
                 result+=("- $title")
                 if [[ "$LINKED" == true ]]; then
                     if [[ "$FULL_URL" == true ]]; then
@@ -254,6 +260,10 @@ get_news_RSS_combined() {
 
 # Process multiple feed URLs in parallel
 process_multiple_feeds() {
+    # Expect: process_multiple_feeds <LINKED> <FULL_URL> <feed1> <feed2> ...
+    local LOCAL_LINKED=$1
+    local LOCAL_FULL_URL=$2
+    shift 2
     local feeds=("$@")
     local pids=()
     local temp_files=()
@@ -269,7 +279,7 @@ process_multiple_feeds() {
         # Process each feed in background
         (
             local portal=$(echo "$feed" | awk -F/ '{print $3}')
-            local news_output=$(get_news_RSS_combined "$feed" "$LINKED" "$FULL_URL")
+            local news_output=$(get_news_RSS_combined "$feed" "$LOCAL_LINKED" "$LOCAL_FULL_URL")
             
             if [[ -n "$news_output" ]]; then
                 [[ "$SHOW_HEADER" == true ]] && echo "📰 $portal:" > "$temp_file"
@@ -306,7 +316,7 @@ write_news() {
     if [[ "$RSS_FEED" == *","* ]]; then
         IFS=',' read -ra FEEDS <<< "$RSS_FEED"
         # When processing multiple feeds, caching is handled within get_news_RSS_combined for each feed
-        process_multiple_feeds "${FEEDS[@]}"
+        process_multiple_feeds "$LINKED" "$FULL_URL" "${FEEDS[@]}"
     else
         local PORTAL
         PORTAL=$(echo "$RSS_FEED" | awk -F/ '{print $3}')
