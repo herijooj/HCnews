@@ -434,10 +434,16 @@ output_variants() {
     prepare_output_jobs
     collect_prepared_data
 
-    # Full URLs (news_shortened=false)
-    content_full=$(render_output false)
-    # Short URLs (news_shortened=true)
+    # Full URLs (show links and use full urls)
+    local _hc_full_url_saved="$hc_full_url"
+    hc_full_url=true
+    content_full=$(render_output true)
+    hc_full_url="$_hc_full_url_saved"
+
+    # Short URLs (show links and use shortened urls)
+    hc_full_url=false
     content_short=$(render_output true)
+    hc_full_url="$_hc_full_url_saved"
 
     reading_time_full=$(calculate_reading_time "$content_full")
     reading_time_short=$(calculate_reading_time "$content_short")
@@ -761,12 +767,6 @@ if [[ "$hc_force_refresh" == true ]]; then
     cache_options+=" --force"
 fi
 
-# If the user asked for variants, render both files in a single run and exit
-if [[ "$hc_variants" == true ]]; then
-    output_variants
-    exit 0
-fi
-
 # RSS feed globals (used both by output() and output_variants())
 o_popular=https://opopularpr.com.br/feed/
 plantao190=https://plantao190.com.br/feed/
@@ -779,6 +779,12 @@ folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
 formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
 bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
 all_feeds="${o_popular},${plantao190},${xvcuritiba}"
+
+# If the user asked for variants, render both files in a single run and exit
+if [[ "$hc_variants" == true ]]; then
+    output_variants
+    exit 0
+fi
 
 # Capture all output to calculate reading time, then output with reading time in header
 content_output=$(output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh")

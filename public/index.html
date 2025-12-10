@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="HCNews: A streamlined daily news update inspired by JRMUNEWS, featuring holidays, weather, and more.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
+    <title>HCNews!</title>
+    <style>
+        body {
+            font-family: 'Courier New', Courier, monospace;
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            line-height: 1.5;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .controls {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 1px solid #333;
+            display: flex;
+            gap: 10px;
+            position: sticky;
+            bottom: 0;
+            background-color: #1e1e1e;
+            z-index: 100;
+            padding-bottom: 10px;
+        }
+        button {
+            background-color: #3794ff;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        button:hover { background-color: #2a75d1; }
+        button.secondary { background-color: #333; color: #ccc; }
+        button.secondary:hover { background-color: #444; }
+        button.active { outline: 2px solid #fff; }
+        
+        #raw-content {
+            width: 100%;
+            height: 80vh;
+            background-color: #2d2d2d;
+            color: #d4d4d4;
+            border: 1px solid #444;
+            padding: 15px;
+            font-family: 'Courier New', Courier, monospace;
+            white-space: pre-wrap;
+            resize: vertical;
+            display: none;
+            box-sizing: border-box;
+            font-size: 14px;
+        }
+        
+        #rich-content {
+            white-space: pre-wrap;
+            font-size: 16px;
+        }
+        
+        /* WhatsApp style formatting */
+        strong { color: #fff; font-weight: bold; }
+        em { font-style: italic; color: #aaa; }
+        del { text-decoration: line-through; color: #888; }
+        a { color: #3794ff; text-decoration: none; }
+        a:hover { text-decoration: underline; }
+        code { 
+            background-color: #2d2d2d; 
+            padding: 2px 4px; 
+            border-radius: 3px; 
+            font-family: 'Courier New', monospace;
+            color: #e06c75;
+        }
+    </style>
+</head>
+<body>
+    <div id="rich-content"></div>
+    <textarea id="raw-content" readonly></textarea>
+
+        <div class="controls">
+        <button onclick="setView('rich')" id="btn-rich">Visual</button>
+        <button onclick="setView('raw')" id="btn-raw" class="secondary">Texto cru</button>
+            <label style="display:flex;align-items:center;gap:8px;">
+                <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);"> <span style="font-size:14px;">Mostrar links</span>
+            </label>
+            <label style="display:flex;align-items:center;gap:8px;">
+                <input id="chk-short-links" type="checkbox" style="transform:scale(1.1);"> <span style="font-size:14px;">Links curtos</span>
+            </label>
+            <button onclick="copyRaw()" class="secondary">Copiar texto</button>
+    </div>
+
+    <!-- Hidden containers for the original injected content: full and short versions -->
+    <script id="source-content" type="text/plain">
+📰 *HCNews* Edição 1525 🗞
+🇧🇷 De Araucária Paraná 
+📅 Terça-feira, 09 de dezembro de 2025
+⏳ Dia 343/365 ██████████████░░ 93%
+📖 Tempo total de leitura: ~5 min
+🌔 Minguante Gibosa
+
+📝 *Frase do dia:*
+_"Viver na metrópole é a arte macabra de estar cercado por milhões de organismos vivos e, ainda assim, a única conexão estável que você possui é com o Wi-Fi da cafeteria. O ser humano urbano é um animal que evoluiu para suportar tudo, exceto o silêncio da sua própria irrelevância."_
+
+📅 *Hoje é:*
+- 👶 Dia da Criança Especial
+- 🍺 Dia do Alcoólico Recuperado
+- 👄 Dia do Fonoaudiólogo
+- 🚫 Dia Internacional contra a Corrupção
+- 🕯️ Dia Internacional de Homenagem e Dignidade das Vítimas do Crime de Genocídio
+
+🙏 *Santos do dia*:
+😇 S. João Diogo Cuauhtlatoatzin
+- A narração das aparições de Nossa Senhora de Guadalupe é convincente. O protagonista é um índio mexicano desconhecido, Juan Diego, que, em meados de 1500, encontrou a Virgem Maria em uma colina, lugar que, ao longo dos séculos, se tornou centro de peregrinação mariana mundial.  
+😇 S. Leocádia, virgem e mártir
+- Na época da perseguição de Diocleciano, a jovem Leocádia foi presa, em Toledo, pelo Prefeito Dácio e morreu na prisão. No século VIII, no dia da sua festa, Leocádia apareceu a São Ildefonso, que cortou um pedaço do seu véu, ainda conservado como relíquia em Toledo.  
+😇 S. Siro, bispo de Pavia
+- Por muito tempo, Siro foi erroneamente identificado com o jovem que entregou os pães e os peixes a Jesus para o milagre da multiplicação. Na realidade, foi o primeiro Bispo da Igreja de Pavia, consagrado no século IV. Foi um pastor itinerante, que evangelizou uma vasta área do norte da Itália.  
+😇 S. Pedro Fourier, cônego regular
+- Filho de tecelões de Lorena, na França, tornou-se pároco, em 1597 e fundador da Ordem dos Cônegos Regulares. Pedro Fourier defendeu os artesãos da usura, com a criação de um Banco de Crédito. Fundou dois institutos, ainda existentes, e escolas gratuitas para crianças.  
+
+Error: curl command failed with exit code 22.
+🚫 *PORTAL FECHADO:* A IA vidente entrou em modo de economia de energia (tokens). Culpa do Heric! 📉
+
+📈 *Cotação do Dia:*
+- *Dólar*: Compra `R$ 5.45` · Venda `R$ 5.45`
+- *Euro*: Compra `R$ 6.34` · Venda `R$ 6.34`
+_Fonte: Banco Central do Brasil · Atualizado: 21:49:04_
+
+🤝 *Quer contribuir com o HCNEWS?*
+- ✨ https://github.com/herijooj/HCnews
+
+🎵 *Top 10 (Apple Music BR)*:
+- 1. `The Fate of Ophelia - Taylor Swift`
+- 2. `Posso Até Não Te Dar Flores (feat. DJ DAVI DOGDOG) - DJ Japa NK, MC Meno K, MC Ryan SP & Mc Jacaré`
+- 3. `P do Pecado (Ao Vivo) - Grupo Menos É Mais & Simone Mendes`
+- 4. `SEQUÊNCIA FEITICEIRA (feat. MC Nito) - PEDRO SAMPAIO, Mc Gw, Mc Jhey & MC Rodrigo do CN`
+- 5. `Pela Última Vez (Ao Vivo) - Grupo Menos É Mais & Nattan`
+- 6. `Ordinary - Alex Warren`
+- 7. `MEU CEMITÉRIO - Matuê`
+- 8. `GOSTOSIN - Anitta, Felipe Amorim & HITMAKER`
+- 9. `Tubarões (Ao Vivo) - Diego & Victor Hugo`
+- 10. `Nocaute - Jorge & Mateus`
+_Fonte: Apple Music_
+
+🌦️ *Clima em Curitiba:*
+- ☁️ _Nublado_
+- 🌡️ `19` °C
+- ↗️ Máx: `19` °C  ↘️ Mín: `18` °C
+- Sensação: `19` °C  💧 `98` %
+- 🌅 `05:19`  🌇 `19:00`
+
+🗓️ *Próximos Dias:*
+- *Qua:* 🌧️ `17` °→ `24` °C  💧 `73` %
+- *Qui:* ⛅ `14` °→ `26` °C  💧 `64` %
+- *Sex:* ☁️ `15` °→ `23` °C  💧 `75` %
+_Fonte: OpenWeatherMap · Atualizado: 21:49:04_
+
+📚 *Você sabia?*
+_… em 2015, a sexta-feira foi definida como o padrão de dia da semana para o lançamento de singles e álbuns musicais? _
+_Fonte: Wikipedia_
+
+🎲 *Palpites do Jogo do Bicho:*
+- 🦩 2 Avestruz | 🦅 7 Águia
+- 🦋 13 Borboleta | 🐶 20 Cachorro
+- 🐐 23 Cabra
+
+🔟 Dezena: 19, 24, 46, 67, 96
+💯 Centena: 180, 237, 538, 668, 885
+🏆 Milhar: 1937, 2421, 4006, 7225, 9504
+🍀 *Boa sorte!*
+
+🍽️  Cardápio RU Politecnico
+
+📅 *Terça-Feira* 09/12/2025
+🥪 *CAFÉ DA MANHÃ* 🥪
+- Pão de cenoura ou integral com patê de presunto
+- Opção vegana: pão de cenoura ou integral com patê de grão-de-bico com beterraba
+- Melão
+🍝 *ALMOÇO* 🍝
+- Filé de frango com queijo
+- Opção vegana: tomate recheado com lentilha
+- Abóbora refogada
+- Saladas de folhosa e rabanete
+- Molho para saladas: vinagrete
+- Melancia
+🍛 *JANTAR* 🍛
+- Kibe caseiro
+- Opção vegana: kibe de PTS com abóbora
+- Sopa cremosa de aipim
+- Saladas de folhosa e berinjela cozida
+- Molho para saladas: molho rosê
+
+🎉 *Emoji do dia:*
+- 👨‍⚖ E4.0 man judge
+
+📰 opopularpr.com.br:
+- Em sua 5ª edição, cerimônia premiação AS 100+ homenageia indústrias araucarienses que mais geram tributos ao Município 
+    https://opopularpr.com.br/em-sua-5a-edicao-cerimonia-premiacao-as-100-homenageia-industrias-araucarienses-que-mais-geram-tributos-ao-municipio/
+- Nova fábrica da Alcast em Araucária alcançará plena capacidade operacional em 2026
+    https://opopularpr.com.br/nova-fabrica-da-alcast-em-araucaria-alcancara-plena-capacidade-operacional-em-2026/
+- Vando da Fortuna: A queda da Torre
+    https://opopularpr.com.br/vando-da-fortuna-a-queda-da-torre/
+- TORTUGA, uma empresa brasileira focada em atingir metas e propostas de crescimento
+    https://opopularpr.com.br/tortuga-uma-empresa-brasileira-focada-em-atingir-metas-e-propostas-de-crescimento/
+- Tenista araucariense Gustavo Coutinho está à procura de patrocinadores
+    https://opopularpr.com.br/tenista-araucariense-gustavo-coutinho-esta-a-procura-de-patrocinadores/
+- Presidente da ONG Reencontro lançará livro que fala sobre a jornada para adoção
+    https://opopularpr.com.br/presidente-da-ong-reencontro-lancara-livro-que-fala-sobre-a-jornada-para-adocao/
+- PCPR incinera 114 quilos de drogas apreendidas nas últimas semanas em Araucária
+    https://opopularpr.com.br/pcpr-incinera-114-quilos-de-drogas-apreendidas-nas-ultimas-semanas-em-araucaria/
+- Vacinação de gestantes contra VSR começa em Araucária a partir de terça-feira (9)
+    https://opopularpr.com.br/vacinacao-de-gestantes-contra-vsr-comeca-em-araucaria-a-partir-de-terca-feira-9/
+- Previsão do tempo marca chuva para o início desta semana
+    https://opopularpr.com.br/previsao-do-tempo-marca-chuva-para-o-inicio-desta-semana-2/
+
+📰 plantao190.com.br:
+- É de graça! Últimas entregas de árvores do ano continuam esta semana; saiba onde garantir uma muda
+    https://plantao190.com.br/e-de-graca-ultimas-entregas-de-arvores-do-ano-continuam-esta-semana-saiba-onde-garantir-uma-muda/
+- Governo oficializa nova regra e lança aplicativo para obtenção de CNH
+    https://plantao190.com.br/governo-oficializa-nova-regra-e-lanca-aplicativo-para-obtencao-de-cnh/
+- Estação-tubo Teófilo Otoni, no Cajuru, será reaberta; veja quando
+    https://plantao190.com.br/estacao-tubo-teofilo-otoni-no-cajuru-sera-reaberta-veja-quando/
+- Corpo de Bombeiros reforça efetivo no Litoral e alerta para cuidados contra afogamentos
+    https://plantao190.com.br/corpo-de-bombeiros-reforca-efetivo-no-litoral-e-alerta-para-cuidados-contra-afogamentos/
+- Viagens com crianças e adolescentes exigem cuidados especiais com documentos
+    https://plantao190.com.br/viagens-com-criancas-e-adolescentes-exigem-cuidados-especiais-com-documentos/
+- Detentos concluem limpeza e reparos em prédios públicos de Rio Bonito do Iguaçu
+    https://plantao190.com.br/detentos-concluem-limpeza-e-reparos-em-predios-publicos-de-rio-bonito-do-iguacu/
+- Reforço operacional de Natal da PMPR já tem 16 armas apreendidas
+    https://plantao190.com.br/reforco-operacional-de-natal-da-pmpr-ja-tem-16-armas-apreendidas/
+- Ciclone extratropical no Rio Grande do Sul traz tempestades ao Paraná nesta semana
+    https://plantao190.com.br/ciclone-extratropical-no-rio-grande-do-sul-traz-tempestades-ao-parana-nesta-semana/
+- Incêndio criminoso destrói parte da estrutura de macrodrenagem em execução no Parolin
+    https://plantao190.com.br/incendio-criminoso-destroi-parte-da-estrutura-de-macrodrenagem-em-execucao-no-parolin/
+- Mulher é morta a facadas no centro de Curitiba
+    https://plantao190.com.br/mulher-e-morta-a-facadas-no-centro-de-curitiba/
+
+📰 xvcuritiba.com.br:
+- Venda de carros seminovos e usados no Paraná deve bater recorde histórico em 2025
+    https://xvcuritiba.com.br/venda-de-carros-seminovos-e-usados-no-parana-deve-bater-recorde-historico-em-2025/
+- Marcelo VIPs, conhecido como maior golpista do país, morre aos 49 anos em Curitiba
+    https://xvcuritiba.com.br/marcelo-vips-conhecido-como-maior-golpista-do-pais-morre-aos-49-anos-em-curitiba/
+- Maria Fumaça iluminada retorna a Curitiba para apresentação no domingo
+    https://xvcuritiba.com.br/maria-fumaca-iluminada-retorna-a-curitiba-para-apresentacao-no-domingo/
+- Curitibano Bruno Boschilia é eleito melhor árbitro assistente no Prêmio Brasileirão 2025
+    https://xvcuritiba.com.br/curitibano-bruno-boschilia-e-eleito-melhor-arbitro-assistente-no-premio-brasileirao-2025/
+- Startup curitibana oferece vouchers especiais para transporte para o espetáculo da Disney, no Parque Barigui
+    https://xvcuritiba.com.br/startup-curitibana-oferece-vouchers-especiais-para-transporte-para-o-espetaculo-da-disney-no-parque-barigui/
+- Vídeo: Ponte de Guaratuba avança e ultrapassa 85% das obras
+    https://xvcuritiba.com.br/video-ponte-de-guaratuba-avanca-e-ultrapassa-85-das-obras/
+- O Quebra-Nozes estreia no Centro Histórico com participação de Ana Botafogo no Natal de Curitiba 2025
+    https://xvcuritiba.com.br/o-quebra-nozes-estreia-no-centro-historico-com-participacao-de-ana-botafogo-no-natal-de-curitiba-2025/
+- Dono de clube de tiro morre após disparo acidental dentro de casa no Paraná
+    https://xvcuritiba.com.br/dono-de-clube-de-tiro-morre-apos-disparo-acidental-dentro-de-casa-no-parana/
+- Projeto quer permitir encontros religiosos nas escolas de Curitiba
+    https://xvcuritiba.com.br/projeto-quer-permitir-encontros-religiosos-nas-escolas-de-curitiba/
+- Vereador de Curitiba denuncia agressão e possível exploração infantil no Centro da cidade
+    https://xvcuritiba.com.br/vereador-de-curitiba-denuncia-agressao-e-possivel-exploracao-infantil-no-centro-da-cidade/
+
+
+🚫 *Desculpa do Dia:*
+_Honestamente, os testes passam se você não rodá-los._
+_Fonte: programming-excuse-as-a-Service_
+
+🔔 *HCNews:* Seu Jornal Automático Diário
+- 📡 Stack: RSS • Bash • Python • Nix
+- 🔗 https://github.com/herijooj/HCnews
+🙌 *Que Deus abençoe a todos!*
+
+🤖 21:49:04 (BRT) ⏱️ 2.364s
+    </script>
+    <script id="source-content-short" type="text/plain" style="display:none">
+📰 *HCNews* Edição 1525 🗞
+🇧🇷 De Araucária Paraná 
+📅 Terça-feira, 09 de dezembro de 2025
+⏳ Dia 343/365 ██████████████░░ 93%
+📖 Tempo total de leitura: ~5 min
+🌔 Minguante Gibosa
+
+📝 *Frase do dia:*
+_"Viver na metrópole é a arte macabra de estar cercado por milhões de organismos vivos e, ainda assim, a única conexão estável que você possui é com o Wi-Fi da cafeteria. O ser humano urbano é um animal que evoluiu para suportar tudo, exceto o silêncio da sua própria irrelevância."_
+
+📅 *Hoje é:*
+- 👶 Dia da Criança Especial
+- 🍺 Dia do Alcoólico Recuperado
+- 👄 Dia do Fonoaudiólogo
+- 🚫 Dia Internacional contra a Corrupção
+- 🕯️ Dia Internacional de Homenagem e Dignidade das Vítimas do Crime de Genocídio
+
+🙏 *Santos do dia*:
+😇 S. João Diogo Cuauhtlatoatzin
+- A narração das aparições de Nossa Senhora de Guadalupe é convincente. O protagonista é um índio mexicano desconhecido, Juan Diego, que, em meados de 1500, encontrou a Virgem Maria em uma colina, lugar que, ao longo dos séculos, se tornou centro de peregrinação mariana mundial.  
+😇 S. Leocádia, virgem e mártir
+- Na época da perseguição de Diocleciano, a jovem Leocádia foi presa, em Toledo, pelo Prefeito Dácio e morreu na prisão. No século VIII, no dia da sua festa, Leocádia apareceu a São Ildefonso, que cortou um pedaço do seu véu, ainda conservado como relíquia em Toledo.  
+😇 S. Siro, bispo de Pavia
+- Por muito tempo, Siro foi erroneamente identificado com o jovem que entregou os pães e os peixes a Jesus para o milagre da multiplicação. Na realidade, foi o primeiro Bispo da Igreja de Pavia, consagrado no século IV. Foi um pastor itinerante, que evangelizou uma vasta área do norte da Itália.  
+😇 S. Pedro Fourier, cônego regular
+- Filho de tecelões de Lorena, na França, tornou-se pároco, em 1597 e fundador da Ordem dos Cônegos Regulares. Pedro Fourier defendeu os artesãos da usura, com a criação de um Banco de Crédito. Fundou dois institutos, ainda existentes, e escolas gratuitas para crianças.  
+
+Error: curl command failed with exit code 22.
+🚫 *PORTAL FECHADO:* A IA vidente entrou em modo de economia de energia (tokens). Culpa do Heric! 📉
+
+📈 *Cotação do Dia:*
+- *Dólar*: Compra `R$ 5.45` · Venda `R$ 5.45`
+- *Euro*: Compra `R$ 6.34` · Venda `R$ 6.34`
+_Fonte: Banco Central do Brasil · Atualizado: 21:49:04_
+
+🤝 *Quer contribuir com o HCNEWS?*
+- ✨ https://github.com/herijooj/HCnews
+
+🎵 *Top 10 (Apple Music BR)*:
+- 1. `The Fate of Ophelia - Taylor Swift`
+- 2. `Posso Até Não Te Dar Flores (feat. DJ DAVI DOGDOG) - DJ Japa NK, MC Meno K, MC Ryan SP & Mc Jacaré`
+- 3. `P do Pecado (Ao Vivo) - Grupo Menos É Mais & Simone Mendes`
+- 4. `SEQUÊNCIA FEITICEIRA (feat. MC Nito) - PEDRO SAMPAIO, Mc Gw, Mc Jhey & MC Rodrigo do CN`
+- 5. `Pela Última Vez (Ao Vivo) - Grupo Menos É Mais & Nattan`
+- 6. `Ordinary - Alex Warren`
+- 7. `MEU CEMITÉRIO - Matuê`
+- 8. `GOSTOSIN - Anitta, Felipe Amorim & HITMAKER`
+- 9. `Tubarões (Ao Vivo) - Diego & Victor Hugo`
+- 10. `Nocaute - Jorge & Mateus`
+_Fonte: Apple Music_
+
+🌦️ *Clima em Curitiba:*
+- ☁️ _Nublado_
+- 🌡️ `19` °C
+- ↗️ Máx: `19` °C  ↘️ Mín: `18` °C
+- Sensação: `19` °C  💧 `98` %
+- 🌅 `05:19`  🌇 `19:00`
+
+🗓️ *Próximos Dias:*
+- *Qua:* 🌧️ `17` °→ `24` °C  💧 `73` %
+- *Qui:* ⛅ `14` °→ `26` °C  💧 `64` %
+- *Sex:* ☁️ `15` °→ `23` °C  💧 `75` %
+_Fonte: OpenWeatherMap · Atualizado: 21:49:04_
+
+📚 *Você sabia?*
+_… em 2015, a sexta-feira foi definida como o padrão de dia da semana para o lançamento de singles e álbuns musicais? _
+_Fonte: Wikipedia_
+
+🎲 *Palpites do Jogo do Bicho:*
+- 🦩 2 Avestruz | 🦅 7 Águia
+- 🦋 13 Borboleta | 🐶 20 Cachorro
+- 🐐 23 Cabra
+
+🔟 Dezena: 19, 24, 46, 67, 96
+💯 Centena: 180, 237, 538, 668, 885
+🏆 Milhar: 1937, 2421, 4006, 7225, 9504
+🍀 *Boa sorte!*
+
+🍽️  Cardápio RU Politecnico
+
+📅 *Terça-Feira* 09/12/2025
+🥪 *CAFÉ DA MANHÃ* 🥪
+- Pão de cenoura ou integral com patê de presunto
+- Opção vegana: pão de cenoura ou integral com patê de grão-de-bico com beterraba
+- Melão
+🍝 *ALMOÇO* 🍝
+- Filé de frango com queijo
+- Opção vegana: tomate recheado com lentilha
+- Abóbora refogada
+- Saladas de folhosa e rabanete
+- Molho para saladas: vinagrete
+- Melancia
+🍛 *JANTAR* 🍛
+- Kibe caseiro
+- Opção vegana: kibe de PTS com abóbora
+- Sopa cremosa de aipim
+- Saladas de folhosa e berinjela cozida
+- Molho para saladas: molho rosê
+
+🎉 *Emoji do dia:*
+- 🚶🏾‍♂‍➡ E15.1 man walking facing right: medium-dark skin tone
+
+📰 opopularpr.com.br:
+- Em sua 5ª edição, cerimônia premiação AS 100+ homenageia indústrias araucarienses que mais geram tributos ao Município 
+    https://is.gd/YhLYkh
+- Nova fábrica da Alcast em Araucária alcançará plena capacidade operacional em 2026
+    https://is.gd/d7LMxq
+- Vando da Fortuna: A queda da Torre
+    https://is.gd/FeKvja
+- TORTUGA, uma empresa brasileira focada em atingir metas e propostas de crescimento
+    https://is.gd/dgt8Ms
+- Tenista araucariense Gustavo Coutinho está à procura de patrocinadores
+    https://is.gd/J9Whis
+- Presidente da ONG Reencontro lançará livro que fala sobre a jornada para adoção
+    https://is.gd/fSinbG
+- PCPR incinera 114 quilos de drogas apreendidas nas últimas semanas em Araucária
+    https://is.gd/TU1Vej
+- Vacinação de gestantes contra VSR começa em Araucária a partir de terça-feira (9)
+    https://is.gd/vDqHtP
+- Previsão do tempo marca chuva para o início desta semana
+    https://is.gd/WIp5qN
+
+📰 plantao190.com.br:
+- É de graça! Últimas entregas de árvores do ano continuam esta semana; saiba onde garantir uma muda
+    https://is.gd/6BMtvw
+- Governo oficializa nova regra e lança aplicativo para obtenção de CNH
+    https://is.gd/Q2ShtM
+- Estação-tubo Teófilo Otoni, no Cajuru, será reaberta; veja quando
+    https://is.gd/8RJ4jG
+- Corpo de Bombeiros reforça efetivo no Litoral e alerta para cuidados contra afogamentos
+    https://is.gd/03kRuB
+- Viagens com crianças e adolescentes exigem cuidados especiais com documentos
+    https://is.gd/d0hRnP
+- Detentos concluem limpeza e reparos em prédios públicos de Rio Bonito do Iguaçu
+    https://is.gd/zztCFf
+- Reforço operacional de Natal da PMPR já tem 16 armas apreendidas
+    https://is.gd/FlLP6J
+- Ciclone extratropical no Rio Grande do Sul traz tempestades ao Paraná nesta semana
+    https://is.gd/WE3fZT
+- Incêndio criminoso destrói parte da estrutura de macrodrenagem em execução no Parolin
+    https://is.gd/JZjKZB
+- Mulher é morta a facadas no centro de Curitiba
+    https://is.gd/gqxaU3
+
+📰 xvcuritiba.com.br:
+- Venda de carros seminovos e usados no Paraná deve bater recorde histórico em 2025
+    https://is.gd/R9jJA5
+- Marcelo VIPs, conhecido como maior golpista do país, morre aos 49 anos em Curitiba
+    https://is.gd/rYNCHN
+- Maria Fumaça iluminada retorna a Curitiba para apresentação no domingo
+    https://is.gd/Hbrn9F
+- Curitibano Bruno Boschilia é eleito melhor árbitro assistente no Prêmio Brasileirão 2025
+    https://is.gd/g9m4lQ
+- Startup curitibana oferece vouchers especiais para transporte para o espetáculo da Disney, no Parque Barigui
+    https://is.gd/MH11Qr
+- Vídeo: Ponte de Guaratuba avança e ultrapassa 85% das obras
+    https://is.gd/ffaU2D
+- O Quebra-Nozes estreia no Centro Histórico com participação de Ana Botafogo no Natal de Curitiba 2025
+    https://is.gd/B0vjhm
+- Dono de clube de tiro morre após disparo acidental dentro de casa no Paraná
+    https://is.gd/FoMgxv
+- Projeto quer permitir encontros religiosos nas escolas de Curitiba
+    https://is.gd/3Gq8er
+- Vereador de Curitiba denuncia agressão e possível exploração infantil no Centro da cidade
+    https://is.gd/SO6v6y
+
+
+🚫 *Desculpa do Dia:*
+_Honestamente, os testes passam se você não rodá-los._
+_Fonte: programming-excuse-as-a-Service_
+
+🔔 *HCNews:* Seu Jornal Automático Diário
+- 📡 Stack: RSS • Bash • Python • Nix
+- 🔗 https://github.com/herijooj/HCnews
+🙌 *Que Deus abençoe a todos!*
+
+🤖 21:49:04 (BRT) ⏱️ 3.167s
+    </script>
+
+    <script>
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+        }
+
+        function stripLinks(text) {
+            // Remove ONLY URLs that are part of RSS feed sections (📰 sections)
+            // Keep other URLs intact.
+            const lines = text.split(/\r?\n/);
+            let inRss = false;
+            const out = [];
+            for (let i = 0; i < lines.length; i++) {
+                let l = lines[i];
+                // Trim trailing whitespace for cleaner output
+                l = l.replace(/\s+$/g, '');
+                // If a new rss portal starts
+                if (/^\s*📰\s+/.test(l)) {
+                    inRss = true;
+                    out.push(l);
+                    continue;
+                }
+                // If we are in the rss section, a top-level non-prefixed line (no '-' and not whitespace) likely ends theRSS section
+                if (inRss && /^[^\s-]/.test(l) && !/^\s*[-–—]/.test(l)) {
+                    inRss = false;
+                }
+
+                if (inRss) {
+                    // If this line is just a URL (maybe indented), skip it
+                    if (/^\s*https?:\/\//i.test(l)) {
+                        continue; // drop this line
+                    }
+                    // If it's a bullet with inline URL, remove trailing inline url
+                    if (/^\s*[-–—]\s.*\shttps?:\/\//i.test(l)) {
+                        l = l.replace(/\shttps?:\/\/\S+\s*$/i, '');
+                    }
+                }
+
+                out.push(l);
+            }
+            // Join lines and preserve existing blank lines. Do not collapse multiple newlines
+            // which would remove intentional paragraph spacing from the paper.
+            return out.join('\n');
+        }
+
+        function parseWhatsApp(text, showLinks=true) {
+            // 1. Escape HTML first to prevent injection
+            // Optionally strip links before further parsing if we don't want links
+            if (!showLinks) {
+                text = stripLinks(text);
+            }
+            let parsed = escapeHtml(text);
+
+            // 2. Code blocks (```text```)
+            parsed = parsed.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
+
+            // 3. Inline code (`text`)
+            parsed = parsed.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+            // 4. Bold (*text*)
+            parsed = parsed.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+
+            // 5. Italic (_text_)
+            parsed = parsed.replace(/_([^_]+)_/g, '<em>$1</em>');
+
+            // 6. Strikethrough (~text~)
+            parsed = parsed.replace(/~([^~]+)~/g, '<del>$1</del>');
+
+            // 1. Convert title + url pair into a single HTML anchor for web display.
+            // Handle both cases where the url is on the same line and where it's on the following indented line.
+            // - Title https://example.com/...
+            // - Title\n    https://example.com/...
+            const titleInlineRegex = /-\s+([^\n\r]*?)\s+(https?:\/\/[^\s]+)/g;
+            parsed = parsed.replace(titleInlineRegex, '- <a href="$2" target="_blank">$1</a>');
+            const titlePairRegex = /^-\s+([^\n\r]+)\r?\n\s+(https?:\/\/[^\s]+)/gm;
+            parsed = parsed.replace(titlePairRegex, '- <a href="$2" target="_blank">$1</a>');
+
+            // 2. Markdown links: [text](https://...)
+            // Replace markdown link syntax with anchor tags
+            const mdLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
+            parsed = parsed.replace(mdLinkRegex, '<a href="$2" target="_blank">$1</a>');
+
+            // 8. Links (http/https) - Simple regex for URLs
+            // Only replace URLs that are standalone (preceded by line start or whitespace) to avoid touching urls already inside href attributes.
+            const urlRegex = /(^|\s)(https?:\/\/[^\s]+)/g;
+            parsed = parsed.replace(urlRegex, '$1<a href="$2" target="_blank">$2</a>');
+
+            return parsed;
+        }
+
+        function setView(view) {
+            const richDiv = document.getElementById('rich-content');
+            const rawArea = document.getElementById('raw-content');
+            const btnRich = document.getElementById('btn-rich');
+            const btnRaw = document.getElementById('btn-raw');
+
+            const showLinks = document.getElementById('chk-show-links').checked;
+            const shortLinks = document.getElementById('chk-short-links').checked;
+
+            if (view === 'rich') {
+                richDiv.style.display = 'block';
+                rawArea.style.display = 'none';
+                btnRich.classList.remove('secondary');
+                btnRaw.classList.add('secondary');
+            } else {
+                richDiv.style.display = 'none';
+                rawArea.style.display = 'block';
+                btnRich.classList.add('secondary');
+                btnRaw.classList.remove('secondary');
+            }
+
+            // Re-render both views based on current checkbox state
+            const sourceEl = shortLinks ? document.getElementById('source-content-short') : document.getElementById('source-content');
+            const sourceText = sourceEl.textContent.replace(/^\n/, '');
+            document.getElementById('raw-content').value = showLinks ? sourceText : stripLinks(sourceText);
+            document.getElementById('rich-content').innerHTML = parseWhatsApp(sourceText, showLinks);
+
+            // If short links is active, force showLinks on and disable its toggle
+            const showLinksCheckbox = document.getElementById('chk-show-links');
+            if (shortLinks) {
+                showLinksCheckbox.checked = true;
+                showLinksCheckbox.disabled = true;
+            } else {
+                showLinksCheckbox.disabled = false;
+            }
+        }
+
+        function copyRaw() {
+            const rawText = document.getElementById('raw-content');
+            // If hidden, we can't select it easily, so temporarily show it or use clipboard API directly
+            const wasHidden = rawText.style.display === 'none';
+            if (wasHidden) {
+                rawText.style.display = 'block';
+                rawText.style.opacity = '0';
+                rawText.style.position = 'absolute';
+            }
+            const showLinks = document.getElementById('chk-show-links').checked;
+            const textToCopy = showLinks ? rawText.value : stripLinks(rawText.value);
+            // For compatibility, we still select the field when visible
+            try { rawText.select(); rawText.setSelectionRange(0, 99999); } catch (e) {}
+
+            navigator.clipboard.writeText(textToCopy).then(() => {
+                const btn = document.querySelector('button[onclick="copyRaw()"]');
+                const originalText = btn.innerText;
+                btn.innerText = "Copiado!";
+                setTimeout(() => btn.innerText = originalText, 2000);
+            }).catch(err => {
+                console.error('Failed to copy: ', err);
+            }).finally(() => {
+                if (wasHidden) {
+                    rawText.style.display = 'none';
+                    rawText.style.opacity = '';
+                    rawText.style.position = '';
+                }
+            });
+        }
+
+        // Initialize
+        window.onload = function() {
+            const rawText = document.getElementById('source-content').textContent;
+            // Trim the first newline if it exists (due to script tag formatting)
+            const cleanText = rawText.replace(/^\n/, '');
+            document.getElementById('source-content').textContent = cleanText;
+            const showLinks = document.getElementById('chk-show-links').checked;
+            document.getElementById('raw-content').value = showLinks ? cleanText : stripLinks(cleanText);
+            document.getElementById('rich-content').innerHTML = parseWhatsApp(cleanText, showLinks);
+
+            // Update view and bind checkbox toggle
+            setView('rich');
+            document.getElementById('chk-show-links').addEventListener('change', (e) => {
+                const currentViewIsRaw = document.getElementById('raw-content').style.display !== 'none';
+                if (currentViewIsRaw) {
+                    // update raw text
+                    const source = document.getElementById('source-content').textContent;
+                    document.getElementById('raw-content').value = e.target.checked ? source : stripLinks(source);
+                }
+                // update rich view content
+                const source = document.getElementById('source-content').textContent;
+                document.getElementById('rich-content').innerHTML = parseWhatsApp(source, e.target.checked);
+            });
+            document.getElementById('chk-short-links').addEventListener('change', (e) => {
+                // When short links are toggled, re-render the content from the appropriate source
+                const isShort = e.target.checked;
+                // If short is checked, ensure show-links is forced on and disabled
+                const show = document.getElementById('chk-show-links');
+                if (isShort) {
+                    show.checked = true;
+                    show.disabled = true;
+                } else {
+                    show.disabled = false;
+                }
+                // Re-render current view
+                const currentView = document.getElementById('raw-content').style.display !== 'none' ? 'raw' : 'rich';
+                setView(currentView);
+            });
+        };
+    </script>
+</body>
+</html>
