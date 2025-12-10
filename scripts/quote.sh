@@ -23,8 +23,8 @@ if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
 fi
 
 # Returns the quote of the day.
-# we retrieve the quote from the RSS feed from theysaidso.com
-# http://feeds.feedburner.com/theysaidso/qod
+# we retrieve the quote from the Pensador RSS feed
+# https://www.pensador.com/rss.php
 # Usage: quote
 # Example output: "The best way to predict the future is to invent it." - Alan Kay
 function quote {
@@ -49,18 +49,22 @@ function quote {
         return 0
     fi
 
-    # get the quote from the RSS feed
-    local URL="http://feeds.feedburner.com/theysaidso/qod"
+    # get the quote from the RSS feed (Pensador)
+    local URL="https://www.pensador.com/rss.php"
     local response
     response=$(curl -s "$URL")
 
     # Use xmlstarlet with inline text processing to avoid multiple subshells
-    # Extract second description, then decode HTML entities in one pass
+    # Extract the first item's description (fall back to title when it's empty), then decode HTML entities in one pass
     local QUOTE
+    # extract description (first item) — Pensador uses <description> with CDATA
     QUOTE=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "description" 2>/dev/null)
-    
-    # Decode HTML entities and normalize quotes in a single sed call
-    QUOTE=$(echo "$QUOTE" | LC_ALL=C sed -e "s/&amp;/\&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/\"/g; s/&#039;/'/g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&#[0-9]*;//g")
+    if [[ -z "$QUOTE" ]]; then
+      QUOTE=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "title" 2>/dev/null)
+    fi
+
+    # Clean up and decode entities while preserving UTF-8 using perl for robust unicode handling
+    QUOTE=$(printf '%s' "$QUOTE" | perl -CS -Mutf8 -pe 's/\x{200B}//g; s/\x{00A0}/ /g; s/&amp;/&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#0*39;/\x27/g; s/&rsquo;/\x27/g; s/&lsquo;/\x27/g; s/&rdquo;/"/g; s/&ldquo;/"/g; s/&#[0-9]+;//g; s/\s*Frase Minha.*//gi; s/^\s+|\s+$//g; s/\n{2,}/\n\n/g')
     
     # Build output
     local output="📝 *Frase do dia:*\n_${QUOTE}_\n\n"
