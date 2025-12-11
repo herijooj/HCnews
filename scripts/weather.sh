@@ -232,7 +232,7 @@ function get_weather() {
     # Build output with single printf
     local OUTPUT
     printf -v OUTPUT '🌦️ *Clima em %s:*
-- %s _%s_
+- %s %s
 - 🌡️ `%s` °C
 - ↗️ Máx: `%s` °C  ↘️ Mín: `%s` °C
 - Sensação: `%s` °C  💧 `%s` %%
