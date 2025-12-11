@@ -17,6 +17,7 @@ content_full=$(render_output)
 # Generate footer once for consistency
 footer_content=$(footer)
 content_full="${content_full}
+
 ${footer_content}"
 
 hc_full_url="$_hc_full_url_saved"
@@ -27,6 +28,7 @@ hc_full_url=false
 news_output=$(_rss_USE_CACHE=$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH; write_news "$all_feeds" true true ${hc_full_url})
 content_short=$(render_output)
 content_short="${content_short}
+
 ${footer_content}"
 hc_full_url="$_hc_full_url_saved"
 
