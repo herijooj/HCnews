@@ -12,9 +12,22 @@ function get_emoji() {
         exit 1
     fi
 
-    # Much faster: use awk to filter and shuf to randomize in one pipeline
-    emoji_info=$(awk '!/^#/ && NF {split($0,a,"#"); if(a[2]) print substr(a[2],2)}' "$EMOJI_TEST_FILE" | shuf -n 1)
-    echo "$emoji_info"
+    # Define cache file path
+    # Use global cache dir if available, otherwise relative to script
+    if [[ -n "${HCNEWS_CACHE_DIR:-}" ]]; then
+        EMOJI_CACHE_FILE="${HCNEWS_CACHE_DIR}/emoji_list.cache"
+    else
+        EMOJI_CACHE_FILE="$(dirname "$EMOJI_TEST_FILE")/emoji_list.cache"
+    fi
+
+    # Create cache if it doesn't exist or if source is newer
+    if [[ ! -f "$EMOJI_CACHE_FILE" ]] || [[ "$EMOJI_TEST_FILE" -nt "$EMOJI_CACHE_FILE" ]]; then
+        # Filter valid emojis and save to cache
+        awk '!/^#/ && NF {split($0,a,"#"); if(a[2]) print substr(a[2],2)}' "$EMOJI_TEST_FILE" > "$EMOJI_CACHE_FILE"
+    fi
+
+    # Select random line from cache (much faster than shuf on pipe)
+    shuf -n 1 "$EMOJI_CACHE_FILE"
 }
 
 # Function: write_emoji

@@ -1,86 +1,29 @@
 #!/usr/bin/env bash
 
-# Function to decode HTML entities using pure Bash/sed (avoids spawning Python)
-decode_html_entities() {
-  local input="$1"
-  # Handle common HTML entities and numeric/hex character references
-  printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
-}
+# Source common library if not already loaded
+if [[ -z "$(type -t hcnews_log)" ]]; then
+    _local_script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+    source "$_local_script_dir/lib/common.sh"
+fi
 
-# Cache configuration
-_saints_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/saints"
-# Ensure the cache directory exists
+# Cache configuration - use centralized dir
+if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
+    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
+fi
+_saints_CACHE_DIR="${HCNEWS_CACHE_DIR}/saints"
 [[ -d "$_saints_CACHE_DIR" ]] || mkdir -p "$_saints_CACHE_DIR"
-CACHE_TTL_SECONDS=$((23 * 60 * 60)) # 23 hours
-# Default cache behavior is enabled
-_saints_USE_CACHE=true
-# Force refresh cache
-_saints_FORCE_REFRESH=false
 
-# Override defaults if --no-cache or --force is passed during sourcing
-# This allows the main hcnews.sh script to control caching for sourced scripts.
-_current_sourcing_args_for_saints=("${@}")
-for arg in "${_current_sourcing_args_for_saints[@]}"; do
-  case "$arg" in
-    --no-cache)
-      _saints_USE_CACHE=false
-      ;;
-    --force)
-      _saints_FORCE_REFRESH=true
-      ;;
-  esac
-done
+# Use centralized TTL
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["saints"]:-82800}"
+
+# Parse cache args
+hcnews_parse_cache_args "$@"
+_saints_USE_CACHE=$_HCNEWS_USE_CACHE
+_saints_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 # Function to get today's date in YYYYMMDD format (same as RU script)
 get_date_format() {
-  # Use cached date_format if available, otherwise fall back to date command
-  if [[ -n "$date_format" ]]; then
-    echo "$date_format"
-  else
-    date +"%Y%m%d"
-  fi
-}
-
-# Function to check if cache exists and is valid and within TTL
-check_cache() {
-  local cache_file_path="$1"
-  if [ -f "$cache_file_path" ] && [ "$_saints_FORCE_REFRESH" = false ]; then
-    # Check TTL
-    local file_mod_time
-    file_mod_time=$(stat -c %Y "$cache_file_path")
-    local current_time
-    # Use cached start_time if available, otherwise fall back to date command
-    if [[ -n "$start_time" ]]; then
-      current_time="$start_time"
-    else
-      current_time=$(date +%s)
-    fi
-    if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-      # Cache exists, not forced, and within TTL
-      return 0
-    fi
-  fi
-  return 1
-}
-
-# Function to read from cache
-read_cache() {
-  local cache_file_path="$1"
-  cat "$cache_file_path"
-}
-
-# Function to write to cache
-write_cache() {
-  local cache_file_path="$1"
-  local content="$2"
-  local cache_dir
-  cache_dir="$(dirname "$cache_file_path")"
-  
-  # Ensure the directory exists
-  [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-  
-  # Write the content to the cache file
-  printf "%s" "$content" > "$cache_file_path"
+  hcnews_get_date_format
 }
 
 # Get the saint(s) of the day from the Vatican website.
@@ -92,28 +35,23 @@ get_saints_of_the_day_verbose () {
     local cache_file="${_saints_CACHE_DIR}/${date_format}_saints-verbose.txt"
 
     # Check if we have cached data
-    if [ "$_saints_USE_CACHE" = true ] && check_cache "$cache_file"; then
-      read_cache "$cache_file"
+    if [ "$_saints_USE_CACHE" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_saints_FORCE_REFRESH"; then
+      hcnews_read_cache "$cache_file"
       return 0
     fi
     
-    # Get the current month and day using cached values if available
+    # Get the current month and day using cached values
     local month_local
     local day_local
-    if [[ -n "$month" && -n "$day" ]]; then
-        month_local="$month"
-        day_local="$day"
-    else
-        month_local=$(date +%m)
-        day_local=$(date +%d)
-    fi
+    month_local=$(hcnews_get_month)
+    day_local=$(hcnews_get_day)
 
     # Get the URL
     local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"
 
     # Only the names
     local names
-    names=$(curl -s "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
+    names=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
     
     # Check if we got any names
     if [[ -z "$names" ]]; then
@@ -123,10 +61,10 @@ get_saints_of_the_day_verbose () {
 
     # The description
     local description
-    description=$(curl -s "$url" | pup '.section__head h2 text{}, .section__content p text{}' | sed '/^$/d' | sed '1d'| sed '/^[[:space:]]*$/d')
+    description=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | pup '.section__head h2 text{}, .section__content p text{}' | sed '/^$/d' | sed '1d'| sed '/^[[:space:]]*$/d')
     
     # Decode HTML entities in the description
-    description=$(decode_html_entities "$description")
+    description=$(hcnews_decode_html_entities "$description")
 
     # Prepare the output to be both displayed and cached
     local output=""
@@ -143,7 +81,7 @@ get_saints_of_the_day_verbose () {
     
     # Write to cache if cache is enabled
     if [ "$_saints_USE_CACHE" = true ]; then
-      write_cache "$cache_file" "$output"
+      hcnews_write_cache "$cache_file" "$output"
     fi
     
     # Output the result
@@ -159,28 +97,41 @@ get_saints_of_the_day () {
     local cache_file="${_saints_CACHE_DIR}/${date_format}_saints-regular.txt"
 
     # Check if we have cached data
-    if [ "$_saints_USE_CACHE" = true ] && check_cache "$cache_file"; then
-      read_cache "$cache_file"
-      return 0
+    # Check if we have cached data
+    if [ "$_saints_USE_CACHE" = true ]; then
+      if hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_saints_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
+        return 0
+      fi
+
+      # Optimization: Check if verbose cache exists and is valid, use it to generate regular output
+      local verbose_cache_file="${_saints_CACHE_DIR}/${date_format}_saints-verbose.txt"
+      if hcnews_check_cache "$verbose_cache_file" "$CACHE_TTL_SECONDS" "$_saints_FORCE_REFRESH"; then
+        # Extract names from verbose cache (lines starting with 😇)
+        local from_verbose
+        from_verbose=$(hcnews_read_cache "$verbose_cache_file" | grep "^😇" | sed 's/😇 /😇/')
+        
+        if [[ -n "$from_verbose" ]]; then
+           # Write to regular cache for future fast access
+           hcnews_write_cache "$cache_file" "$from_verbose"
+           echo "$from_verbose"
+           return 0
+        fi
+      fi
     fi
     
-    # Get the current month and day using cached values if available
+    # Get the current month and day using cached values
     local month_local
     local day_local
-    if [[ -n "$month" && -n "$day" ]]; then
-        month_local="$month"
-        day_local="$day"
-    else
-        month_local=$(date +%m)
-        day_local=$(date +%d)
-    fi
+    month_local=$(hcnews_get_month)
+    day_local=$(hcnews_get_day)
 
     # Get the URL
     local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"
 
     # Only the names
     local names
-    names=$(curl -s "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
+    names=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
     
     # Check if we got any names
     if [[ -z "$names" ]]; then
@@ -196,7 +147,7 @@ get_saints_of_the_day () {
     
     # Write to cache if cache is enabled
     if [ "$_saints_USE_CACHE" = true ]; then
-      write_cache "$cache_file" "$output"
+      hcnews_write_cache "$cache_file" "$output"
     fi
     
     # Output the result

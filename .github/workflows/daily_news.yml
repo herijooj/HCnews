@@ -75,15 +75,13 @@ jobs:
           CoinMarketCap_API_KEY: ${{ secrets.COINMARKETCAP_API_KEY }}
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          chmod +x hcnews.sh
+          chmod +x build_daily.sh
           # Generate both full and short variants of the news output.
           # Only pass --force when run via workflow_dispatch with the `force` input set to 'true'
-          # Generate both full and short variants in a single run using --variants
-          # Only pass --force when run via workflow_dispatch with the `force` input set to 'true'
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.force }}" = "true" ]; then
-            ./hcnews.sh --variants --force
+            ./build_daily.sh --force
           else
-            ./hcnews.sh --variants
+            ./build_daily.sh
           fi
           # Ensure generated news files are not empty before producing HTML
           if [ ! -s news_full.txt ] || [ ! -s news_short.txt ]; then

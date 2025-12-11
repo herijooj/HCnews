@@ -1,63 +1,17 @@
 #!/usr/bin/env bash
-# Function to convert menu image URLs to emojis
-function menu_to_emoji () {
-    URL="$1"
 
-    # Mapping of image URLs to emojis
-    if [[ "$URL" == *"Simbolo-vegano.jpg"* ]]; then
-        echo "🌱"
-    elif [[ "$URL" == *"Origem-animal-site.png"* ]]; then
-        echo "🐄"
-    elif [[ "$URL" == *"Gluten-site.png"* ]]; then
-        echo "🌾"
-    elif [[ "$URL" == *"Leite-e-derivados-site.png"* ]]; then
-        echo "🥛"
-    elif [[ "$URL" == *"Ovo-site.jpg"* ]]; then
-        echo "🥚"
-    elif [[ "$URL" == *"Alergenicos-site.png"* ]]; then
-        echo "🥜"
-    elif [[ "$URL" == *"Simbolo-mel-1.jpg"* ]]; then
-        echo "🍯"
-    elif [[ "$URL" == *"Simbolo-pimenta.png"* ]]; then
-        echo "🌶️"
-    else
-        echo "$URL" # Return the original URL if no match is found
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    # Determine the script directory
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    LIB_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")/lib"
+    
+    if [[ -f "$LIB_DIR/common.sh" ]]; then
+        source "$LIB_DIR/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
     fi
-}
-
-# Function to identify meal times
-function is_meal () {
-    LINE="$1"
-
-    # Check if the line indicates a meal time
-    if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-        if [[ "$LINE" == *"Café da manhã"* ]]; then
-            echo "🥪 *CAFÉ DA MANHÃ* 🥪"
-        elif [[ "$LINE" == *"Almoço"* ]]; then
-            echo "🍝 *ALMOÇO* 🍝"
-        elif [[ "$LINE" == *"Jantar"* ]]; then
-            echo "🍛 *JANTAR* 🍛"
-        else
-            echo ""
-        fi
-    else
-        if [[ "$LINE" == *"Café da manhã"* ]]; then
-            echo "🥪 *CAFÉ DA MANHÃ* 🥪"
-        elif [[ "$LINE" == *"Almoço"* ]]; then
-            echo "🍝 *ALMOÇO* 🍝"
-        elif [[ "$LINE" == *"Jantar"* ]]; then
-            echo "🍛 *JANTAR* 🍛"
-        else
-            echo ""
-        fi
-    fi
-}
-
-# Function to extract text content within HTML tags
-function get_inside_tags () {
-    LINE="$1"
-    echo "$LINE" | sed 's/<[^>]*>//g' # Remove HTML tags using sed
-}
+fi
 
 # Define available RU locations
 declare -A RU_LOCATIONS=(
@@ -73,34 +27,24 @@ declare -A RU_LOCATIONS=(
     ["matinhos"]="https://proad.ufpr.br/ru/cardapio-ru-matinhos/"
 )
 
-# Default location
+# Configuration with defaults
 SELECTED_LOCATION="politecnico"
-# Default is to show the full menu, allow override from sourcing script
 SHOW_ONLY_TODAY=${SHOW_ONLY_TODAY:-false}
-# Default cache behavior is enabled
-_ru_USE_CACHE=true
-# Force refresh cache
-_ru_FORCE_REFRESH=false
 
-# Override defaults if --no-cache or --force is passed during sourcing
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
-    _current_sourcing_args_for_ru=("${@}") 
-    for arg in "${_current_sourcing_args_for_ru[@]}"; do
-      case "$arg" in
-        --no-cache)
-          _ru_USE_CACHE=false
-          ;;
-        --force)
-          _ru_FORCE_REFRESH=true
-          ;;
-      esac
-    done
-fi
+# Cache settings
+_ru_USE_CACHE=${_HCNEWS_USE_CACHE:-true}
+_ru_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
+_ru_CACHE_TTL=${HCNEWS_CACHE_TTL["ru"]:-43200} # 12 hours
 
-# Cache directory path
-_ru_CACHE_DIR="$(dirname "$(dirname "$(dirname "$0")")")/data/cache/ru"
-# Ensure cache directory exists
-[[ -d "$_ru_CACHE_DIR" ]] || mkdir -p "$_ru_CACHE_DIR"
+# Parse local arguments if sourced/executed with args
+hcnews_parse_cache_args "$@"
+# Update local variables based on global/parsed values
+[[ "${_HCNEWS_USE_CACHE}" == "false" ]] && _ru_USE_CACHE=false
+[[ "${_HCNEWS_FORCE_REFRESH}" == "true" ]] && _ru_FORCE_REFRESH=true
+
+# Resolve cache directory relative to common logic
+CACHE_DIR="${HCNEWS_CACHE_DIR}/ru"
+[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
 
 function list_locations() {
     echo "Available RU locations:"
@@ -111,110 +55,61 @@ function list_locations() {
 
 # Function to get today's day of the week in Portuguese
 function get_today_weekday() {
-    # Use cached weekday if available, otherwise fall back to date command
+    # Use cached weekday if available
     if [[ -n "$weekday" ]]; then
-        case "$weekday" in
-            1) echo "Segunda-feira" ;;
-            2) echo "Terça-feira" ;;
-            3) echo "Quarta-feira" ;;
-            4) echo "Quinta-feira" ;;
-            5) echo "Sexta-feira" ;;
-            6) echo "Sábado" ;;
-            7) echo "Domingo" ;;
-        esac
+        local dow=$weekday
     else
-        # Fallback to date command
-        local DOW=$(date +%w)
-        case "$DOW" in
-            0) echo "Domingo" ;;
-            1) echo "Segunda-feira" ;;
-            2) echo "Terça-feira" ;;
-            3) echo "Quarta-feira" ;;
-            4) echo "Quinta-feira" ;;
-            5) echo "Sexta-feira" ;;
-            6) echo "Sábado" ;;
-        esac
+        local dow=$(date +%u)
     fi
-}
-
-# Function to get date in YYYYMMDD format
-function get_date_format() {
-    # Use cached date_format if available, otherwise fall back to date command
-    if [[ -n "$date_format" ]]; then
-        echo "$date_format"
-    else
-        date +"%Y%m%d"
-    fi
-}
-
-# Function to check if cache exists and is from today
-function check_cache() {
-    local location="$1"
-    local date_format=$(get_date_format)
-    local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
     
-    if [ -f "$cache_file" ] && [ "$_ru_FORCE_REFRESH" = false ]; then
-        # Cache exists and force refresh is not enabled
-        return 0
-    else
-        return 1
-    fi
-}
-
-# Function to read menu from cache
-function read_cache() {
-    local location="$1"
-    local date_format=$(get_date_format)
-    local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
-    
-    cat "$cache_file"
-}
-
-# Function to write menu to cache
-function write_cache() {
-    local location="$1"
-    local menu="$2"
-    local date_format=$(get_date_format)
-    local cache_file="${_ru_CACHE_DIR}/${date_format}_${location}.ru"
-    local cache_dir
-    cache_dir="$(dirname "$cache_file")"
-    
-    # Ensure the directory exists
-    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-    
-    # Write menu to cache file
-    echo "$menu" > "$cache_file"
+    case "$dow" in
+        1) echo "Segunda-feira" ;;
+        2) echo "Terça-feira" ;;
+        3) echo "Quarta-feira" ;;
+        4) echo "Quinta-feira" ;;
+        5) echo "Sexta-feira" ;;
+        6) echo "Sábado" ;;
+        7) echo "Domingo" ;;
+    esac
 }
 
 # Function to retrieve the menu from the website
 function get_menu () {
-    # If cache is enabled and exists, use it
-    if [ "$_ru_USE_CACHE" = true ] && check_cache "$SELECTED_LOCATION"; then
-        read_cache "$SELECTED_LOCATION"
+    local location="$1"
+    local date_string
+    date_string=$(hcnews_get_date_format)
+    local cache_file="${CACHE_DIR}/${date_string}_${location}.ru"
+    
+    # Check cache
+    if [[ "$_ru_USE_CACHE" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "$_ru_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
         return
     fi
 
-    URL="${RU_LOCATIONS[$SELECTED_LOCATION]}"
-
-    # Ultra-optimized single-pass processing
-    OUTPUT=$(curl -s --compressed --connect-timeout 5 --max-time 10 "$URL" | \
-        pup 'div#conteudo' | \
-        sed -e '/<style>/,/<\/style>/d' -e 's/<[^>]*>//g' | \
+    local url="${RU_LOCATIONS[$location]}"
+    
+    # Process content using pup and awk
+    local content
+    content=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | \
+        LC_ALL=C sed -e 's/<[^>]*>//g' | \
         awk '
         BEGIN { 
-            print "🍽️  Cardápio RU Politecnico"
+            print "🍽️  Cardápio RU ('"$location"')" 
             skip = 0
             current_line = ""
+            printed_header = 0
         }
         /SENHOR USUÁRIO/ { skip = 1; next }
         /LEGENDA/ { skip = 1; next }
         /Cardápio sujeito/ { skip = 1; next }
         skip { next }
+        
         /^[[:space:]]*$/ { next }
         /Cardápio RU/ { next }
         /:/ && (/table|background|border|padding|margin|color|font|width|height|display|overflow/) { next }
         /\{|\}/ { next }
         /\.wp-block/ { next }
+        
         /Café da manhã/ { 
             if (current_line != "") { print current_line; current_line = "" }
             print "\n🥪 *CAFÉ DA MANHÃ* 🥪"
@@ -233,7 +128,6 @@ function get_menu () {
         /(Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira.*[0-9]/ {
             if (current_line != "") { print current_line; current_line = "" }
             gsub(/^[[:space:]]+|[[:space:]]+$/, "")
-            # Split day and date using mawk-compatible approach
             pos = match($0, /[0-9]/)
             if (pos > 0) {
                 day = substr($0, 1, pos-1)
@@ -244,46 +138,40 @@ function get_menu () {
             }
             next
         }
+        
         /^(Contêm|Contém|Indicado)/ { next }
+        
         {
-            # Check for connectives BEFORE trimming whitespace
+            # Check for connectives
             if (/^[[:space:]]*e / || /^[[:space:]]*\+/ || /^[[:space:]]*Molho para salada:/) {
-                # This is a connective line - trim and process
                 gsub(/^[[:space:]]+|[[:space:]]+$/, "")
                 gsub(/Molho para salada:/, "+")
-                
-                # Append to current line if one exists
                 if (current_line != "") {
                     current_line = current_line " " $0
                 } else {
-                    # No previous line, treat as new item
                     current_line = "- " $0
                 }
                 next
             }
             
-            # Regular line processing
             gsub(/^[[:space:]]+|[[:space:]]+$/, "")
             if (length($0) == 0) next
             gsub(/2ª [Oo]pção:/, "ou")
             
-            # Print any pending line first
             if (current_line != "") {
                 print current_line
             }
-            # Start a new line
             current_line = "- " $0
         }
         END {
-            # Print any remaining line
             if (current_line != "") {
                 print current_line
             }
-        }')
-
-    # Check if the content is empty (RU closed or special menu)
-    if [[ -z "$OUTPUT" || "$OUTPUT" == "🍽️  Cardápio RU Politecnico" ]]; then
-        if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+        }' 2>/dev/null)
+        
+    # Validate content
+    if [[ -z "$content" || "$content" == "🍽️  Cardápio RU ($location)" ]]; then
+         if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             echo "O RU está fechado ou o cardápio é especial."
         else
             echo "O RU está *fechado* ou o cardápio é *especial*."
@@ -291,77 +179,81 @@ function get_menu () {
         return
     fi
     
-    # Write to cache if cache is enabled
-    if [ "$_ru_USE_CACHE" = true ]; then
-        write_cache "$SELECTED_LOCATION" "$OUTPUT"
+    # Write to cache
+    if [[ "$_ru_USE_CACHE" == "true" ]]; then
+        hcnews_write_cache "$cache_file" "$content"
     fi
-
-    echo "$OUTPUT"
+    
+    echo "$content"
 }
 
 # Function to display the menu
 function write_menu () {
-    MENU=$(get_menu)
-
-    # Extract header (first line) separately
-    HEADER=$(echo "$MENU" | head -n1)
-    # Remove any existing dash prefix from the header
-    HEADER=$(echo "$HEADER" | sed 's/^- //')
-
-    if [ "$SHOW_ONLY_TODAY" = true ]; then
-        TODAY=$(get_today_weekday)
-        # Extract only sections for today
-        FILTERED=""
-        CURRENT_DAY=""
-        INCLUDE_SECTION=false
-
-        # Process the menu for filtering, skipping the header line
-        MENU_WITHOUT_HEADER=$(echo "$MENU" | tail -n +2)
-
+    local menu_content
+    menu_content=$(get_menu "$SELECTED_LOCATION")
+    
+    # Extract header (first line)
+    local header
+    header=$(echo "$menu_content" | head -n1 | sed 's/^- //')
+    
+    if [[ "$SHOW_ONLY_TODAY" == "true" ]]; then
+        local today
+        today=$(get_today_weekday)
+        
+        # Normalize today for comparison (lowercase)
+        local today_lower="${today,,}"
+        local today_base="${today_lower%%-*}"
+        
+        local include_section=false
+        local has_content=false
+        
+        echo "$header"
+        echo ""
+        
+        # Process lines using while loop
+        local line
         while IFS= read -r line; do
-            # Check if this is a day header line
+            # Skip original header if repeated (though get_menu usually returns clean body)
+            # awk logic skipped NR==1, but we extracted header separately.
+            
+            # Check for Day Header
             if [[ "$line" == *"📅"* ]]; then
-                CURRENT_DAY="$line"
-                # Convert both strings to lowercase for comparison
-                DAY_LOWER=$(echo "$CURRENT_DAY" | tr '[:upper:]' '[:lower:]')
-                TODAY_LOWER=$(echo "$TODAY" | tr '[:upper:]' '[:lower:]')
-                
-                # Check if the day header contains today's day name
-                if [[ "$DAY_LOWER" == *"${TODAY_LOWER%%-*}"* ]]; then
-                    INCLUDE_SECTION=true
-                    FILTERED+="$line"$'\n' # Add the day header itself
+                local line_lower="${line,,}"
+                if [[ "$line_lower" == *"$today_base"* ]]; then
+                    include_section=true
+                    echo "$line"
                 else
-                    INCLUDE_SECTION=false
+                    include_section=false
                 fi
-            elif [[ "$line" == *"🥪"* || "$line" == *"🍝"* || "$line" == *"🍛"* ]]; then
-                # This is a meal section header
-                if [ "$INCLUDE_SECTION" = true ]; then
-                    FILTERED+="$line"$'\n'
+                continue
+            fi
+            
+            # Check for Meal Headers
+            if [[ "$line" == *"🥪"* || "$line" == *"🍝"* || "$line" == *"🍛"* ]]; then
+                if [[ "$include_section" == "true" ]]; then
+                    echo "$line"
                 fi
-            elif [ "$INCLUDE_SECTION" = true ]; then
-                # Only add non-empty lines for the included section
-                if [[ -n "$line" ]]; then
-                     FILTERED+="$line"$'\n'
+                continue
+            fi
+            
+            # Content lines
+            if [[ "$include_section" == "true" ]]; then
+                # Check not empty
+                if [[ -n "${line// }" ]]; then
+                    echo "$line"
+                    has_content=true
                 fi
             fi
-        done <<< "$MENU_WITHOUT_HEADER"
-
-        echo -e "$HEADER" # Print header
-        echo "" # Add a blank line
-
-        if [ -z "$FILTERED" ]; then
-            echo "Não há cardápio disponível para hoje ($TODAY)."
-        else
-            # Print the filtered content with proper formatting
-            echo -e "${FILTERED%$'\n'}"
+        done <<< "$menu_content"
+        
+        if [[ "$has_content" == "false" ]]; then
+            echo "Não há cardápio disponível para hoje ($today)."
         fi
     else
-        # Original behavior: print the whole menu
-        echo -e "$HEADER"
-        # Print the rest of the menu as is
-        echo -e "$(echo "$MENU" | tail -n +2)"
+        # Print full menu
+        echo "$menu_content"
     fi
-    echo "" # Add a blank line at the end
+    echo ""
 }
 
 # Help function
@@ -377,8 +269,9 @@ help () {
     echo "  -f, --force: force refresh cache"
 }
 
-# Argument parsing function
-get_arguments () {
+# Main script execution
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    # Process arguments checks
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
@@ -408,22 +301,15 @@ get_arguments () {
                 ;;
             -n|--no-cache)
                 _ru_USE_CACHE=false
+                _HCNEWS_USE_CACHE=false
                 ;;
             -f|--force)
                 _ru_FORCE_REFRESH=true
-                ;;
-            *)
-                echo "Invalid argument: $1"
-                help
-                exit 1
+                _HCNEWS_FORCE_REFRESH=true
                 ;;
         esac
         shift
     done
-}
 
-# Main script execution
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    get_arguments "$@"
     write_menu
 fi

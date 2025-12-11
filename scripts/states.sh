@@ -10,13 +10,25 @@ function get_states() {
     # get the date from arguments
     local month=$1
     local day=$2
-    # get the states - improved to avoid extra whitespace
-    local states=$(awk -v month="$month" -v day="$day" -F, '$1 == month && $2 == day { 
-        # Join fields 3 onwards with commas to preserve CSV structure if needed
-        result = $3
-        for(i=4; i<=NF; i++) result = result "," $i
-        print result 
-    }' "$STATES_FILE")
+    # get the states using bash builtins
+    local states=""
+    
+    if [[ -f "$STATES_FILE" ]]; then
+        # Read file line by line
+        # Format: month,day,State Name, Other Info...
+        # We need everything from field 3 onwards
+        while IFS=, read -r s_month s_day s_rest || [[ -n "$s_rest" ]]; do
+            # Skip comments/invalid
+            [[ "$s_month" =~ ^# ]] && continue
+            
+            if [[ "$s_month" == "$month" && "$s_day" == "$day" ]]; then
+                 if [[ -n "$states" ]]; then
+                    states+=$'\n'
+                fi
+                states+="$s_rest"
+            fi
+        done < "$STATES_FILE"
+    fi
     echo "$states"
 }
 

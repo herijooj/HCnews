@@ -1,0 +1,291 @@
+#!/usr/bin/env bash
+# =============================================================================
+# HCnews Common Library
+# =============================================================================
+# This file contains shared functions used across all HCnews scripts.
+# Source this file at the beginning of each script to avoid duplication.
+# =============================================================================
+
+# Prevent multiple sourcing
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] && return 0
+_HCNEWS_COMMON_LOADED=1
+
+# =============================================================================
+# Global Path Configuration
+# =============================================================================
+
+# Compute paths only once - reuse if already set by main script
+if [[ -z "${HCNEWS_ROOT:-}" ]]; then
+    # Determine root directory relative to this file's location (lib is inside scripts)
+    HCNEWS_ROOT="$(dirname "$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")")"
+fi
+export HCNEWS_ROOT
+
+if [[ -z "${HCNEWS_DATA_DIR:-}" ]]; then
+    HCNEWS_DATA_DIR="${HCNEWS_ROOT}/data"
+fi
+export HCNEWS_DATA_DIR
+
+if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
+    HCNEWS_CACHE_DIR="${HCNEWS_DATA_DIR}/cache"
+fi
+export HCNEWS_CACHE_DIR
+
+if [[ -z "${HCNEWS_SCRIPTS_DIR:-}" ]]; then
+    HCNEWS_SCRIPTS_DIR="${HCNEWS_ROOT}/scripts"
+fi
+export HCNEWS_SCRIPTS_DIR
+
+# =============================================================================
+# Centralized Cache TTL Configuration (seconds)
+# =============================================================================
+# Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
+declare -gA HCNEWS_CACHE_TTL=(
+    ["weather"]=10800      # 3 hours
+    ["exchange"]=14400     # 4 hours
+    ["saints"]=82800       # 23 hours
+    ["musicchart"]=43200   # 12 hours
+    ["rss"]=7200           # 2 hours
+    ["quote"]=86400        # 24 hours
+    ["moonphase"]=86400    # 24 hours
+    ["bicho"]=86400        # 24 hours
+    ["didyouknow"]=86400   # 24 hours
+    ["futuro"]=86400       # 24 hours
+    ["ru"]=43200           # 12 hours
+)
+
+# Helper to get script directory with fallback (avoids realpath if possible)
+# Usage: local script_dir=$(hcnews_get_script_dir "${BASH_SOURCE[0]}")
+hcnews_get_script_dir() {
+    local source_file="$1"
+    if [[ -n "${HCNEWS_SCRIPTS_DIR:-}" ]]; then
+        echo "$HCNEWS_SCRIPTS_DIR"
+    else
+        # Fallback using dirname of the source file
+        dirname "$(realpath "$source_file")"
+    fi
+}
+
+# Ensure HCNEWS_CACHE_DIR is accessible/writable, otherwise fallback to /tmp
+if [[ ! -w "${HCNEWS_CACHE_DIR}" && ! -w "$(dirname "${HCNEWS_CACHE_DIR}")" ]]; then
+    HCNEWS_CACHE_DIR="/tmp/hcnews_cache_$(id -u)"
+    export HCNEWS_CACHE_DIR
+fi
+
+# =============================================================================
+# Date Caching - Avoid spawning date subprocess repeatedly
+# =============================================================================
+
+# Use pre-cached values from main script if available, otherwise compute once
+hcnews_get_date_format() {
+    if [[ -n "${date_format:-}" ]]; then
+        echo "$date_format"
+    elif [[ -n "${_HCNEWS_DATE_FORMAT:-}" ]]; then
+        echo "$_HCNEWS_DATE_FORMAT"
+    else
+        _HCNEWS_DATE_FORMAT=$(date +"%Y%m%d")
+        echo "$_HCNEWS_DATE_FORMAT"
+    fi
+}
+
+hcnews_get_current_time() {
+    if [[ -n "${start_time:-}" ]]; then
+        echo "$start_time"
+    elif [[ -n "${_HCNEWS_CURRENT_TIME:-}" ]]; then
+        echo "$_HCNEWS_CURRENT_TIME"
+    else
+        _HCNEWS_CURRENT_TIME=$(date +%s)
+        echo "$_HCNEWS_CURRENT_TIME"
+    fi
+}
+
+hcnews_get_month() {
+    if [[ -n "${month:-}" ]]; then
+        echo "$month"
+    elif [[ -n "${_HCNEWS_MONTH:-}" ]]; then
+        echo "$_HCNEWS_MONTH"
+    else
+        _HCNEWS_MONTH=$(date +%m)
+        echo "$_HCNEWS_MONTH"
+    fi
+}
+
+hcnews_get_day() {
+    if [[ -n "${day:-}" ]]; then
+        echo "$day"
+    elif [[ -n "${_HCNEWS_DAY:-}" ]]; then
+        echo "$_HCNEWS_DAY"
+    else
+        _HCNEWS_DAY=$(date +%d)
+        echo "$_HCNEWS_DAY"
+    fi
+}
+
+# =============================================================================
+# Cache Functions - Unified caching logic
+# =============================================================================
+
+# Check if cache file exists, is not forced to refresh, and is within TTL
+# Usage: hcnews_check_cache "cache_file_path" "ttl_seconds" "force_refresh_flag"
+hcnews_check_cache() {
+    local cache_file_path="$1"
+    local ttl_seconds="${2:-3600}"  # Default 1 hour
+    local force_refresh="${3:-false}"
+    
+    # If global _HCNEWS_USE_CACHE is false, force a "miss" (return 1) unless logic overrides it
+    if [[ "${_HCNEWS_USE_CACHE:-true}" == "false" ]]; then
+        return 1
+    fi
+
+    # Use -s to check exists AND non-empty in one test
+    if [[ -s "$cache_file_path" ]] && [[ "$force_refresh" != "true" ]]; then
+        local file_mod_time
+        file_mod_time=$(stat -c %Y "$cache_file_path" 2>/dev/null) || return 1
+        
+        local current_time
+        current_time=$(hcnews_get_current_time)
+        
+        if (( (current_time - file_mod_time) < ttl_seconds )); then
+            return 0  # Cache is valid
+        fi
+    fi
+    return 1  # Cache is invalid or doesn't exist
+}
+
+# Read content from cache file
+# Usage: hcnews_read_cache "cache_file_path"
+hcnews_read_cache() {
+    local cache_file_path="$1"
+    if [[ -s "$cache_file_path" ]]; then
+        # Use bash built-in $(<file) to avoid spawning cat subprocess
+        printf '%s' "$(<"$cache_file_path")"
+        return 0
+    fi
+    return 1
+}
+
+# Write content to cache file, creating directory if needed
+# Usage: hcnews_write_cache "cache_file_path" "content"
+hcnews_write_cache() {
+    local cache_file_path="$1"
+    local content="$2"
+    local cache_dir
+    cache_dir="$(dirname "$cache_file_path")"
+    
+    # Ensure directory exists
+    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
+    
+    # Write content
+    printf '%s' "$content" > "$cache_file_path"
+}
+
+# =============================================================================
+# HTML Entity Decoding - Pure Bash/sed implementation
+# =============================================================================
+
+# Decode common HTML entities without spawning Python
+# Usage: decoded=$(hcnews_decode_html_entities "$raw_text")
+hcnews_decode_html_entities() {
+    local input="$1"
+    printf '%s' "$input" | sed \
+        -e 's/&amp;/\&/g' \
+        -e 's/&quot;/"/g' \
+        -e 's/&lt;/</g' \
+        -e 's/&gt;/>/g' \
+        -e "s/&#39;/'/g" \
+        -e "s/&apos;/'/g" \
+        -e 's/&nbsp;/ /g' \
+        -e "s/&rsquo;/'/g" \
+        -e "s/&lsquo;/'/g" \
+        -e 's/&rdquo;/"/g' \
+        -e 's/&ldquo;/"/g' \
+        -e 's/&mdash;/—/g' \
+        -e 's/&ndash;/–/g' \
+        -e 's/&hellip;/…/g' \
+        -e 's/&#x[0-9a-fA-F]\+;//g' \
+        -e 's/&#[0-9]\+;//g'
+}
+
+# =============================================================================
+# Argument Parsing Helpers
+# =============================================================================
+
+# Parse common cache-related arguments from command line or sourcing
+# Sets _HCNEWS_USE_CACHE and _HCNEWS_FORCE_REFRESH
+# Usage: hcnews_parse_cache_args "$@"
+hcnews_parse_cache_args() {
+    _HCNEWS_USE_CACHE=true
+    _HCNEWS_FORCE_REFRESH=false
+    
+    for arg in "$@"; do
+        case "$arg" in
+            --no-cache)
+                _HCNEWS_USE_CACHE=false
+                ;;
+            --force)
+                _HCNEWS_FORCE_REFRESH=true
+                ;;
+        esac
+    done
+    
+    # Also check global flags from hcnews.sh
+    if [[ "${hc_no_cache:-}" == "true" ]]; then
+        _HCNEWS_USE_CACHE=false
+    fi
+    if [[ "${hc_force_refresh:-}" == "true" ]]; then
+        _HCNEWS_FORCE_REFRESH=true
+    fi
+}
+
+# =============================================================================
+# URL Encoding - Pure Bash (avoids jq subprocess)
+# =============================================================================
+
+# URL encode a string without spawning jq
+# Usage: encoded=$(hcnews_url_encode "$url")
+hcnews_url_encode() {
+    local string="$1"
+    local strlen=${#string}
+    local encoded=""
+    local pos c o
+    
+    for (( pos=0 ; pos<strlen ; pos++ )); do
+        c=${string:$pos:1}
+        case "$c" in
+            [-_.~a-zA-Z0-9])
+                o="$c"
+                ;;
+            *)
+                printf -v o '%%%02X' "'$c"
+                ;;
+        esac
+        encoded+="$o"
+    done
+    echo "$encoded"
+}
+
+# =============================================================================
+# Logging
+# =============================================================================
+
+# Log message to stderr with timestamp
+# Usage: hcnews_log "LEVEL" "message"
+hcnews_log() {
+    local level="$1"
+    local message="$2"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" >&2
+}
+
+# =============================================================================
+# Ensure Cache Directories Exist
+# =============================================================================
+
+# Create all cache directories upfront (called once from main script)
+hcnews_init_cache_dirs() {
+    local dirs=("weather" "exchange" "saints" "rss" "bicho" "didyouknow" "futuro" "header" "musicchart" "quote" "ru" "rss/rss_feeds" "rss/url_cache")
+    local full_paths=()
+    for dir in "${dirs[@]}"; do
+        full_paths+=("${HCNEWS_CACHE_DIR}/$dir")
+    done
+    mkdir -p "${full_paths[@]}"
+}

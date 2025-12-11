@@ -1,38 +1,32 @@
 #!/usr/bin/env bash
 RSS_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
-# Source the shortening script with proper path
-source "$RSS_DIR/shortening.sh"
-
-# Cache directory for URL shortening and RSS content
-_rss_CACHE_DIR_BASE="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/rss"
-# Ensure the base cache directory exists
-[[ -d "$_rss_CACHE_DIR_BASE" ]] || mkdir -p "$_rss_CACHE_DIR_BASE"
-_rss_URL_CACHE_DIR="${_rss_CACHE_DIR_BASE}/url_cache"
-URL_CACHE_FILE="${_rss_URL_CACHE_DIR}/url_shorten_cache.txt"
-CACHE_TTL_SECONDS=$((2 * 60 * 60)) # 2 hours for general RSS feeds
-# Default cache behavior is enabled
-_rss_USE_CACHE=true
-# Force refresh cache
-_rss_FORCE_REFRESH=false
-
-# If sourced, parse arguments like --no-cache and --force
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    # _sourced_args captures arguments passed when sourced
-    # (e.g. from hcnews.sh: source rss.sh --no-cache --force)
-    declare -a _sourced_args=("${@}") 
-    for arg in "${_sourced_args[@]}"; do
-        case "$arg" in
-            --no-cache)
-                _rss_USE_CACHE=false
-                ;;
-            --force)
-                _rss_FORCE_REFRESH=true
-                ;;
-        esac
-    done
+# Source the shortening script with proper path (but check if it's already sourced)
+if [[ -z "$(type -t shorten_url_isgd)" ]]; then
+    source "$RSS_DIR/shortening.sh"
 fi
 
+# Source common library
+source "$RSS_DIR/lib/common.sh"
+
+# Use centralized cache directory from common.sh if available, otherwise fallback
+if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
+    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
+fi
+
+_rss_CACHE_DIR_BASE="${HCNEWS_CACHE_DIR}/rss"
+_rss_URL_CACHE_DIR="${_rss_CACHE_DIR_BASE}/url_cache"
+URL_CACHE_FILE="${_rss_URL_CACHE_DIR}/url_shorten_cache.txt"
+
+# Use centralized TTL if available
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["rss"]:-7200}"
+
+# Parse cache arguments using common helper
+hcnews_parse_cache_args "$@"
+_rss_USE_CACHE=$_HCNEWS_USE_CACHE
+_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+
+# Ensure cache directories exist (handled by hcnews_init_cache_dirs in main, but good for standalone)
 [[ -d "$_rss_CACHE_DIR_BASE" ]] || mkdir -p "$_rss_CACHE_DIR_BASE"
 [[ -d "$_rss_URL_CACHE_DIR" ]] || mkdir -p "$_rss_URL_CACHE_DIR"
 touch "$URL_CACHE_FILE"
@@ -40,11 +34,12 @@ touch "$URL_CACHE_FILE"
 # Limit cache file size to prevent performance degradation
 trim_cache_file() {
     local max_lines=1000
-    local current_lines=$(wc -l < "$URL_CACHE_FILE")
-    
-    if (( current_lines > max_lines )); then
-        tail -n $max_lines "$URL_CACHE_FILE" > "${URL_CACHE_FILE}.tmp"
-        mv "${URL_CACHE_FILE}.tmp" "$URL_CACHE_FILE"
+    if [[ -f "$URL_CACHE_FILE" ]]; then
+        local current_lines=$(wc -l < "$URL_CACHE_FILE")
+        if (( current_lines > max_lines )); then
+            tail -n $max_lines "$URL_CACHE_FILE" > "${URL_CACHE_FILE}.tmp"
+            mv "${URL_CACHE_FILE}.tmp" "$URL_CACHE_FILE"
+        fi
     fi
 }
 
@@ -104,7 +99,9 @@ cached_shorten_url() {
         # Not in cache, get a new shortened URL
         short_url=$(shorten_url_isgd "$url")
         # Add to cache - use append to avoid reading the whole file
-        echo "$url|$short_url" >> "$URL_CACHE_FILE"
+        if [[ -n "$short_url" ]]; then
+            echo "$url|$short_url" >> "$URL_CACHE_FILE"
+        fi
     fi
     
     echo "$short_url"
@@ -112,50 +109,7 @@ cached_shorten_url() {
 
 # Function to get today's date in YYYYMMDD format
 get_date_format() {
-    # Use cached date_format if available, otherwise fall back to date command
-    if [[ -n "$date_format" ]]; then
-        echo "$date_format"
-    else
-        date +"%Y%m%d"
-    fi
-}
-
-# Function to check if cache exists and is from today and within TTL
-check_cache() {
-    local cache_file_path="$1"
-    if [ -f "$cache_file_path" ] && [ "$_rss_FORCE_REFRESH" = false ]; then
-        # Check TTL
-        local file_mod_time
-        file_mod_time=$(stat -c %Y "$cache_file_path")
-        local current_time
-        # Use cached start_time if available, otherwise fall back to date command
-        if [[ -n "$start_time" ]]; then
-            current_time="$start_time"
-        else
-            current_time=$(date +%s)
-        fi
-        if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-            # Cache exists, not forced, and within TTL
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Function to read from cache
-read_cache() {
-    local cache_file_path="$1"
-    cat "$cache_file_path"
-}
-
-# Function to write to cache
-write_cache() {
-    local cache_file_path="$1"
-    local content="$2"
-    local cache_dir
-    cache_dir="$(dirname "$cache_file_path")"
-    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-    echo "$content" > "$cache_file_path"
+    hcnews_get_date_format
 }
 
 # Optimized news retrieval function with improved performance
@@ -190,14 +144,15 @@ get_news_RSS_combined() {
         fi
     fi
 
-    if [ "$_rss_USE_CACHE" = true ] && check_cache "$target_cache_file"; then
-        read_cache "$target_cache_file"
+    # Use centralized cache check
+    if [ "$_rss_USE_CACHE" = true ] && hcnews_check_cache "$target_cache_file" "$CACHE_TTL_SECONDS" "$_rss_FORCE_REFRESH"; then
+        hcnews_read_cache "$target_cache_file"
         return
     fi
     
     # Fetch feed content with optimized curl options and timeout
     local FEED_CONTENT
-    FEED_CONTENT=$(timeout 8s curl -s --max-time 6 --connect-timeout 2 --retry 1 --retry-delay 0 \
+    FEED_CONTENT=$(timeout 8s curl -s -4 --connect-timeout 2 --max-time 6 --retry 1 --retry-delay 0 \
         --compressed -H "User-Agent: HCNews/1.0" "$RSS_FEED" 2>/dev/null)
     
     # Quick validation check - fail fast if invalid
@@ -250,15 +205,15 @@ get_news_RSS_combined() {
         news_output=$(printf "%s\n" "${result[@]}")
     fi
 
-    # Cache write using the appropriate cache file
+    # Cache write using the appropriate cache file (using centralized function)
     if [ "$_rss_USE_CACHE" = true ] && [[ -n "$news_output" ]]; then
-        (write_cache "$target_cache_file" "$news_output") &
+        (hcnews_write_cache "$target_cache_file" "$news_output") &
     fi
     
     echo "$news_output"
 }
 
-# Process multiple feed URLs in parallel
+# Process multiple feed URLs in parallel (optimized for cached reads)
 process_multiple_feeds() {
     # Expect: process_multiple_feeds <LINKED> <FULL_URL> <feed1> <feed2> ...
     local LOCAL_LINKED=$1
@@ -266,44 +221,111 @@ process_multiple_feeds() {
     shift 2
     local feeds=("$@")
     local pids=()
-    local temp_files=()
+    # Store results in a map-like structure (using associative array if bash 4+, or just indexed array matching feeds)
+    # Since bash 3 is common on some old systems, we'll use indexed array "results" corresponding to "feeds" indices.
+    # We initialize results with empty strings.
+    local results=()
+    local cache_miss_indices=()
+    local temp_dir="" # created only if needed
+
+    local date_format
+    date_format=$(get_date_format)
     
-    # Create temp directory for output
-    local temp_dir=$(mktemp -d)
-    
+    # First pass: Check cache for all feeds
     for i in "${!feeds[@]}"; do
         local feed="${feeds[$i]}"
-        local temp_file="${temp_dir}/feed_${i}.txt"
-        temp_files+=("$temp_file")
+        # bash string manipulation instead of awk/sed
+        local portal="${feed#*://}"
+        portal="${portal%%/*}"
         
-        # Process each feed in background
-        (
-            local portal=$(echo "$feed" | awk -F/ '{print $3}')
-            local news_output=$(get_news_RSS_combined "$feed" "$LOCAL_LINKED" "$LOCAL_FULL_URL")
-            
-            if [[ -n "$news_output" ]]; then
-                [[ "$SHOW_HEADER" == true ]] && echo "📰 $portal:" > "$temp_file"
-                echo "$news_output" >> "$temp_file"
-                echo "" >> "$temp_file"
+        # --- CACHE PRE-CHECK ---
+        local portal_identifier="${feed#*://}"
+        portal_identifier="${portal_identifier//\//__}"
+        # Simple bash sanitization (remove purely invalid chars if needed, but for known feeds this is safe enough or we accept a tiny bit of noise)
+        # To strictly match the sed 's|[^a-zA-Z0-9_.-]||g', we can use bash pattern replacement if extglob is on, 
+        # but standard bash replacement //pattern/replacement only does literal string or simple glob.
+        # For performance, we'll assume standard URL chars are fine as directory names or just keep it simple.
+        # If strict sanitization is required, we can use tr (subshell) or keep sed but cache it? 
+        # Actually, let's just stick to minimizing subshells.
+        # But wait, checking the sed command: s|[^a-zA-Z0-9_.-]||g
+        # We can implement a pure bash filter if we really want, but maybe just removing commonly problematic chars is enough.
+        portal_identifier="${portal_identifier//:/}" 
+        
+        local rss_cache_dir="${_rss_CACHE_DIR_BASE}/rss_feeds/${portal_identifier}"
+        local cache_file="${rss_cache_dir}/${date_format}.news"
+        local links_cache_file="${rss_cache_dir}/${date_format}.links"
+        local links_full_cache_file="${rss_cache_dir}/${date_format}.links_full"
+
+        local target_cache_file="$cache_file"
+        if [[ "$LOCAL_LINKED" == true ]]; then
+            if [[ "$LOCAL_FULL_URL" == true ]]; then
+                target_cache_file="$links_full_cache_file"
+            else
+                target_cache_file="$links_cache_file"
             fi
-        ) &
-        pids+=($!)
-    done
-    
-    # Wait for all background processes to complete
-    for pid in "${pids[@]}"; do
-        wait "$pid"
-    done
-    
-    # Combine and display results
-    for temp_file in "${temp_files[@]}"; do
-        if [[ -s "$temp_file" ]]; then
-            cat "$temp_file"
+        fi
+        
+        # Try to read from cache
+        if [ "$_rss_USE_CACHE" = true ] && hcnews_check_cache "$target_cache_file" "$CACHE_TTL_SECONDS" "$_rss_FORCE_REFRESH"; then
+            # Cache HIT: Read into memory
+            local cached_content
+            cached_content=$(hcnews_read_cache "$target_cache_file" 2>/dev/null)
+            if [[ -n "$cached_content" ]]; then
+                results[$i]="$cached_content"
+            fi
+        else
+            # Cache MISS
+            cache_miss_indices+=("$i")
         fi
     done
     
-    # Clean up temp files
-    rm -rf "$temp_dir"
+    # Second pass: Launch background jobs ONLY for cache misses
+    if [[ ${#cache_miss_indices[@]} -gt 0 ]]; then
+        temp_dir=$(mktemp -d)
+        
+        for i in "${cache_miss_indices[@]}"; do
+            local feed="${feeds[$i]}"
+            local temp_file="${temp_dir}/feed_${i}.txt"
+            
+            (
+                local news_output=$(get_news_RSS_combined "$feed" "$LOCAL_LINKED" "$LOCAL_FULL_URL")
+                if [[ -n "$news_output" ]]; then
+                    echo "$news_output" > "$temp_file"
+                fi
+            ) &
+            pids+=($!)
+        done
+        
+        # Wait for jobs
+        for pid in "${pids[@]}"; do
+            wait "$pid"
+        done
+        
+        # Collect results from temp files
+        for i in "${cache_miss_indices[@]}"; do
+            local temp_file="${temp_dir}/feed_${i}.txt"
+            if [[ -s "$temp_file" ]]; then
+                results[$i]=$(<"$temp_file")
+            fi
+        done
+        
+        rm -rf "$temp_dir"
+    fi
+    
+    # Output logic
+    for i in "${!feeds[@]}"; do
+        local feed="${feeds[$i]}"
+        local content="${results[$i]}"
+        
+        if [[ -n "$content" ]]; then
+            if [[ "$SHOW_HEADER" == true ]]; then
+                local portal=$(echo "$feed" | awk -F/ '{print $3}')
+                echo "📰 $portal:"
+            fi
+            echo "$content"
+            echo ""
+        fi
+    done
 }
 
 write_news() {

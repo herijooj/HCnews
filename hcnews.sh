@@ -5,6 +5,7 @@
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
 # Source all the required scripts
+source "$SCRIPT_DIR/scripts/lib/common.sh"
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
 source "$SCRIPT_DIR/scripts/moonphase.sh"
@@ -27,128 +28,30 @@ source "$SCRIPT_DIR/scripts/futuro.sh"
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
 
+# Initialize cache directories (from common.sh)
+hcnews_init_cache_dirs
+
 # ==================================================================================
 
 # Global date caching for performance optimization
 start_time_precise=$(date +%s.%N)
+start_time=${start_time_precise%.*} # Integer epoch
 current_time=$(date '+%d/%m/%Y %H:%M:%S')
 weekday=$(date +%u)  # 1=Monday, 7=Sunday
 month=$(date +%m)
 day=$(date +%d)
+year=$(date +%Y)
+days_since=$(date +%-j)
 date_format=$(date +"%Y%m%d")
 
 # Functions ========================================================================
 
 # Background job management for parallel network operations
-declare -A background_jobs
-declare -A job_outputs
-declare -A job_timings
+# Background job management
+source "$SCRIPT_DIR/scripts/lib/jobs.sh"
 
-# Temp directory for background job files (created once, cleaned up at exit)
-_HCNEWS_TEMP_DIR="/tmp/hcnews_$$"
-mkdir -p "$_HCNEWS_TEMP_DIR"
-trap 'rm -rf "$_HCNEWS_TEMP_DIR"' EXIT
-
-# Start a network operation in background with timing
-start_background_job() {
-    local job_name="$1"
-    local command="$2"
-    # Use predictable temp file names instead of spawning mktemp
-    local temp_file="${_HCNEWS_TEMP_DIR}/${job_name}.out"
-    local timing_file="${_HCNEWS_TEMP_DIR}/${job_name}.time"
-    
-    # Run command in background - use bash -c instead of eval for better performance
-    if [[ "$timing" == true ]]; then
-        # Wrap command with timing (use _job_start/_job_end to avoid shadowing exported start_time)
-        bash -c "_job_start=\$(date +%s%N); $command; _job_end=\$(date +%s%N); echo \$(((_job_end - _job_start) / 1000000)) > '$timing_file'" > "$temp_file" 2>&1 &
-    else
-        bash -c "$command" > "$temp_file" 2>&1 &
-    fi
-    local pid=$!
-    
-    background_jobs["$job_name"]="$pid:$temp_file:$timing_file"
-}
-
-# Wait for a background job and get its output
-wait_for_job() {
-    local job_name="$1"
-    local job_info="${background_jobs[$job_name]}"
-    
-    if [[ -n "$job_info" ]]; then
-        local pid="${job_info%%:*}"
-        local temp_file="${job_info#*:}"
-        temp_file="${temp_file%%:*}"
-        local timing_file="${job_info##*:}"
-        
-        # Use bash's wait with timeout instead of polling loop
-        # This is more efficient than sleep 0.1 polling
-        local timeout=30
-        if ! wait "$pid" 2>/dev/null; then
-            # Check if process is still running (wait returns non-zero for various reasons)
-            if kill -0 "$pid" 2>/dev/null; then
-                # Process still running, fall back to polling with longer intervals
-                local elapsed=0
-                while kill -0 "$pid" 2>/dev/null; do
-                    sleep 0.5  # Longer interval reduces CPU usage
-                    elapsed=$((elapsed + 1))
-                    if [[ $elapsed -gt $((timeout * 2)) ]]; then
-                        kill "$pid" 2>/dev/null
-                        echo "⚠️ Background job '$job_name' timed out after ${timeout}s"
-                        rm -f "$temp_file" "$timing_file"
-                        return 1
-                    fi
-                done
-            fi
-        fi
-        
-        # Store timing data if available
-        if [[ "$timing" == true && -f "$timing_file" ]]; then
-            local job_time=$(cat "$timing_file" 2>/dev/null)
-            if [[ -n "$job_time" && "$job_time" =~ ^[0-9]+$ ]]; then
-                TIMING_DATA["${job_name}_elapsed"]=$job_time
-                TIMING_DATA["timed_functions"]="${TIMING_DATA["timed_functions"]} $job_name"
-                # Save to shared file for cross-subshell persistence
-                save_timing_entry "$job_name" "$job_time"
-            fi
-        fi
-        
-        # Get the output and clean up
-        if [[ -f "$temp_file" ]]; then
-            cat "$temp_file"
-            rm -f "$temp_file"
-        fi
-        rm -f "$timing_file"
-        
-        unset background_jobs["$job_name"]
-        return 0
-    fi
-    return 1
-}
-
-# Format elapsed time like F1 lap times (MM:SS.mmm or SS.mmm)
-format_f1_time() {
-    local start_time_ns=$1
-    local end_time_ns=$2
-    
-    # Calculate elapsed time in nanoseconds and convert to seconds with decimal precision
-    local elapsed_ns=$((10#$end_time_ns - 10#$start_time_ns))
-    
-    # Convert nanoseconds to milliseconds (integer division)
-    local total_ms=$((elapsed_ns / 1000000))
-    
-    # Extract minutes, seconds, and milliseconds using only integer arithmetic
-    local minutes=$((total_ms / 60000))
-    local remaining_ms=$((total_ms % 60000))
-    local seconds=$((remaining_ms / 1000))
-    local milliseconds=$((remaining_ms % 1000))
-    
-    # Format like F1 times
-    if [[ $minutes -gt 0 ]]; then
-        printf "%d:%02d.%03ds" $minutes $seconds $milliseconds
-    else
-        printf "%d.%03ds" $seconds $milliseconds
-    fi
-}
+# Initialize background jobs system
+init_jobs
 
 # help function
 # usage: ./hcnews.sh [options]
@@ -171,11 +74,11 @@ show_help() {
     echo "  --no-cache: disable caching for this run"
     echo "  --force: force refresh cache for this run"
     echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
-    echo "  --variants: generate both full and short news outputs in one run (news_full.txt and news_short.txt)"
+    echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
 }
 
 # this function will receive the arguments
-get_arguments() {
+parse_main_arguments() {
     # Define variables
     silent=false
     saints_verbose=true
@@ -183,7 +86,6 @@ get_arguments() {
     timing=false
     hc_no_cache=false
     hc_force_refresh=false
-    hc_variants=false
     hc_full_url=false
 
     # Get the arguments
@@ -221,10 +123,7 @@ get_arguments() {
                 hc_full_url=true
                 shift
                 ;;
-            --variants)
-                hc_variants=true
-                shift
-                ;;
+
             *)
                 echo "Invalid argument: $1"
                 show_help
@@ -276,28 +175,27 @@ function hcseguidor {
 }
 
 # Prepare network-heavy jobs in background (excluding RSS news)
-prepare_output_jobs() {
-    # cache_options variable should be set by caller
+# Start network background jobs (excluding news which is handled separately)
+start_network_jobs() {
     start_timing "network_parallel_start"
     if [[ $weekday -lt 6 ]]; then
-        start_background_job "menu" "(export SHOW_ONLY_TODAY=true; source '$SCRIPT_DIR/scripts/UFPR/ru.sh' $cache_options && write_menu)"
+        start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
     fi
-    start_background_job "music_chart" "cd '$SCRIPT_DIR' && bash scripts/musicchart.sh $cache_options"
-    start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
-    start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
-    start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
-    start_background_job "exchange" "(source '$SCRIPT_DIR/scripts/exchange.sh' $cache_options && write_exchange)"
-    start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
-    start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
-    start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
-    start_background_job "header_moon" "(source '$SCRIPT_DIR/scripts/moonphase.sh' $cache_options && moon_phase)"
-    start_background_job "header_quote" "(source '$SCRIPT_DIR/scripts/quote.sh' $cache_options && quote)"
-    # Do NOT start all_news here; we will render news on demand for each variant
+    start_background_job "music_chart" "(_musicchart_USE_CACHE=\$_HCNEWS_USE_CACHE; _musicchart_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_music_chart)"
+    start_background_job "ai_fortune" "(_futuro_USE_CACHE=\$_HCNEWS_USE_CACHE; _futuro_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_ai_fortune)"
+    start_background_job "weather" "(_weather_USE_CACHE=\$_HCNEWS_USE_CACHE; _weather_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_weather '$city')"
+    start_background_job "saints" "(_saints_USE_CACHE=\$_HCNEWS_USE_CACHE; _saints_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_saints '$saints_verbose')"
+    start_background_job "exchange" "(_exchange_USE_CACHE=\$_HCNEWS_USE_CACHE; _exchange_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_exchange)"
+    start_background_job "did_you_know" "(_didyouknow_USE_CACHE=\$_HCNEWS_USE_CACHE; _didyouknow_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_did_you_know)"
+    # desculpa is local/fast, run synchronously later
+    start_background_job "bicho" "(_bicho_USE_CACHE=\$_HCNEWS_USE_CACHE; _bicho_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_bicho)"
+    start_background_job "header_moon" "(_moonphase_USE_CACHE=\$_HCNEWS_USE_CACHE; _moonphase_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; moon_phase)"
+    start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; quote)"
     end_timing "network_parallel_start"
 }
 
-collect_prepared_data() {
-    # Collect results of the prepared background jobs into variables
+# Collect results from network background jobs
+collect_network_data() {
     moon_phase_output=$(wait_for_job "header_moon") || moon_phase_output=""
     quote_output=$(wait_for_job "header_quote") || quote_output=""
     saints_output=$(wait_for_job "saints") || saints_output=""
@@ -306,160 +204,138 @@ collect_prepared_data() {
     music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""
     weather_output=$(wait_for_job "weather") || weather_output=""
     didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""
-    desculpa_output=$(wait_for_job "desculpa") || desculpa_output=""
     bicho_output=$(wait_for_job "bicho") || bicho_output=""
+    
     if [[ $weekday -lt 6 ]]; then
         menu_output=$(wait_for_job "menu") || menu_output=""
     fi
 }
 
+# Run local synchronous jobs and capture output in global variables
+run_local_jobs() {
+    start_timing "local_header"
+    header_core_output=$(write_header_core)
+    end_timing "local_header"
+
+    start_timing "local_holidays"
+    holidays_output=$(write_holidays "$month" "$day")
+    end_timing "local_holidays"
+
+    start_timing "local_states"
+    states_output=$(write_states_birthdays "$month" "$day")
+    end_timing "local_states"
+    
+    start_timing "local_emoji"
+    emoji_output=$(write_emoji)
+    end_timing "local_emoji"
+
+    start_timing "local_desculpa"
+    desculpa_output=$(write_excuse)
+    end_timing "local_desculpa"
+}
+
+# Master orchestration function to fetch all data needed for the newspaper
+# Populates global variables with content
+fetch_newspaper_data() {
+    # 1. Start network jobs (parallel)
+    start_network_jobs
+    
+    # 2. Run local jobs (synchronous, while network waits)
+    run_local_jobs
+    
+    # 3. Collect network results (blocks until done)
+    collect_network_data
+}
+
 render_output() {
-    # Parameters: $1 - news_shortened flag
-    local NEWS_SHORTENED_FLAG=$1
-
-    # Header core
-    write_header_core
-    if [[ -n "$moon_phase_output" ]]; then
-        echo "$moon_phase_output"
-    else
-        moon_phase
-    fi
+    # This function strictly outputs the global variables populated by fetch_newspaper_data.
+    # It assumes data is already fetched.
+    # For news, it checks if news_output is set (by CLI/build script).
+    
+    # 1. Header Core
+    echo "$header_core_output"
+    
+    # 2. Moon Phase & Quote
+    echo "$moon_phase_output"
     echo ""
-    if [[ -n "$quote_output" ]]; then
-        echo "$quote_output"
-    else
-        quote
-    fi
+    echo "$quote_output"
     echo ""
-    write_holidays "$month" "$day"
-    write_states_birthdays "$month" "$day"
+    
+    # 3. Holidays
+    echo "$holidays_output"
+    
+    # 4. States & Birthdays
+    echo "$states_output"
 
-    # Saints
+    # 5. Saints
     if [[ -n "$saints_output" ]]; then
         echo "$saints_output"
         echo ""
-    else
-        (source "$SCRIPT_DIR/scripts/saints.sh" $cache_options && write_saints "$saints_verbose")
-        echo ""
     fi
 
-    # AI fortune
+    # 6. AI Fortune
     if [[ -n "$ai_fortune_output" ]]; then
         echo "$ai_fortune_output"
         echo ""
-    else
-        write_ai_fortune
-        echo ""
     fi
 
-    # Exchange
+    # 7. Exchange
     if [[ -n "$exchange_output" ]]; then
         echo "$exchange_output"
         echo ""
-    else
-        (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
-        echo ""
     fi
 
+    # 8. Help HCNEWS interlude
     help_hcnews
 
-    # Music chart
+    # 9. Music Chart
     if [[ -n "$music_chart_output" ]]; then
         echo "$music_chart_output"
         echo ""
-    else
-        write_music_chart
-        echo ""
     fi
 
-    # Weather
+    # 10. Weather
     if [[ -n "$weather_output" ]]; then
         echo "$weather_output"
         echo ""
-    else
-        write_weather "$city"
-        echo ""
     fi
 
-    # Did you know?
+    # 11. Did You Know?
     if [[ -n "$didyouknow_output" ]]; then
         echo "$didyouknow_output"
         echo ""
-    else
-        write_did_you_know
-        echo ""
     fi
 
-    # Bicho
+    # 12. Bicho
     if [[ -n "$bicho_output" ]]; then
         echo "$bicho_output"
         echo ""
-    else
-        write_bicho
+    fi
+    
+    # 13. HC Follower interlude
+    hcseguidor
+
+    # 14. Menu
+    if [[ $weekday -lt 6 ]] && [[ -n "$menu_output" ]]; then
+        echo "$menu_output"
         echo ""
     fi
 
-    # Menu
-    if [[ $weekday -lt 6 ]]; then
-        if [[ -n "$menu_output" ]]; then
-            echo "$menu_output"
-            echo ""
-        else
-            SHOW_ONLY_TODAY=true
-            (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu)
-            echo ""
-        fi
-    fi
-
-    # Emoji
-    write_emoji
-
-    # News - render with chosen shortening flag
-    (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$NEWS_SHORTENED_FLAG" true ${hc_full_url})
+    # 15. Emoji
+    echo "$emoji_output"
     echo ""
 
-    # Desculpa
+    # 16. News
+    if [[ -n "$news_output" ]]; then
+        echo "$news_output"
+    fi
+
+    # 17. Desculpa
     if [[ -n "$desculpa_output" ]]; then
         echo "$desculpa_output"
         echo ""
-    else
-        write_excuse
-        echo ""
     fi
-
-    footer
 }
-
-output_variants() {
-    prepare_output_jobs
-    collect_prepared_data
-
-    # Full URLs (show links and use full urls)
-    local _hc_full_url_saved="$hc_full_url"
-    hc_full_url=true
-    content_full=$(render_output true)
-    hc_full_url="$_hc_full_url_saved"
-
-    # Short URLs (show links and use shortened urls)
-    hc_full_url=false
-    content_short=$(render_output true)
-    hc_full_url="$_hc_full_url_saved"
-
-    reading_time_full=$(calculate_reading_time "$content_full")
-    reading_time_short=$(calculate_reading_time "$content_short")
-
-    # Write files
-    {
-        write_header_with_reading_time "$reading_time_full"
-        echo "$content_full" | sed '1,4d'
-    } > news_full.txt
-
-    {
-        write_header_with_reading_time "$reading_time_short"
-        echo "$content_short" | sed '1,4d'
-    } > news_short.txt
-}
-
 
 function output {
     start_timing "output"
@@ -467,233 +343,25 @@ function output {
     # Define variables
     saints_verbose=$1
     news_shortened=$2
-    local cache_options="" # Variable to hold cache flags
-
-    if [[ "$hc_no_cache" == true ]]; then
-        cache_options+=" --no-cache"
-    fi
-    if [[ "$hc_force_refresh" == true ]]; then
-        cache_options+=" --force"
-    fi
+    # $3 and $4 are no cache/force flags already handled globally
     
-    # RSS feeds (defined globally)
+    # Explicitly start news generation for CLI mode FIRST (heaviest task)
+    start_background_job "all_news" "(_rss_USE_CACHE=\$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_news '$all_feeds' '$news_shortened' true ${hc_full_url})"
 
-    # ======= PHASE 1: Start all heavy network operations in parallel =======
-    start_timing "network_parallel_start"
+    # Fetch all other data
+    fetch_newspaper_data
     
-    # Start the slowest operations first (based on timing data: RU 1308ms, futuro 984ms, weather 620ms)
-    # RU menu is the slowest - start it first (only on weekdays)
-    if [[ $weekday -lt 6 ]]; then
-        start_background_job "menu" "(export SHOW_ONLY_TODAY=true; source '$SCRIPT_DIR/scripts/UFPR/ru.sh' $cache_options && write_menu)"
-    fi
-    start_background_job "music_chart" "cd '$SCRIPT_DIR' && bash scripts/musicchart.sh $cache_options"
-    start_background_job "ai_fortune" "(source '$SCRIPT_DIR/scripts/futuro.sh' $cache_options && write_ai_fortune)"
-    start_background_job "weather" "(source '$SCRIPT_DIR/scripts/weather.sh' $cache_options && write_weather '$city')"
-    if [[ "$hc_variants" == false ]]; then
-        start_background_job "all_news" "(source '$SCRIPT_DIR/scripts/rss.sh' $cache_options && write_news '$all_feeds' '$news_shortened' true ${hc_full_url})"
-    fi
-    start_background_job "saints" "(source '$SCRIPT_DIR/scripts/saints.sh' $cache_options && write_saints '$saints_verbose')"
-    start_background_job "exchange" "(source '$SCRIPT_DIR/scripts/exchange.sh' $cache_options && write_exchange)"
-    # start_background_job "sanepar" "(source '$SCRIPT_DIR/scripts/sanepar.sh' $cache_options && write_sanepar)"  # Temporarily disabled - API offline
-    start_background_job "did_you_know" "(source '$SCRIPT_DIR/scripts/didyouknow.sh' $cache_options && write_did_you_know)"
-    start_background_job "desculpa" "(source '$SCRIPT_DIR/scripts/desculpa.sh' $cache_options && write_excuse)"
-    start_background_job "bicho" "(source '$SCRIPT_DIR/scripts/bicho.sh' $cache_options && write_bicho)"
-    start_background_job "header_moon" "(source '$SCRIPT_DIR/scripts/moonphase.sh' $cache_options && moon_phase)"
-    start_background_job "header_quote" "(source '$SCRIPT_DIR/scripts/quote.sh' $cache_options && quote)"
-    
-    end_timing "network_parallel_start"
-
-    # ======= PHASE 2: Process fast local operations while network jobs run =======
-    
-    # Write the header core (fast, no network calls)
-    start_timing "write_header_core"
-    write_header_core
-    end_timing "write_header_core"
-
-    # Add moon phase to complete the header (async - timing tracked by background job)
-    moon_phase_output=$(wait_for_job "header_moon")
-    if [[ $? -eq 0 && -n "$moon_phase_output" ]]; then
-        echo "$moon_phase_output"
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "header_moon_fallback"
-        moon_phase
-        end_timing "header_moon_fallback"
-    fi
-    echo ""
-
-    # Add quote of the day to complete the header section (async - timing tracked by background job)
-    quote_output=$(wait_for_job "header_quote")
-    if [[ $? -eq 0 && -n "$quote_output" ]]; then
-        echo "$quote_output"
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "header_quote_fallback"
-        quote
-        end_timing "header_quote_fallback"
-    fi
-    echo ""
-
-    # Write the holidays
-    start_timing "write_holidays"
-    write_holidays "$month" "$day"
-    end_timing "write_holidays"
-
-    # Write the states birthdays
-    start_timing "write_states_birthdays"
-    write_states_birthdays "$month" "$day"
-    end_timing "write_states_birthdays"
-
-    # ======= PHASE 3: Collect network results and display in logical order =======
-
-    # Write the saint(s) of the day
-    saints_output=$(wait_for_job "saints")
-    if [[ $? -eq 0 && -n "$saints_output" ]]; then
-        echo "$saints_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_saints"
-        (source "$SCRIPT_DIR/scripts/saints.sh" $cache_options && write_saints "$saints_verbose")
-        end_timing "write_saints"
-    fi
-
-    # Write the AI Fortune
-    ai_fortune_output=$(wait_for_job "ai_fortune")
-    if [[ $? -eq 0 && -n "$ai_fortune_output" ]]; then
-        echo "$ai_fortune_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_ai_fortune"
-        write_ai_fortune
-        end_timing "write_ai_fortune"
-    fi
-
-    # Write the exchange rates (now async)
-    exchange_output=$(wait_for_job "exchange")
-    if [[ $? -eq 0 && -n "$exchange_output" ]]; then
-        echo "$exchange_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_exchange"
-        (source "$SCRIPT_DIR/scripts/exchange.sh" $cache_options && write_exchange)
-        end_timing "write_exchange"
-    fi
-
-    # Ask to enter the Whatsapp Channel
-    help_hcnews
-
-    # Write the music chart
-    music_chart_output=$(wait_for_job "music_chart")
-    if [[ $? -eq 0 && -n "$music_chart_output" ]]; then
-        echo "$music_chart_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_music_chart"
-        write_music_chart
-        end_timing "write_music_chart"
-    fi
-
-    # Write the weather
-    weather_output=$(wait_for_job "weather")
-    if [[ $? -eq 0 && -n "$weather_output" ]]; then
-        echo "$weather_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_weather"
-        write_weather "$city"
-        end_timing "write_weather"
-    fi
-
-    # Write "Did you know?"
-    didyouknow_output=$(wait_for_job "did_you_know")
-    if [[ $? -eq 0 && -n "$didyouknow_output" ]]; then
-        echo "$didyouknow_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_did_you_know"
-        write_did_you_know
-        end_timing "write_did_you_know"
-    fi
-
-    # Write Sanepar dam levels - Temporarily disabled (API offline)
-    # sanepar_output=$(wait_for_job "sanepar")
-    # if [[ $? -eq 0 && -n "$sanepar_output" ]]; then
-    #     echo "$sanepar_output"
-    #     echo ""
-    # else
-    #     # Fallback to synchronous if background job failed
-    #     start_timing "write_sanepar"
-    #     write_sanepar
-    #     end_timing "write_sanepar"
-    # fi
-
-    # Write the palpite of the day
-    bicho_output=$(wait_for_job "bicho")
-    if [[ $? -eq 0 && -n "$bicho_output" ]]; then
-        echo "$bicho_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_bicho"
-        write_bicho
-        end_timing "write_bicho"
-    fi
-
-    # Help HCNEWS
-    hcseguidor
-
-    # menu of the day (now async - wait for background job)
-    if [[ $weekday -lt 6 ]]; then
-        menu_output=$(wait_for_job "menu")
-        if [[ $? -eq 0 && -n "$menu_output" ]]; then
-            echo "$menu_output"
-            echo ""
-        else
-            # Fallback to synchronous if background job failed
-            start_timing "write_menu"
-            SHOW_ONLY_TODAY=true
-            (source "$SCRIPT_DIR/scripts/UFPR/ru.sh" $cache_options && write_menu)
-            end_timing "write_menu"
-            echo ""
-        fi
-    fi
-
-    # emoji of the day
-    start_timing "write_emoji"
-    write_emoji
-    end_timing "write_emoji"
-
-    # Write all news (this was the longest single operation)
+    # Wait for news content
     news_output=$(wait_for_job "all_news")
-    if [[ $? -eq 0 && -n "$news_output" ]]; then
-        echo "$news_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_all_news"
-        (source "$SCRIPT_DIR/scripts/rss.sh" $cache_options && write_news "$all_feeds" "$news_shortened" true ${hc_full_url})
-        end_timing "write_all_news"
+    if [[ $? -ne 0 || -z "$news_output" ]]; then
+        # Fallback if job failed (shouldn't happen in normal CLI flow)
+        news_output=$(_rss_USE_CACHE=$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH; write_news "$all_feeds" "$news_shortened" true ${hc_full_url})
     fi
 
-    # Write the excuse of the day
-    desculpa_output=$(wait_for_job "desculpa")
-    if [[ $? -eq 0 && -n "$desculpa_output" ]]; then
-        echo "$desculpa_output"
-        echo ""
-    else
-        # Fallback to synchronous if background job failed
-        start_timing "write_excuse"
-        write_excuse
-        end_timing "write_excuse"
-    fi
-
-    # Write the footer
+    # Render everything
+    render_output
+    
+    # Restore footer for CLI output
     footer
     
     end_timing "output"
@@ -730,8 +398,9 @@ function write_header_with_reading_time() {
 }
 # Main =============================================================================
 
+
 # Get the arguments
-get_arguments "$@"
+parse_main_arguments "$@"
 
 # Cache all date operations at once to avoid multiple subprocess calls
 # Use nanosecond precision for F1-style timing
@@ -758,7 +427,7 @@ reset_timing_data
 # Reset timing data and initialize timing file for cross-subshell persistence
 init_timing_file
 
-# Compute run-specific cache options (also used by output_variants)
+# Compute run-specific cache options
 cache_options=""
 if [[ "$hc_no_cache" == true ]]; then
     cache_options+=" --no-cache"
@@ -767,7 +436,7 @@ if [[ "$hc_force_refresh" == true ]]; then
     cache_options+=" --force"
 fi
 
-# RSS feed globals (used both by output() and output_variants())
+# RSS feed globals
 o_popular=https://opopularpr.com.br/feed/
 plantao190=https://plantao190.com.br/feed/
 xvcuritiba=https://xvcuritiba.com.br/feed/
@@ -780,22 +449,20 @@ formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
 bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
 all_feeds="${o_popular},${plantao190},${xvcuritiba}"
 
-# If the user asked for variants, render both files in a single run and exit
-if [[ "$hc_variants" == true ]]; then
-    output_variants
+# If running directly, execute the output generation
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    
+    # Capture all output to calculate reading time, then output with reading time in header
+    content_output=$(output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh")
+
+    # Calculate reading time based on the complete content
+    reading_time=$(calculate_reading_time "$content_output")
+
+    # Output header with reading time first
+    write_header_with_reading_time "$reading_time"
+
+    # Extract and output everything after the header core (moon phase onwards)
+    echo "$content_output" | sed '1,4d'  # Skip the first 4 lines (header core)
+
     exit 0
 fi
-
-# Capture all output to calculate reading time, then output with reading time in header
-content_output=$(output "$saints_verbose" "$news_shortened" "$hc_no_cache" "$hc_force_refresh")
-
-# Calculate reading time based on the complete content
-reading_time=$(calculate_reading_time "$content_output")
-
-# Output header with reading time first
-write_header_with_reading_time "$reading_time"
-
-# Extract and output everything after the header core (moon phase onwards)
-echo "$content_output" | sed '1,4d'  # Skip the first 4 lines (header core)
-
-exit 0

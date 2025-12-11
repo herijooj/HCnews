@@ -8,6 +8,12 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
     source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
 fi
 
+# Source common library if not already loaded
+if [[ -z "$(type -t hcnews_log)" ]]; then
+    _local_script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+    source "$_local_script_dir/lib/common.sh"
+fi
+
 # === Configuration ===
 
 # --- API & Prompt Settings ---
@@ -19,46 +25,39 @@ if [[ -z "${MAX_OUTPUT_TOKENS:-}" ]]; then
     readonly MAX_OUTPUT_TOKENS=150
 fi
 
-# --- Cache Settings ---
-_futuro_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-_futuro_CACHE_DIR="$(dirname "$_futuro_SCRIPT_DIR")/data/cache/futuro"
-# Default cache behavior is enabled
-_futuro_USE_CACHE=true
-# Force refresh cache
-_futuro_FORCE_REFRESH=false
-
-# Override defaults if --no-cache or --force is passed
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
-    _current_sourcing_args_for_futuro=("${@}")
-    for arg in "${_current_sourcing_args_for_futuro[@]}"; do
-      case "$arg" in
-        --no-cache)
-          _futuro_USE_CACHE=false
-          ;;
-        --force)
-          _futuro_FORCE_REFRESH=true
-          ;;
-      esac
-    done
+# Use centralized cache directory from common.sh
+if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
+    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
 fi
+_futuro_CACHE_DIR="${HCNEWS_CACHE_DIR}/futuro"
+[[ -d "$_futuro_CACHE_DIR" ]] || mkdir -p "$_futuro_CACHE_DIR"
+
+# Use centralized TTL
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["futuro"]:-86400}"
+
+# Parse cache args
+hcnews_parse_cache_args "$@"
+_futuro_USE_CACHE=$_HCNEWS_USE_CACHE
+_futuro_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 # --- Dependencies Check ---
 # Ensure curl and jq are installed
+_futuro_DEPENDENCIES_MET=true
 if ! command -v curl &> /dev/null; then
-    echo "Error: curl is required but not installed." >&2
-    exit 1
+    _futuro_DEPENDENCIES_MET=false
 fi
 if ! command -v jq &> /dev/null; then
-    echo "Error: jq is required but not installed." >&2
-    exit 1
+    _futuro_DEPENDENCIES_MET=false
 fi
 
 # === Functions ===
 
 # Function: get_ai_fortune
 function get_ai_fortune() {
-    local local_use_cache=$_futuro_USE_CACHE
-    local local_force_refresh=$_futuro_FORCE_REFRESH
+    if [[ "$_futuro_DEPENDENCIES_MET" == false ]]; then
+        echo "Error: Missing dependencies (curl or jq)." >&2
+        return 1
+    fi
 
     local date_format_local
     # Use cached date_format if available, otherwise fall back to date command
@@ -67,11 +66,10 @@ function get_ai_fortune() {
     else
         date_format_local=$(date +"%Y%m%d")
     fi
-    [[ -d "$_futuro_CACHE_DIR" ]] || mkdir -p "$_futuro_CACHE_DIR" # Ensure cache directory exists
     local cache_file="${_futuro_CACHE_DIR}/${date_format_local}_fortune.cache"
 
-    if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then
-        cat "$cache_file"
+    if [[ "$_futuro_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_futuro_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
         return 0
     fi
 
@@ -160,7 +158,7 @@ function get_ai_fortune() {
     fi
 
     # Make API Request
-    http_response=$(curl -sf -X POST "$full_api_url" \
+    http_response=$(curl -sf -4 --compressed -X POST "$full_api_url" \
          -H "Content-Type: application/json" \
          --data "$json_payload")
     curl_exit_code=$?
@@ -211,8 +209,8 @@ function get_ai_fortune() {
     fi
 
     # Output raw fortune text if successful
-    if [[ "$local_use_cache" == true ]]; then
-        echo "$fortune_raw" > "$cache_file"
+    if [[ "$_futuro_USE_CACHE" == true ]]; then
+        hcnews_write_cache "$cache_file" "$fortune_raw"
     fi
     echo "$fortune_raw"
     return 0

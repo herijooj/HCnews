@@ -1,32 +1,48 @@
 #!/usr/bin/env bash
 
-_desculpa_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+# Optimized directory resolution
+_desculpa_SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
 
 function get_desculpa() {
-    local desculpas_file="$(dirname "$_desculpa_SCRIPT_DIR")/data/desculpas.json"
-    
-    # Check if the file exists
-    if [[ ! -f "$desculpas_file" ]]; then
-        echo "Desculpa, não consegui encontrar minhas desculpas hoje."
-        return 1
-    fi
-
-    local EXCUSE
-    
-    # Parse JSON and get random excuse
-    if command -v jq &> /dev/null; then
-        # Use jq if available for proper JSON parsing
-        EXCUSE=$(jq -r '.[]' "$desculpas_file" | shuf -n 1)
+    local desculpas_file
+    # Handle relative path resolution if sourcing
+    if [[ "$_desculpa_SCRIPT_DIR" == "." ]]; then
+         desculpas_file="data/desculpas.json"
     else
-        # Fallback: extract excuses with sed and get random one
-        EXCUSE=$(sed -n 's/^[[:space:]]*"\([^"]*\)",\?$/\1/p' "$desculpas_file" | shuf -n 1)
+         # Try to resolve relative to root if possible, or relative to script
+         # Assuming data is sibling to scripts dir or grandparent/data
+         # Based on original: "$(dirname "$_desculpa_SCRIPT_DIR")/data/desculpas.json"
+         # scripts/desculpa.sh -> dirname is scripts -> scripts/../data -> data
+         desculpas_file="$_desculpa_SCRIPT_DIR/../data/desculpas.json"
+    fi
+    
+    # Define cache file (similar to emoji.sh)
+    local desculpa_cache_dir="$_desculpa_SCRIPT_DIR/../data/cache/desculpa"
+    [[ -d "$desculpa_cache_dir" ]] || mkdir -p "$desculpa_cache_dir"
+    local desculpa_cache_file="${desculpa_cache_dir}/desculpas.cache"
+
+    # Create/update cache if needed or if empty
+    if [[ ! -f "$desculpa_cache_file" ]] || [[ ! -s "$desculpa_cache_file" ]] || [[ "$desculpas_file" -nt "$desculpa_cache_file" ]]; then
+        # Parse JSON and extract strings to cache file (one per line)
+        # sed: extract content between quotes, ignore trailing comma and whitespace (handling CRLF)
+        sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:],]*$/\1/p' "$desculpas_file" > "$desculpa_cache_file"
     fi
 
-    # Check if we got a valid excuse
-    if [[ -z "$EXCUSE" ]]; then
-        EXCUSE="Desculpa, não consegui pensar em uma desculpa hoje."
+    # Select random line from cache using native bash (faster than shuf)
+    if [[ -s "$desculpa_cache_file" ]]; then
+        local excuses=()
+        mapfile -t excuses < "$desculpa_cache_file" 2>/dev/null || IFS=$'\n' read -d '' -r -a excuses < "$desculpa_cache_file"
+        
+        local count=${#excuses[@]}
+        if (( count > 0 )); then
+            EXCUSE="${excuses[$(( RANDOM % count ))]}"
+        else
+            EXCUSE="Desculpa, não consegui encontrar minhas desculpas hoje."
+        fi
+    else
+        EXCUSE="Desculpa, não consegui encontrar minhas desculpas hoje."
     fi
-
+    
     # Return the excuse
     echo "$EXCUSE"
 }

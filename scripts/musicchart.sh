@@ -1,31 +1,40 @@
 #!/usr/bin/env bash
 
-# Cache configuration
-_musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/musicchart"
-# Ensure the cache directory exists
-[[ -d "$_musicchart_CACHE_BASE_DIR" ]] || mkdir -p "$_musicchart_CACHE_BASE_DIR"
-CACHE_TTL_SECONDS=$((12 * 60 * 60)) # 12 hours
-_musicchart_USE_CACHE=true
-_musicchart_FORCE_REFRESH=false
-
-# Override defaults if --no-cache or --force is passed during sourcing
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    _current_sourcing_args_for_musicchart=("${@}")
-    for arg in "${_current_sourcing_args_for_musicchart[@]}"; do
-      case "$arg" in
-        --no-cache)
-          _musicchart_USE_CACHE=false
-          ;;
-        --force)
-          _musicchart_FORCE_REFRESH=true
-          ;;
-      esac
-    done
+# Source common library if not already loaded and strict variable usage
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
+    fi
 fi
 
+# Cache configuration
+# Use global cache dir from common.sh if available
+if [[ -n "${HCNEWS_CACHE_DIR:-}" ]]; then
+    _musicchart_CACHE_BASE_DIR="${HCNEWS_CACHE_DIR}/musicchart"
+else
+    _musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/musicchart"
+fi
+
+# Ensure the cache directory exists
+[[ -d "$_musicchart_CACHE_BASE_DIR" ]] || mkdir -p "$_musicchart_CACHE_BASE_DIR"
+
+# Settings
+CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["musicchart"]:-43200} # 12 hours
+_musicchart_USE_CACHE=${_HCNEWS_USE_CACHE:-true}
+_musicchart_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
+
+# Parse local arguments if sourced/executed with args
+hcnews_parse_cache_args "$@"
+# Update local variables based on global/parsed values
+[[ "${_HCNEWS_USE_CACHE}" == "false" ]] && _musicchart_USE_CACHE=false
+[[ "${_HCNEWS_FORCE_REFRESH}" == "true" ]] && _musicchart_FORCE_REFRESH=true
+
 # Function to get today's date in YYYYMMDD format
-get_date_format() {
-  # Use cached date_format if available, otherwise fall back to date command
+get_music_date_format() {
+  # Use cached date_format if available (from common.sh or global)
   if [[ -n "$date_format" ]]; then
     echo "$date_format"
   else
@@ -33,59 +42,21 @@ get_date_format() {
   fi
 }
 
-# Function to check if cache exists and is from today and within TTL
-check_cache() {
-  local cache_file_path="$1"
-  if [ -f "$cache_file_path" ] && [ "$_musicchart_FORCE_REFRESH" = false ]; then
-    # Check TTL
-    local file_mod_time
-    file_mod_time=$(stat -c %Y "$cache_file_path")
-    local current_time
-    # Use cached start_time if available, otherwise fall back to date command
-    if [[ -n "$start_time" ]]; then
-      current_time="$start_time"
-    else
-      current_time=$(date +%s)
-    fi
-    if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-      # Cache exists, not forced, and within TTL
-      return 0
-    fi
-  fi
-  return 1
-}
-
-# Function to read from cache
-read_cache() {
-  local cache_file_path="$1"
-  cat "$cache_file_path"
-}
-
-# Function to write to cache
-write_cache() {
-  local cache_file_path="$1"
-  local content="$2"
-  local cache_dir
-  cache_dir="$(dirname "$cache_file_path")"
-  [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-  echo "$content" > "$cache_file_path"
-}
-
 # optimized get_music_chart using caching and faster requests
 function get_music_chart () {
-  local date_format
-  date_format=$(get_date_format)
-  local cache_file="${_musicchart_CACHE_BASE_DIR}/${date_format}.musicchart"
+  local date_string
+  date_string=$(get_music_date_format)
+  local cache_file="${_musicchart_CACHE_BASE_DIR}/${date_string}.musicchart"
   
   # Check if we have a recent output cache
-  if [ "$_musicchart_USE_CACHE" = true ] && check_cache "$cache_file"; then
-    read_cache "$cache_file"
+  if [[ "$_musicchart_USE_CACHE" == "true" ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_musicchart_FORCE_REFRESH"; then
+    hcnews_read_cache "$cache_file"
     return
   fi
   
   # Fetch from Apple Music RSS (Brazil)
   local json
-  json=$(curl -sL --max-time 10 --connect-timeout 5 \
+  json=$(curl -sL -4 --compressed --max-time 10 --connect-timeout 5 \
          "https://rss.applemarketingtools.com/api/v2/br/music/most-played/10/songs.json")
     
   if [[ -z "$json" ]]; then
@@ -95,15 +66,20 @@ function get_music_chart () {
 
   # Parse JSON with jq
   local output_content=""
-  output_content=$(echo "$json" | jq -r '.feed.results | to_entries | .[] | "- \(.key + 1). `\(.value.name) - \(.value.artistName)`"')
+  if command -v jq >/dev/null 2>&1; then
+      output_content=$(echo "$json" | jq -r '.feed.results | to_entries | .[] | "- \(.key + 1). `\(.value.name) - \(.value.artistName)`"')
+  else
+      # Fallback if jq is missing (though it should be in nix-shell)
+      output_content="- Error: jq dependencies missing"
+  fi
   
   if [[ -z "$output_content" ]]; then
     output_content="- Chart data temporarily unavailable"
   fi
   
-  # Async cache write for better performance
-  if [ "$_musicchart_USE_CACHE" = true ]; then
-    (write_cache "$cache_file" "$output_content") &
+  # Write to cache
+  if [[ "$_musicchart_USE_CACHE" == "true" ]]; then
+    hcnews_write_cache "$cache_file" "$output_content"
   fi
   
   echo "$output_content"
@@ -112,6 +88,7 @@ function get_music_chart () {
 # this function will write the music chart to the file
 function write_music_chart () {
   # get the formatted top 10 songs
+  local TOP_10
   TOP_10=$(get_music_chart)
 
   # write the header
@@ -124,11 +101,6 @@ function write_music_chart () {
 
 # -------------------------------- Running locally --------------------------------
 # help function
-# Usage: ./musicchart.sh [options]
-# Options:
-#   -h, --help: show the help
-#   -n, --no-cache: Do not use cached data
-#   -f, --force: Force refresh cache
 show_help() {
   echo "Usage: ./musicchart.sh [options]"
   echo "The top 10 songs from the music chart will be printed to the console."
@@ -138,8 +110,9 @@ show_help() {
   echo "  -f, --force: Force refresh cache"
 }
 
-# optimized argument parsing
-get_arguments() {
+# Only run main logic if executed directly
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+  # argument parsing for direct execution
   while [[ $# -gt 0 ]]; do
     case "$1" in
       -h|--help)
@@ -148,9 +121,11 @@ get_arguments() {
         ;;
       -n|--no-cache)
         _musicchart_USE_CACHE=false
+        _HCNEWS_USE_CACHE=false
         ;;
       -f|--force)
         _musicchart_FORCE_REFRESH=true
+        _HCNEWS_FORCE_REFRESH=true
         ;;
       *)
         echo "Invalid argument: $1"
@@ -160,10 +135,6 @@ get_arguments() {
     esac
     shift
   done
-}
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  # run the script
-  get_arguments "$@"
+  
   write_music_chart
 fi

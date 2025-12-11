@@ -8,94 +8,40 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
     source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
 fi
 
-# Cache configuration
-_exchange_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/exchange"
-# Ensure the cache directory exists
-[[ -d "$_exchange_CACHE_DIR" ]] || mkdir -p "$_exchange_CACHE_DIR"
-CACHE_TTL_SECONDS=$((4 * 60 * 60)) # 4 hours
-# Default cache behavior is enabled
-_exchange_USE_CACHE=true
-# Force refresh cache
-_exchange_FORCE_REFRESH=false
-
-# Override defaults if --no-cache or --force is passed during sourcing
-# This allows the main hcnews.sh script to control caching for sourced scripts.
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    _current_sourcing_args_for_exchange=("${@}")
-    for arg in "${_current_sourcing_args_for_exchange[@]}"; do
-      case "$arg" in
-        --no-cache)
-          _exchange_USE_CACHE=false
-          ;;
-        --force)
-          _exchange_FORCE_REFRESH=true
-          ;;
-      esac
-    done
+# Source common library if not already loaded
+if [[ -z "$(type -t hcnews_log)" ]]; then
+    _local_script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+    source "$_local_script_dir/lib/common.sh"
 fi
+
+# Cache configuration - use centralized dir
+if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
+    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
+fi
+_exchange_CACHE_DIR="${HCNEWS_CACHE_DIR}/exchange"
+[[ -d "$_exchange_CACHE_DIR" ]] || mkdir -p "$_exchange_CACHE_DIR"
+
+# Use centralized TTL
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["exchange"]:-14400}"
+
+# Parse cache args
+hcnews_parse_cache_args "$@"
+_exchange_USE_CACHE=$_HCNEWS_USE_CACHE
+_exchange_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 # Maximum number of retries for API calls
 MAX_RETRIES=3
 # Delay between retries in seconds
 RETRY_DELAY=2
 
-# Logger function
+# Use centralized logger
 log_message() {
-  local level=$1
-  local message=$2
-  echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$level] $message" >&2
+  hcnews_log "$1" "$2"
 }
 
 # Function to get today's date in YYYYMMDD format
 get_date_format() {
-  # Use cached date_format if available, otherwise fall back to date command
-  if [[ -n "$date_format" ]]; then
-    echo "$date_format"
-  else
-    date +"%Y%m%d"
-  fi
-}
-
-# Function to check if cache exists and is from today and within TTL
-check_cache() {
-  local cache_file_path="$1"
-  if [ -f "$cache_file_path" ] && [ "$_exchange_FORCE_REFRESH" = false ]; then
-    # Check TTL
-    local file_mod_time
-    file_mod_time=$(stat -c %Y "$cache_file_path")
-    local current_time
-    # Use cached start_time if available, otherwise fall back to date command
-    if [[ -n "$start_time" ]]; then
-      current_time="$start_time"
-    else
-      current_time=$(date +%s)
-    fi
-    if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-      # Cache exists, not forced, and within TTL
-      return 0
-    fi
-  fi
-  return 1
-}
-
-# Function to read from cache
-read_cache() {
-  local cache_file_path="$1"
-  cat "$cache_file_path"
-}
-
-# Function to write to cache
-write_cache() {
-  local cache_file_path="$1"
-  local content="$2"
-  local cache_dir
-  cache_dir="$(dirname "$cache_file_path")"
-  
-  # Ensure the directory exists
-  [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-  
-  # Write content to cache file
-  echo "$content" > "$cache_file_path"
+  hcnews_get_date_format
 }
 
 # Function to get exchange rates from the Brazilian Central Bank
@@ -106,7 +52,7 @@ get_exchange_BC() {
   local out=""
 
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
-    response=$(curl -s -m 10 "$JSON_URL")
+    response=$(curl -s -4 --compressed -m 10 "$JSON_URL")
     
     # Single jq call: filter, format with 2 decimal places, output final lines
     out=$(echo "$response" | jq -r '
@@ -185,7 +131,7 @@ fetch_and_display_batch() {
   local raw_data=""
   
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
-    raw_data=$(curl -s -m 15 -G \
+    raw_data=$(curl -s -4 --compressed -m 15 -G \
       -H "X-CMC_PRO_API_KEY: $CoinMarketCap_API_KEY" \
       -H "Accept: application/json" \
       --data-urlencode "id=$ids" \
@@ -277,8 +223,8 @@ write_exchange() {
   date_format=$(get_date_format)
   local cache_file="${_exchange_CACHE_DIR}/${date_format}.exchange"
 
-  if [ "$_exchange_USE_CACHE" = true ] && check_cache "$cache_file"; then
-    read_cache "$cache_file"
+  if [ "$_exchange_USE_CACHE" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_exchange_FORCE_REFRESH"; then
+    hcnews_read_cache "$cache_file"
     return
   fi
 
@@ -309,7 +255,7 @@ write_exchange() {
   output+="_Fonte: Banco Central do Brasil · Atualizado: ${update_time}_\\n"
 
   if [ "$_exchange_USE_CACHE" = true ]; then
-    write_cache "$cache_file" "$(echo -e "$output")"
+    hcnews_write_cache "$cache_file" "$(echo -e "$output")"
   fi
   
   # Print output without adding an extra newline

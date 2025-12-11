@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="HCNews: A streamlined daily news update inspired by JRMUNEWS, featuring holidays, weather, and more.">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
+    <meta name="description"
+        content="HCNews: A streamlined daily news update inspired by JRMUNEWS, featuring holidays, weather, and more.">
+    <link rel="icon"
+        href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
     <title>HCNews!</title>
     <style>
         body {
@@ -16,6 +19,7 @@
             max-width: 800px;
             margin: 0 auto;
         }
+
         .controls {
             margin-top: 20px;
             padding-top: 10px;
@@ -28,6 +32,7 @@
             z-index: 100;
             padding-bottom: 10px;
         }
+
         button {
             background-color: #3794ff;
             color: white;
@@ -38,11 +43,24 @@
             font-size: 14px;
             font-weight: 600;
         }
-        button:hover { background-color: #2a75d1; }
-        button.secondary { background-color: #333; color: #ccc; }
-        button.secondary:hover { background-color: #444; }
-        button.active { outline: 2px solid #fff; }
-        
+
+        button:hover {
+            background-color: #2a75d1;
+        }
+
+        button.secondary {
+            background-color: #333;
+            color: #ccc;
+        }
+
+        button.secondary:hover {
+            background-color: #444;
+        }
+
+        button.active {
+            outline: 2px solid #fff;
+        }
+
         #raw-content {
             width: 100%;
             height: 80vh;
@@ -57,41 +75,63 @@
             box-sizing: border-box;
             font-size: 14px;
         }
-        
+
         #rich-content {
             white-space: pre-wrap;
             font-size: 16px;
         }
-        
+
         /* WhatsApp style formatting */
-        strong { color: #fff; font-weight: bold; }
-        em { font-style: italic; color: #aaa; }
-        del { text-decoration: line-through; color: #888; }
-        a { color: #3794ff; text-decoration: none; }
-        a:hover { text-decoration: underline; }
-        code { 
-            background-color: #2d2d2d; 
-            padding: 2px 4px; 
-            border-radius: 3px; 
+        strong {
+            color: #fff;
+            font-weight: bold;
+        }
+
+        em {
+            font-style: italic;
+            color: #aaa;
+        }
+
+        del {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        a {
+            color: #3794ff;
+            text-decoration: none;
+        }
+
+        a:hover {
+            text-decoration: underline;
+        }
+
+        code {
+            background-color: #2d2d2d;
+            padding: 2px 4px;
+            border-radius: 3px;
             font-family: 'Courier New', monospace;
             color: #e06c75;
         }
     </style>
 </head>
+
 <body>
     <div id="rich-content"></div>
     <textarea id="raw-content" readonly></textarea>
 
-        <div class="controls">
+    <div class="controls">
         <button onclick="setView('rich')" id="btn-rich">Visual</button>
         <button onclick="setView('raw')" id="btn-raw" class="secondary">Texto cru</button>
-            <label style="display:flex;align-items:center;gap:8px;">
-                <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);"> <span style="font-size:14px;">Mostrar links</span>
-            </label>
-            <label style="display:flex;align-items:center;gap:8px;">
-                <input id="chk-short-links" type="checkbox" style="transform:scale(1.1);"> <span style="font-size:14px;">Links curtos</span>
-            </label>
-            <button onclick="copyRaw()" class="secondary">Copiar texto</button>
+        <label style="display:flex;align-items:center;gap:8px;">
+            <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);"> <span
+                style="font-size:14px;">Mostrar links</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;">
+            <input id="chk-short-links" type="checkbox" style="transform:scale(1.1);"> <span
+                style="font-size:14px;">Links curtos</span>
+        </label>
+        <button onclick="copyRaw()" class="secondary">Copiar texto</button>
     </div>
 
     <!-- Hidden containers for the original injected content: full and short versions -->
@@ -111,7 +151,7 @@
                 '"': '&quot;',
                 "'": '&#039;'
             };
-            return text.replace(/[&<>"']/g, function(m) { return map[m]; });
+            return text.replace(/[&<>"']/g, function (m) { return map[m]; });
         }
 
         function stripLinks(text) {
@@ -131,7 +171,7 @@
                     continue;
                 }
                 // If we are in the rss section, a top-level non-prefixed line (no '-' and not whitespace) likely ends theRSS section
-                if (inRss && /^[^\s-]/.test(l) && !/^\s*[-–—]/.test(l)) {
+                if (inRss && (/^[^\s-]/.test(l) && !/^\s*[-–—]/.test(l) || /^\s*🚫/.test(l) || /^\s*🔔/.test(l) || /^\s*🤖/.test(l) || /^\s*🤝/.test(l))) {
                     inRss = false;
                 }
 
@@ -153,7 +193,7 @@
             return out.join('\n');
         }
 
-        function parseWhatsApp(text, showLinks=true) {
+        function parseWhatsApp(text, showLinks = true) {
             // 1. Escape HTML first to prevent injection
             // Optionally strip links before further parsing if we don't want links
             if (!showLinks) {
@@ -180,7 +220,8 @@
             // Handle both cases where the url is on the same line and where it's on the following indented line.
             // - Title https://example.com/...
             // - Title\n    https://example.com/...
-            const titleInlineRegex = /-\s+([^\n\r]*?)\s+(https?:\/\/[^\s]+)/g;
+            // Require at least one alphanumeric character in the title to avoid creating links with only emoji text
+            const titleInlineRegex = /-\s+([^\n\r]*?[a-zA-Z0-9][^\n\r]*?)\s+(https?:\/\/[^\s]+)/g;
             parsed = parsed.replace(titleInlineRegex, '- <a href="$2" target="_blank">$1</a>');
             const titlePairRegex = /^-\s+([^\n\r]+)\r?\n\s+(https?:\/\/[^\s]+)/gm;
             parsed = parsed.replace(titlePairRegex, '- <a href="$2" target="_blank">$1</a>');
@@ -247,7 +288,7 @@
             const showLinks = document.getElementById('chk-show-links').checked;
             const textToCopy = showLinks ? rawText.value : stripLinks(rawText.value);
             // For compatibility, we still select the field when visible
-            try { rawText.select(); rawText.setSelectionRange(0, 99999); } catch (e) {}
+            try { rawText.select(); rawText.setSelectionRange(0, 99999); } catch (e) { }
 
             navigator.clipboard.writeText(textToCopy).then(() => {
                 const btn = document.querySelector('button[onclick="copyRaw()"]');
@@ -266,7 +307,7 @@
         }
 
         // Initialize
-        window.onload = function() {
+        window.onload = function () {
             const rawText = document.getElementById('source-content').textContent;
             // Trim the first newline if it exists (due to script tag formatting)
             const cleanText = rawText.replace(/^\n/, '');
@@ -306,4 +347,5 @@
         };
     </script>
 </body>
+
 </html>

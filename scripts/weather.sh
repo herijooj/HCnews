@@ -8,6 +8,12 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
     source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
 fi
 
+# Source common library if not already loaded (to avoid overwriting SCRIPT_DIR or cycles)
+if [[ -z "$(type -t hcnews_log)" ]]; then
+    _local_script_dir="${BASH_SOURCE[0]%/*}"
+    source "$_local_script_dir/lib/common.sh"
+fi
+
 # Check for telegram flag
 FOR_TELEGRAM=false
 if [[ "$@" == *"--telegram"* ]]; then
@@ -16,31 +22,22 @@ if [[ "$@" == *"--telegram"* ]]; then
     set -- "${@/--telegram/}"
 fi
 
-# Cache directory - use the same directory as ru.sh
-CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/weather"
-# Ensure the cache directory exists
-[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
-CACHE_TTL_SECONDS=$((3 * 60 * 60)) # 3 hours
-
-# Default cache behavior is enabled
-_weather_USE_CACHE=true
-# Force refresh cache
-_weather_FORCE_REFRESH=false
-
-# Override defaults if --no-cache or --force is passed during sourcing
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
-    _current_sourcing_args_for_weather=("${@}") 
-    for arg in "${_current_sourcing_args_for_weather[@]}"; do
-      case "$arg" in
-        --no-cache)
-          _weather_USE_CACHE=false
-          ;;
-        --force)
-          _weather_FORCE_REFRESH=true
-          ;;
-      esac
-    done
+# Use centralized cache directory if available
+if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
+    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
 fi
+
+CACHE_DIR="${HCNEWS_CACHE_DIR}/weather"
+# Ensure the cache directory exists (should be handled by Init but good for standalone)
+[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
+
+# Use centralized TTL
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["weather"]:-10800}"
+
+# Parse cache args
+hcnews_parse_cache_args "$@"
+_weather_USE_CACHE=$_HCNEWS_USE_CACHE
+_weather_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 # Weather emoji lookup table (faster than case statement)
 declare -A WEATHER_EMOJIS=(
@@ -78,54 +75,7 @@ declare -A DAY_NAMES=(
 
 # Use cached date from main script if available, otherwise compute
 function get_date_format() {
-    if [[ -n "$date_format" ]]; then
-        echo "$date_format"
-    else
-        date +"%Y%m%d"
-    fi
-}
-
-# Function to check if cache exists and is from today and within TTL
-function check_cache() {
-    local cache_file_path="$1"
-    
-    if [ -f "$cache_file_path" ] && [ "$_weather_FORCE_REFRESH" = false ]; then
-        # Check TTL
-        local file_mod_time
-        file_mod_time=$(stat -c %Y "$cache_file_path")
-        local current_time
-        # Use cached start_time if available, otherwise fall back to date command
-        if [[ -n "$start_time" ]]; then
-            current_time="$start_time"
-        else
-            current_time=$(date +%s)
-        fi
-        if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-            # Cache exists, not forced, and within TTL
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Function to read weather from cache
-function read_cache() {
-    local cache_file_path="$1"
-    cat "$cache_file_path"
-}
-
-# Function to write weather to cache
-function write_cache() {
-    local cache_file_path="$1"
-    local weather_data="$2"
-    local cache_dir
-    cache_dir="$(dirname "$cache_file_path")"
-    
-    # Ensure the directory exists
-    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-    
-    # Write weather to cache file
-    echo "$weather_data" > "$cache_file_path"
+    hcnews_get_date_format
 }
 
 # Get weather emoji (faster lookup from array)
@@ -153,14 +103,16 @@ function get_weather() {
     local LANG="pt_br"
     local UNITS="metric"
     local NORMALIZED_CITY
-    NORMALIZED_CITY=$(echo "$CITY" | tr '[:upper:]' '[:lower:]' | tr ' ' '_') # Normalize city name for cache key
+    # Bash 4.0 string manipulation (faster than tr)
+    local city_lower="${CITY,,}"
+    NORMALIZED_CITY="${city_lower// /_}"
     local date_format
     date_format=$(get_date_format)
     local cache_file="${CACHE_DIR}/${date_format}_${NORMALIZED_CITY}.weather"
     
     # Check if cache exists and should be used
-    if [ "$_weather_USE_CACHE" = true ] && check_cache "$cache_file"; then
-        read_cache "$cache_file"
+    if [ "$_weather_USE_CACHE" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_weather_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
         return
     fi
     
@@ -176,8 +128,8 @@ function get_weather() {
     local forecast_temp="${tmp_dir}/.weather_fc_$$"
     
     # Parallel curl requests
-    curl -s "$CURRENT_WEATHER_URL" > "$current_temp" &
-    curl -s "$FORECAST_URL" > "$forecast_temp" &
+    curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$CURRENT_WEATHER_URL" > "$current_temp" &
+    curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$FORECAST_URL" > "$forecast_temp" &
     wait
     
     local CURRENT_WEATHER FORECAST_DATA
@@ -300,7 +252,7 @@ _Fonte: OpenWeatherMap · Atualizado: %s_' \
     
     # Save to cache if enabled
     if [ "$_weather_USE_CACHE" = true ]; then
-        write_cache "$cache_file" "$OUTPUT"
+        hcnews_write_cache "$cache_file" "$OUTPUT"
     fi
     
     echo "$OUTPUT"

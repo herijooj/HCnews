@@ -12,8 +12,26 @@ function get_holidays() {
     # get the date from arguments
     local month=$1
     local day=$2
-    # get the holidays
-    local holidays=$(awk -F, -v month="$month" -v day="$day" '$1 == month && $2 == day { print $3 " " $4 }' "$HOLIDAY_FILE")
+    # get the holidays using grep for speed (file is ~1600 lines)
+    local holidays=""
+    
+    if [[ -f "$HOLIDAY_FILE" ]]; then
+        local matches
+        matches=$(grep "^$month,$day," "$HOLIDAY_FILE")
+        
+        if [[ -n "$matches" ]]; then
+            while IFS=, read -r h_month h_day h_emoji h_name; do
+                if [[ -n "$holidays" ]]; then
+                    holidays+=$'\n'
+                fi
+                # Assuming correct format, but handle potential missing fields
+                if [[ -n "$h_emoji" ]]; then
+                    holidays+="${h_emoji} ${h_name}"
+                fi
+            done <<< "$matches"
+        fi
+    fi
+    
     echo "$holidays"
 }
 

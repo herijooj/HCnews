@@ -1,99 +1,114 @@
 #!/usr/bin/env bash
-HEADER_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+# Optimized directory resolution
+HEADER_DIR="${BASH_SOURCE[0]%/*}"
 # Define cache directory relative to this script's location
-# HEADER_DIR is .../scripts/, so $(dirname "$HEADER_DIR") is .../HCnews/
-_header_CACHE_DIR="$(dirname "$HEADER_DIR")/data/cache/header"
+# HEADER_DIR is .../scripts (or relative path), so we handle relative path for parent
+if [[ "$HEADER_DIR" == "." ]]; then
+    _header_CACHE_DIR="../Data/cache/header"
+else
+    _header_CACHE_DIR="$HEADER_DIR/../data/cache/header"
+fi
 
 # Returns the current date in a pretty format.
 # Usage: pretty_date [weekday] [day] [month] [year]
 # If parameters are provided, uses them instead of calling date
-function pretty_date {
-  local date_arg="$1"
-  local day_arg="$2" 
-  local month_arg="$3"
-  local year_arg="$4"
+# Returns the current date in a pretty format via variable assignment.
+# Usage: pretty_date_var <output_var_name> [weekday] [day] [month] [year]
+function pretty_date_var {
+  local -n ret_var=$1
+  local date_arg="$2"
+  local day_arg="$3" 
+  local month_arg="$4"
+  local year_arg="$5"
   
-  local date day month year
+  local pretty_weekday pretty_month
   
   if [[ -n "$date_arg" && -n "$day_arg" && -n "$month_arg" && -n "$year_arg" ]]; then
     # Use provided cached values
     case $date_arg in
-      1) date="Segunda" ;;
-      2) date="Terça" ;;
-      3) date="Quarta" ;;
-      4) date="Quinta" ;;
-      5) date="Sexta" ;;
-      6) date="Sábado" ;;
-      7) date="Domingo" ;;
+      1) pretty_weekday="Segunda" ;;
+      2) pretty_weekday="Terça" ;;
+      3) pretty_weekday="Quarta" ;;
+      4) pretty_weekday="Quinta" ;;
+      5) pretty_weekday="Sexta" ;;
+      6) pretty_weekday="Sábado" ;;
+      7) pretty_weekday="Domingo" ;;
     esac
-    day="$day_arg"
     
     case $month_arg in
-      01) month="janeiro" ;;
-      02) month="fevereiro" ;;
-      03) month="março" ;;
-      04) month="abril" ;;
-      05) month="maio" ;;
-      06) month="junho" ;;
-      07) month="julho" ;;
-      08) month="agosto" ;;
-      09) month="setembro" ;;
-      10) month="outubro" ;;
-      11) month="novembro" ;;
-      12) month="dezembro" ;;
+      01) pretty_month="janeiro" ;;
+      02) pretty_month="fevereiro" ;;
+      03) pretty_month="março" ;;
+      04) pretty_month="abril" ;;
+      05) pretty_month="maio" ;;
+      06) pretty_month="junho" ;;
+      07) pretty_month="julho" ;;
+      08) pretty_month="agosto" ;;
+      09) pretty_month="setembro" ;;
+      10) pretty_month="outubro" ;;
+      11) pretty_month="novembro" ;;
+      12) pretty_month="dezembro" ;;
     esac
-    year="$year_arg"
   else
     # Fallback to date commands if no cached values provided
-    date=$(date +%A)
-    day=$(date +%d)
-    month=$(date +%B)
-    year=$(date +%Y)
+    pretty_weekday=$(date +%A)
+    day_arg=$(date +%d)
+    pretty_month=$(date +%B)
+    year_arg=$(date +%Y)
   fi
 
   # Add "-feira" if it's not Saturday or Sunday
-  if [[ $date != "Sábado" && $date != "Domingo" ]]; then
-    date+="-feira"
+  if [[ $pretty_weekday != "Sábado" && $pretty_weekday != "Domingo" ]]; then
+    pretty_weekday+="-feira"
   fi
 
-  # Return the date in a pretty format
-  echo "${date}, ${day} de ${month} de ${year}"
+  # Return result via variable
+  ret_var="${pretty_weekday}, ${day_arg} de ${pretty_month} de ${year_arg}"
 }
 
-# calculates the HERIPOCH (the HCnews epoch)
-# the start of the project was in 07/10/2021
-# Pre-computed constant: date -d "2021-10-07" +%s = 1633564800
-_HERIPOCH_START_TIMESTAMP=1633564800
+# Wrapper for backward compatibility
+function pretty_date {
+  local res
+  pretty_date_var res "$@"
+  echo "$res"
+}
 
-# Usage: heripoch_date [current_timestamp]
-function heripoch_date() {
-    local current_timestamp="$1"
+# Usage: heripoch_date_var <output_var_name> [current_timestamp]
+function heripoch_date_var() {
+    local -n ret_var_h=$1
+    local current_timestamp="$2"
     
+    local current_date
     if [[ -n "$current_timestamp" ]]; then
-        # Use provided timestamp
-        local current_date="$current_timestamp"
+        current_date="$current_timestamp"
     else
-        # Fallback to date command
-        local current_date=$(date +%s)
+        current_date=$(date +%s)
     fi
     
     local difference=$((current_date - _HERIPOCH_START_TIMESTAMP))
-    local days_since=$((difference / 86400))
-    echo "$days_since"
+    ret_var_h=$((difference / 86400))
+}
+
+# Wrapper for backward compatibility
+function heripoch_date {
+    local res
+    heripoch_date_var res "$@"
+    echo "$res"
 }
 
 # this function is used to write the core header of the news file (without moon phase and quote)
 function write_header_core () {
+    local date_str edition_str
+
     # Use cached values if available (passed from main script)
     if [[ -n "$weekday" && -n "$day" && -n "$month" && -n "$year" && -n "$start_time" && -n "$days_since" ]]; then
-        date=$(pretty_date "$weekday" "$day" "$month" "$year")
-        edition=$(heripoch_date "$start_time")
+        pretty_date_var date_str "$weekday" "$day" "$month" "$year"
+        heripoch_date_var edition_str "$start_time"
         # Use cached days_since value instead of calculating it
-        # days_since is already available from main script
     else
         # Fallback to original behavior
-        date=$(pretty_date)
-        edition=$(heripoch_date)
+        pretty_date_var date_str
+        heripoch_date_var edition_str
         days_since=$(date +%-j)
     fi
 
@@ -122,9 +137,9 @@ function write_header_core () {
     progress_bar="$filled_string$empty_string"
 
     # write the core header (without moon phase and quote)
-    echo "📰 *HCNews* Edição $edition 🗞"
+    echo "📰 *HCNews* Edição $edition_str 🗞"
     echo "🇧🇷 De Araucária Paraná " 
-    echo "📅 $date" 
+    echo "📅 $date_str" 
     echo "⏳ Dia $days_since/365 $progress_bar ${year_percentage}%"
 }
 
