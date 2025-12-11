@@ -71,7 +71,7 @@ function write_did_you_know() {
 
     # write the fact to the console
     echo "📚 *Você sabia?*"
-    echo "_${FACT}_"
+    echo "- ${FACT}_"
     echo "_Fonte: Wikipedia_"
     echo ""
 }

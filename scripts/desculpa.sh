@@ -53,7 +53,7 @@ function write_excuse() {
 
     # write the excuse to the console
     echo "🚫 *Desculpa do Dia:*"
-    echo "_${EXCUSE}_"
+    echo "- ${EXCUSE}_"
     echo "_Fonte: programming-excuse-as-a-Service_"
     echo ""
 }
