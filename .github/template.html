@@ -21,6 +21,34 @@
             padding-bottom: 100px;
         }
 
+        /* Navigation Tabs */
+        .nav-tabs {
+            display: flex;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+            gap: 2px;
+        }
+
+        .nav-tab {
+            background-color: #2d2d2d;
+            color: #aaa;
+            padding: 10px 20px;
+            text-decoration: none;
+            border-radius: 4px 4px 0 0;
+            font-weight: bold;
+            transition: background-color 0.2s, color 0.2s;
+        }
+
+        .nav-tab:hover {
+            background-color: #3d3d3d;
+            color: #fff;
+        }
+
+        .nav-tab.active {
+            background-color: #3794ff;
+            color: #fff;
+        }
+
         .controls {
             margin-top: 20px;
             padding-top: 10px;
@@ -63,9 +91,7 @@
             background-color: #444;
         }
 
-        button.active {
-            outline: 2px solid #fff;
-        }
+
 
         #raw-content {
             width: 100%;
@@ -123,6 +149,13 @@
 </head>
 
 <body>
+    <!-- Main Navigation -->
+    <nav class="nav-tabs">
+        <a href="index.html" class="nav-tab" id="tab-tudo">Tudo</a>
+        <a href="noticias.html" class="nav-tab" id="tab-noticias">Notícias</a>
+        <a href="horoscopo.html" class="nav-tab" id="tab-horoscopo">Horóscopo</a>
+    </nav>
+
     <div id="rich-content"></div>
     <textarea id="raw-content" readonly></textarea>
 
@@ -133,116 +166,69 @@
             <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);"> <span
                 style="font-size:14px;">Mostrar links</span>
         </label>
-        <label style="display:flex;align-items:center;gap:8px;">
-            <input id="chk-short-links" type="checkbox" style="transform:scale(1.1);"> <span
-                style="font-size:14px;">Links curtos</span>
-        </label>
         <button onclick="copyRaw()" class="secondary">Copiar texto</button>
     </div>
 
-    <!-- Hidden containers for the original injected content: full and short versions -->
+    <!-- Hidden container for the content source -->
     <script id="source-content" type="text/plain">
-{{CONTENT_FULL}}
-    </script>
-    <script id="source-content-short" type="text/plain" style="display:none">
-{{CONTENT_SHORT}}
+{{CONTENT}}
     </script>
 
     <script>
         function escapeHtml(text) {
-            const map = {
-                '&': '&amp;',
-                '<': '&lt;',
-                '>': '&gt;',
-                '"': '&quot;',
-                "'": '&#039;'
-            };
+            const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' };
             return text.replace(/[&<>"']/g, function (m) { return map[m]; });
         }
 
         function stripLinks(text) {
-            // Remove ONLY URLs that are part of RSS feed sections (📰 sections)
-            // Keep other URLs intact.
             const lines = text.split(/\r?\n/);
             let inRss = false;
             const out = [];
             for (let i = 0; i < lines.length; i++) {
                 let l = lines[i];
-                // Trim trailing whitespace for cleaner output
                 l = l.replace(/\s+$/g, '');
-                // If a new rss portal starts
                 if (/^\s*📰\s+/.test(l)) {
                     inRss = true;
                     out.push(l);
                     continue;
                 }
-                // If we are in the rss section, a top-level non-prefixed line (no '-' and not whitespace) likely ends theRSS section
                 if (inRss && (/^[^\s-]/.test(l) && !/^\s*[-–—]/.test(l) || /^\s*🚫/.test(l) || /^\s*🔔/.test(l) || /^\s*🤖/.test(l) || /^\s*🤝/.test(l))) {
                     inRss = false;
                 }
-
                 if (inRss) {
-                    // If this line is just a URL (maybe indented), skip it
-                    if (/^\s*https?:\/\//i.test(l)) {
-                        continue; // drop this line
-                    }
-                    // If it's a bullet with inline URL, remove trailing inline url
+                    if (/^\s*https?:\/\//i.test(l)) continue;
                     if (/^\s*[-–—]\s.*\shttps?:\/\//i.test(l)) {
                         l = l.replace(/\shttps?:\/\/\S+\s*$/i, '');
                     }
                 }
-
                 out.push(l);
             }
-            // Join lines and preserve existing blank lines. Do not collapse multiple newlines
-            // which would remove intentional paragraph spacing from the paper.
             return out.join('\n');
         }
 
         function parseWhatsApp(text, showLinks = true) {
-            // 1. Escape HTML first to prevent injection
-            // Optionally strip links before further parsing if we don't want links
-            if (!showLinks) {
-                text = stripLinks(text);
-            }
+            if (!showLinks) text = stripLinks(text);
             let parsed = escapeHtml(text);
-
-            // 2. Code blocks (```text```)
             parsed = parsed.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
-
-            // 3. Inline code (`text`)
             parsed = parsed.replace(/`([^`]+)`/g, '<code>$1</code>');
-
-            // 4. Bold (*text*)
             parsed = parsed.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
-
-            // 5. Italic (_text_)
             parsed = parsed.replace(/_([^_]+)_/g, '<em>$1</em>');
-
-            // 6. Strikethrough (~text~)
             parsed = parsed.replace(/~([^~]+)~/g, '<del>$1</del>');
-
-            // 1. Convert title + url pair into a single HTML anchor for web display.
-            // Handle both cases where the url is on the same line and where it's on the following indented line.
-            // - Title https://example.com/...
-            // - Title\n    https://example.com/...
-            // Require at least one alphanumeric character in the title to avoid creating links with only emoji text
             const titleInlineRegex = /-\s+([^\n\r]*?[a-zA-Z0-9][^\n\r]*?)\s+(https?:\/\/[^\s]+)/g;
             parsed = parsed.replace(titleInlineRegex, '- <a href="$2" target="_blank">$1</a>');
             const titlePairRegex = /^-\s+([^\n\r]+)\r?\n\s+(https?:\/\/[^\s]+)/gm;
             parsed = parsed.replace(titlePairRegex, '- <a href="$2" target="_blank">$1</a>');
-
-            // 2. Markdown links: [text](https://...)
-            // Replace markdown link syntax with anchor tags
             const mdLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
             parsed = parsed.replace(mdLinkRegex, '<a href="$2" target="_blank">$1</a>');
-
-            // 8. Links (http/https) - Simple regex for URLs
-            // Only replace URLs that are standalone (preceded by line start or whitespace) to avoid touching urls already inside href attributes.
             const urlRegex = /(^|\s)(https?:\/\/[^\s]+)/g;
             parsed = parsed.replace(urlRegex, '$1<a href="$2" target="_blank">$2</a>');
-
             return parsed;
+        }
+
+
+
+        function renderContent(text, showLinks) {
+            return parseWhatsApp(text, showLinks);
         }
 
         function setView(view) {
@@ -252,7 +238,6 @@
             const btnRaw = document.getElementById('btn-raw');
 
             const showLinks = document.getElementById('chk-show-links').checked;
-            const shortLinks = document.getElementById('chk-short-links').checked;
 
             if (view === 'rich') {
                 richDiv.style.display = 'block';
@@ -266,25 +251,16 @@
                 btnRaw.classList.remove('secondary');
             }
 
-            // Re-render both views based on current checkbox state
-            const sourceEl = shortLinks ? document.getElementById('source-content-short') : document.getElementById('source-content');
-            const sourceText = sourceEl.textContent.replace(/^\n/, '');
-            document.getElementById('raw-content').value = showLinks ? sourceText : stripLinks(sourceText);
-            document.getElementById('rich-content').innerHTML = parseWhatsApp(sourceText, showLinks);
+            // Render content
+            const sourceEl = document.getElementById('source-content');
+            const sourceText = sourceEl.textContent.replace(/^\n/, ''); // Clean leading newline
 
-            // If short links is active, force showLinks on and disable its toggle
-            const showLinksCheckbox = document.getElementById('chk-show-links');
-            if (shortLinks) {
-                showLinksCheckbox.checked = true;
-                showLinksCheckbox.disabled = true;
-            } else {
-                showLinksCheckbox.disabled = false;
-            }
+            document.getElementById('raw-content').value = showLinks ? sourceText : stripLinks(sourceText);
+            document.getElementById('rich-content').innerHTML = renderContent(sourceText, showLinks);
         }
 
         function copyRaw() {
             const rawText = document.getElementById('raw-content');
-            // If hidden, we can't select it easily, so temporarily show it or use clipboard API directly
             const wasHidden = rawText.style.display === 'none';
             if (wasHidden) {
                 rawText.style.display = 'block';
@@ -293,7 +269,6 @@
             }
             const showLinks = document.getElementById('chk-show-links').checked;
             const textToCopy = showLinks ? rawText.value : stripLinks(rawText.value);
-            // For compatibility, we still select the field when visible
             try { rawText.select(); rawText.setSelectionRange(0, 99999); } catch (e) { }
 
             navigator.clipboard.writeText(textToCopy).then(() => {
@@ -314,40 +289,29 @@
 
         // Initialize
         window.onload = function () {
-            const rawText = document.getElementById('source-content').textContent;
-            // Trim the first newline if it exists (due to script tag formatting)
-            const cleanText = rawText.replace(/^\n/, '');
-            document.getElementById('source-content').textContent = cleanText;
-            const showLinks = document.getElementById('chk-show-links').checked;
-            document.getElementById('raw-content').value = showLinks ? cleanText : stripLinks(cleanText);
-            document.getElementById('rich-content').innerHTML = parseWhatsApp(cleanText, showLinks);
+            // Highlight active tab
+            const path = window.location.pathname;
+            const page = path.split('/').pop() || 'index.html';
+            // Default to index if empty path (root)
+            const activePage = (page === '' || page === 'index.html' || page === 'hcnews') ? 'index.html' : page;
 
-            // Update view and bind checkbox toggle
+            // Match tab
+            if (activePage === 'index.html') document.getElementById('tab-tudo').classList.add('active');
+            else if (activePage === 'noticias.html') document.getElementById('tab-noticias').classList.add('active');
+            else if (activePage === 'horoscopo.html') document.getElementById('tab-horoscopo').classList.add('active');
+
+            const sourceEl = document.getElementById('source-content');
+            let cleanText = sourceEl.textContent.replace(/^\n/, '');
+            // Update source with clean text
+            sourceEl.textContent = cleanText;
+
+            // Render
             setView('rich');
+
+            // Listeners
             document.getElementById('chk-show-links').addEventListener('change', (e) => {
-                const currentViewIsRaw = document.getElementById('raw-content').style.display !== 'none';
-                if (currentViewIsRaw) {
-                    // update raw text
-                    const source = document.getElementById('source-content').textContent;
-                    document.getElementById('raw-content').value = e.target.checked ? source : stripLinks(source);
-                }
-                // update rich view content
-                const source = document.getElementById('source-content').textContent;
-                document.getElementById('rich-content').innerHTML = parseWhatsApp(source, e.target.checked);
-            });
-            document.getElementById('chk-short-links').addEventListener('change', (e) => {
-                // When short links are toggled, re-render the content from the appropriate source
-                const isShort = e.target.checked;
-                // If short is checked, ensure show-links is forced on and disabled
-                const show = document.getElementById('chk-show-links');
-                if (isShort) {
-                    show.checked = true;
-                    show.disabled = true;
-                } else {
-                    show.disabled = false;
-                }
-                // Re-render current view
-                const currentView = document.getElementById('raw-content').style.display !== 'none' ? 'raw' : 'rich';
+                // Rerender view
+                const currentView = document.getElementById('rich-content').style.display !== 'none' ? 'rich' : 'raw';
                 setView(currentView);
             });
         };

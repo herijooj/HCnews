@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -e
+
+# Ensure we are in the script directory
+cd "$(dirname "$0")"
+
+echo "🏗️  Building daily content..."
+# Run the build script
+./build_daily.sh
+
+echo "📄 Generating HTML files..."
+mkdir -p public
+DATE=$(date +'%d/%m/%Y')
+
+# Generate Tudo (index.html)
+sed "s|{{DATE}}|$DATE|g" .github/template.html \
+  | sed -e '/{{CONTENT}}/r news_tudo.txt' -e '/{{CONTENT}}/d' > public/index.html
+echo "   - public/index.html"
+
+# Generate Notícias (noticias.html)
+sed "s|{{DATE}}|$DATE|g" .github/template.html \
+  | sed -e '/{{CONTENT}}/r news_noticias.txt' -e '/{{CONTENT}}/d' > public/noticias.html
+echo "   - public/noticias.html"
+
+# Generate Horóscopo (horoscopo.html)
+sed "s|{{DATE}}|$DATE|g" .github/template.html \
+  | sed -e '/{{CONTENT}}/r news_horoscopo.txt' -e '/{{CONTENT}}/d' > public/horoscopo.html
+echo "   - public/horoscopo.html"
+
+echo "✅ Build complete!"
+echo ""
+echo "🚀 Starting preview server at http://0.0.0.0:8000"
+echo "   (Open your browser to this URL to view the site)"
+echo "   Press Ctrl+C to stop."
+echo ""
+
+cd public
+python3 -m http.server 8000

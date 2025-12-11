@@ -94,9 +94,17 @@ jobs:
         run: |
           mkdir -p public
           DATE=$(date +'%d/%m/%Y')
+          # Generate Tudo (index.html)
           sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT_FULL}}/r news_full.txt' -e '/{{CONTENT_FULL}}/d' \
-                  -e '/{{CONTENT_SHORT}}/r news_short.txt' -e '/{{CONTENT_SHORT}}/d' > public/index.html
+            | sed -e '/{{CONTENT}}/r news_tudo.txt' -e '/{{CONTENT}}/d' > public/index.html
+          
+          # Generate Notícias (noticias.html)
+          sed "s|{{DATE}}|$DATE|g" .github/template.html \
+            | sed -e '/{{CONTENT}}/r news_noticias.txt' -e '/{{CONTENT}}/d' > public/noticias.html
+          
+          # Generate Horóscopo (horoscopo.html)
+          sed "s|{{DATE}}|$DATE|g" .github/template.html \
+            | sed -e '/{{CONTENT}}/r news_horoscopo.txt' -e '/{{CONTENT}}/d' > public/horoscopo.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

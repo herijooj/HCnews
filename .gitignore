@@ -147,3 +147,4 @@ cython_debug/
 node_modules
 .envrc
 .direnv
+public

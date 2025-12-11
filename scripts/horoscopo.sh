@@ -61,7 +61,7 @@ function get_horoscopo {
     # get the horoscope
     HOROSCOPO=$(curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3" "https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-$SIGN/")
     # extract the horoscope using the correct selector for the current website structure
-    HOROSCOPO=$(echo "$HOROSCOPO" | pup 'p.MsoNormal text{}')
+    HOROSCOPO=$(echo "$HOROSCOPO" | pup '.text-block text{}')
 
     # return the horoscope
     echo "$HOROSCOPO"
@@ -149,11 +149,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # But this script supports calculating for ALL signs if no sign provided.
     # If no sign provided, where do we cache?
     
-    # If no sign is provided, the original script didn't seem to cache the combined output deeply?
     # Ah, it set "cache_file_name" to just DATE.hrcp.
     # So if SIGN is empty, variant is empty.
     
-    cache_file_path=$(hcnews_get_cache_path "horoscopo" "$date_format" "$SIGN")
+    cache_name="horoscopo"
+    
+    cache_file_path=$(hcnews_get_cache_path "$cache_name" "$date_format" "$SIGN")
 
     # If -s is not used, but we want to cache, set a default filename for caching
     effective_cache_file_path="$cache_file_path"
@@ -168,7 +169,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         exit 0
     fi
 
-    output="🔮 *Horóscopo do dia* 🔮\\n\\n"
+    output="🔮 *Horóscopo do dia*\n\n"
     
     # Set default directory to data/news if -s flag is used or if caching is enabled without -s
     filename_to_save=""
@@ -182,13 +183,18 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             HOROSCOPO=$(get_horoscopo "$SIGN")
             EMOJI=$(sign_to_emoji "$SIGN")
             FORMATTED_SIGN=$(format_sign_name "$SIGN")
-            output+="$HOROSCOPO\\n\\n🔸 *$FORMATTED_SIGN* $EMOJI\\n\\n"
+            
+            output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n\n"
+            
+            # Be polite to the server
+            sleep 1
         done
     else
         HOROSCOPO=$(get_horoscopo "$SIGN")
         EMOJI=$(sign_to_emoji "$SIGN")
         FORMATTED_SIGN=$(format_sign_name "$SIGN")
-        output+="$HOROSCOPO\\n\\n🔸 *$FORMATTED_SIGN* $EMOJI\\n\\n"
+        
+        output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n\n"
     fi
 
     # Save to file if -s is used OR if _horoscopo_USE_CACHE is true and -s is not used (cache the output)
