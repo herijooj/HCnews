@@ -53,7 +53,6 @@ get_exchange_BC() {
   while [[ $retry_count -lt $MAX_RETRIES ]]; do
     response=$(curl -s -4 --compressed -m 10 "$JSON_URL")
     
-    # Single jq call: filter, format with 2 decimal places, output final lines
     out=$(echo "$response" | jq -r '
       .conteudo[]
       | select(.tipoCotacao == "Fechamento")
@@ -77,9 +76,6 @@ get_exchange_BC() {
 
 # Function to fetch cryptocurrency data from CoinMarketCap API
 generate_exchange_CMC() {
-  # API_KEY is sourced from tokens.sh, already available
-  # API_URL is defined in fetch_and_display_batch
-
   echo ""
   echo "💎 *Criptomoedas*"
 
@@ -147,7 +143,6 @@ fetch_and_display_batch() {
     done
     symbol_map_json+="}"
     
-    # SINGLE jq call: extract, format prices, calculate arrows, output final lines
     local formatted_output
     formatted_output=$(echo "$raw_data" | jq -r --argjson symbols "$symbol_map_json" '
       if .data then
@@ -242,7 +237,7 @@ write_exchange() {
   output+="$bc_output\\n"
   
   # Capture CMC output (if you re-enable it)
-  # cmc_output=$(generate_exchange_CMC) # This function prints directly, adjust if needed
+  # cmc_output=$(generate_exchange_CMC)
   # output+="$cmc_output\\n" 
 
   # Use cached current_time if available (format: HH:MM:SS), otherwise fall back to date
@@ -258,8 +253,6 @@ write_exchange() {
     hcnews_write_cache "$cache_file" "$(echo -e "$output")"
   fi
   
-  # Print output without adding an extra newline
-  # Remove trailing backslash and rely on echo -e to handle newlines in $output
   output="${output%\\}"
   echo -e "$output"
 }

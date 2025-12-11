@@ -26,7 +26,7 @@ function get_emoji() {
         awk '!/^#/ && NF {split($0,a,"#"); if(a[2]) print substr(a[2],2)}' "$EMOJI_TEST_FILE" > "$EMOJI_CACHE_FILE"
     fi
 
-    # Select random line from cache (much faster than shuf on pipe)
+    # Select random line from cache
     shuf -n 1 "$EMOJI_CACHE_FILE"
 }
 
