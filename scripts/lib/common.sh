@@ -37,6 +37,13 @@ fi
 export HCNEWS_SCRIPTS_DIR
 
 # =============================================================================
+# Heripoch Configuration - Edition numbering starts from this date
+# =============================================================================
+# Project start date: October 7, 2021 (07/10/2021) at 00:00:00 BRT (UTC-3)
+_HERIPOCH_START_TIMESTAMP=1633579200
+export _HERIPOCH_START_TIMESTAMP
+
+# =============================================================================
 # Centralized Cache TTL Configuration (seconds)
 # =============================================================================
 # Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
