@@ -27,6 +27,20 @@ declare -A RU_LOCATIONS=(
     ["matinhos"]="https://proad.ufpr.br/ru/cardapio-ru-matinhos/"
 )
 
+# Friendly names for display
+declare -A RU_NAMES=(
+    ["politecnico"]="Politécnico"
+    ["agrarias"]="Agrárias"
+    ["botanico"]="Botânico"
+    ["central"]="Central"
+    ["toledo"]="Toledo"
+    ["mirassol"]="Mirassol"
+    ["jandaia"]="Jandaia"
+    ["palotina"]="Palotina"
+    ["cem"]="CEM"
+    ["matinhos"]="Matinhos"
+)
+
 # Configuration with defaults
 SELECTED_LOCATION="politecnico"
 SHOW_ONLY_TODAY=${SHOW_ONLY_TODAY:-false}
@@ -87,17 +101,22 @@ function get_menu () {
     fi
 
     local url="${RU_LOCATIONS[$location]}"
+    local pretty_name="${RU_NAMES[$location]}"
+    if [[ -z "$pretty_name" ]]; then
+        pretty_name="$location"
+    fi
     
     # Process content using pup and awk
     local content
     content=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | \
+        perl -0777 -pe 's/<style[^>]*>.*?<\/style>//gis; s/<script[^>]*>.*?<\/script>//gis; s/<!--.*?-->//gs' | \
         LC_ALL=C sed -e 's/<[^>]*>//g' | \
         awk '
         BEGIN { 
-            print "🍽️  Cardápio RU ('"$location"')" 
+            print "🍽️  *Cardápio RU '"$pretty_name"'*" 
             skip = 0
             current_line = ""
-            printed_header = 0
+            menu_started = 0
         }
         /SENHOR USUÁRIO/ { skip = 1; next }
         /LEGENDA/ { skip = 1; next }
@@ -109,6 +128,25 @@ function get_menu () {
         /:/ && (/table|background|border|padding|margin|color|font|width|height|display|overflow/) { next }
         /\{|\}/ { next }
         /\.wp-block/ { next }
+        
+        # Detect day headers first - this starts the menu
+        /(Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira.*[0-9]/ {
+            menu_started = 1
+            if (current_line != "") { print current_line; current_line = "" }
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "")
+            pos = match($0, /[0-9]/)
+            if (pos > 0) {
+                day = substr($0, 1, pos-1)
+                date = substr($0, pos)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", day)
+                gsub(/^[[:space:]]+|[[:space:]]+$/, "", date)
+                print "\n📅 *" day "* " date
+            }
+            next
+        }
+        
+        # Skip all content before menu starts
+        !menu_started { next }
         
         /Café da manhã/ { 
             if (current_line != "") { print current_line; current_line = "" }
@@ -124,19 +162,6 @@ function get_menu () {
             if (current_line != "") { print current_line; current_line = "" }
             print "\n🍛 *JANTAR* 🍛"
             next 
-        }
-        /(Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira.*[0-9]/ {
-            if (current_line != "") { print current_line; current_line = "" }
-            gsub(/^[[:space:]]+|[[:space:]]+$/, "")
-            pos = match($0, /[0-9]/)
-            if (pos > 0) {
-                day = substr($0, 1, pos-1)
-                date = substr($0, pos)
-                gsub(/^[[:space:]]+|[[:space:]]+$/, "", day)
-                gsub(/^[[:space:]]+|[[:space:]]+$/, "", date)
-                print "\n📅 *" day "* " date
-            }
-            next
         }
         
         /^(Contêm|Contém|Indicado)/ { next }
@@ -170,7 +195,7 @@ function get_menu () {
         }' 2>/dev/null)
         
     # Validate content
-    if [[ -z "$content" || "$content" == "🍽️  Cardápio RU ($location)" ]]; then
+    if [[ -z "$content" || "$content" == "🍽️  *Cardápio RU $pretty_name*" ]]; then
          if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
             echo "O RU está fechado ou o cardápio é especial."
         else
