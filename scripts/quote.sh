@@ -57,7 +57,7 @@ function quote {
     QUOTE=$(printf '%s' "$QUOTE" | perl -CS -Mutf8 -pe 's/\x{200B}//g; s/\x{00A0}/ /g; s/&amp;/&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#0*39;/\x27/g; s/&rsquo;/\x27/g; s/&lsquo;/\x27/g; s/&rdquo;/"/g; s/&ldquo;/"/g; s/&#[0-9]+;//g; s/\s*Frase Minha.*//gi; s/^\s+|\s+$//g; s/\n{2,}/\n\n/g')
     
     # Build output
-    local output="📝 *Frase do dia:*\n_${QUOTE}_\n\n"
+    local output="📝 *Frase do dia:*\n${QUOTE}\n\n"
 
     # Save to cache if caching is enabled
     if [[ "$use_cache" == true ]]; then
