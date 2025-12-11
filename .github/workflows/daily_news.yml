@@ -84,8 +84,8 @@ jobs:
             ./build_daily.sh
           fi
           # Ensure generated news files are not empty before producing HTML
-          if [ ! -s news_full.txt ] || [ ! -s news_short.txt ]; then
-            echo "Error: one or more generated news files are empty (news_full.txt or news_short.txt)" >&2
+          if [ ! -s news_tudo.txt ] || [ ! -s news_noticias.txt ] || [ ! -s news_horoscopo.txt ]; then
+            echo "Error: one or more generated news files are empty (news_tudo.txt, news_noticias.txt, or news_horoscopo.txt)" >&2
             ls -al news_*.txt || true
             exit 1
           fi
