@@ -225,10 +225,23 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         EMOJI=$(sign_to_emoji "$SIGN")
         FORMATTED_SIGN=$(format_sign_name "$SIGN")
         
-        output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n\n"
+        output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n"
     fi
 
+    # Trim trailing whitespace including literal \n sequences
+    while [[ "$output" == *$'\n' ]] || [[ "$output" == *"\\n" ]] || [[ "$output" == *" " ]]; do
+        if [[ "$output" == *"\\n" ]]; then
+           output="${output%\\n}"
+        else
+           output="${output%?}"
+        fi
+    done
+    
+    # Add exactly one newline back (literal \n for printf %b)
+    output+="\n"
+
     output+="_Fonte: joaobidu.com.br_\n"
+    output+="\n"
 
     # Save to file if -s is used OR if _horoscopo_USE_CACHE is true and -s is not used (cache the output)
     if [[ "$SAVE_TO_FILE" = true || ("$_horoscopo_USE_CACHE" = true && "$SAVE_TO_FILE" = false) ]]; then

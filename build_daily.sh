@@ -62,6 +62,7 @@ else
 fi
 
 content_horoscopo="${content_horoscopo_body}
+
 ${footer_content}"
 
 # Restore globals
