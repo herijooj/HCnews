@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 
+
 # Source common library if not already loaded
 if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
     SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
@@ -58,13 +59,42 @@ get_date_format() {
 #https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-touro/
 function get_horoscopo {
     SIGN="$1"
-    # get the horoscope
-    HOROSCOPO=$(curl -s -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3" "https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-$SIGN/")
+    URL="https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-$SIGN/"
+    USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
+    
+    HOROSCOPO=$(curl -s -A "$USER_AGENT" "$URL")
     # extract the horoscope using the correct selector for the current website structure
-    HOROSCOPO=$(echo "$HOROSCOPO" | pup '.text-block text{}')
+    RAW_TEXT=$(echo "$HOROSCOPO" | pup '.text-block text{}')
 
-    # return the horoscope
-    echo "$HOROSCOPO"
+    # Format the text using awk
+    # sed removes non-breaking spaces (U+00A0) which cause awk regex issues
+    echo "$RAW_TEXT" | sed 's/\xc2\xa0/ /g' | awk '
+    function print_buffer() {
+        if (buffer != "") {
+            print "- " buffer
+            buffer = ""
+        }
+    }
+    {
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "");
+    }
+    length($0) == 0 { next }
+    /:$/ {
+        print_buffer()
+        print "*" $0 "*"
+        next
+    }
+    {
+        if (buffer == "") {
+            buffer = $0
+        } else {
+            buffer = buffer " " $0
+        }
+    }
+    END {
+        print_buffer()
+    }
+    '
 }
 
 function write_horoscopo {
@@ -77,7 +107,8 @@ function write_horoscopo {
     # write the horoscope to the console
     echo "$HOROSCOPO"
     echo ""
-    echo "🔸 *$FORMATTED_SIGN* $EMOJI"
+    echo "🔸 $FORMATTED_SIGN $EMOJI"
+    echo "_Fonte: joaobidu.com.br_"
     echo ""
 }
 # -------------------------------- Running locally --------------------------------
@@ -196,6 +227,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         
         output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n\n"
     fi
+
+    output+="_Fonte: joaobidu.com.br_\n"
 
     # Save to file if -s is used OR if _horoscopo_USE_CACHE is true and -s is not used (cache the output)
     if [[ "$SAVE_TO_FILE" = true || ("$_horoscopo_USE_CACHE" = true && "$SAVE_TO_FILE" = false) ]]; then
