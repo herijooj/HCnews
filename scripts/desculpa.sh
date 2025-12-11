@@ -28,7 +28,7 @@ function get_desculpa() {
         sed -n 's/^[[:space:]]*"\([^"]*\)"[[:space:],]*$/\1/p' "$desculpas_file" > "$desculpa_cache_file"
     fi
 
-    # Select random line from cache using native bash (faster than shuf)
+    # Select random line from cache
     if [[ -s "$desculpa_cache_file" ]]; then
         local excuses=()
         mapfile -t excuses < "$desculpa_cache_file" 2>/dev/null || IFS=$'\n' read -d '' -r -a excuses < "$desculpa_cache_file"

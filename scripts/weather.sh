@@ -38,7 +38,7 @@ hcnews_parse_cache_args "$@"
 _weather_USE_CACHE=$_HCNEWS_USE_CACHE
 _weather_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
-# Weather emoji lookup table (faster than case statement)
+# Weather emoji lookup table
 declare -A WEATHER_EMOJIS=(
     # Thunderstorm (200-232)
     ["200"]="⛈️" ["201"]="⛈️" ["202"]="⛈️" ["210"]="⛈️" ["211"]="⛈️" ["212"]="⛈️" 
@@ -61,7 +61,7 @@ declare -A WEATHER_EMOJIS=(
     ["801"]="🌤️" ["802"]="⛅" ["803"]="☁️" ["804"]="☁️"
 )
 
-# Day name translation lookup table (faster than case statement in loops)
+# Day name translation lookup table
 declare -A DAY_NAMES=(
     ["monday"]="Segunda-feira"
     ["tuesday"]="Terça-feira"
@@ -77,13 +77,13 @@ function get_date_format() {
     hcnews_get_date_format
 }
 
-# Get weather emoji (faster lookup from array)
+# Get weather emoji
 function get_weather_emoji() {
     local id="$1"
     echo "${WEATHER_EMOJIS[$id]:-🌡️}"
 }
 
-# Round up function (avoid spawning awk process repeatedly)
+# Round up function
 function round_up() {
     local num="$1"
     # Handle empty or non-numeric values
@@ -102,7 +102,7 @@ function get_weather() {
     local LANG="pt_br"
     local UNITS="metric"
     local NORMALIZED_CITY
-    # Bash 4.0 string manipulation (faster than tr)
+    # Bash 4.0 string manipulation
     local city_lower="${CITY,,}"
     NORMALIZED_CITY="${city_lower// /_}"
     local date_format
@@ -116,12 +116,11 @@ function get_weather() {
         return
     fi
     
-    # TWO parallel API calls (free tier doesn't have a single endpoint with all data)
-    # But we optimize by: using /dev/shm, parallel requests, and single jq parse each
+    # Parallel API calls
     local CURRENT_WEATHER_URL="https://api.openweathermap.org/data/2.5/weather?q=${CITY}&appid=${openweathermap_API_KEY}&lang=${LANG}&units=${UNITS}"
     local FORECAST_URL="https://api.openweathermap.org/data/2.5/forecast?q=${CITY}&appid=${openweathermap_API_KEY}&lang=${LANG}&units=${UNITS}"
     
-    # Use /dev/shm (RAM-backed tmpfs) for faster temp file I/O
+    # Use /dev/shm (RAM-backed tmpfs) for temp file I/O if available
     local tmp_dir="/dev/shm"
     [[ -d "$tmp_dir" && -w "$tmp_dir" ]] || tmp_dir="/tmp"
     local current_temp="${tmp_dir}/.weather_cur_$$"
@@ -157,7 +156,7 @@ function get_weather() {
     D2_DATE=$(LC_ALL=C date -d "@$((CURRENT_DATE_TS + 172800))" +"%Y-%m-%d")
     D3_DATE=$(LC_ALL=C date -d "@$((CURRENT_DATE_TS + 259200))" +"%Y-%m-%d")
     
-    # SINGLE jq call to extract current weather + process all 3 days of forecast
+    # Extract current weather + process all 3 days of forecast
     # The forecast API returns 3-hour intervals; we find min/max per day
     local ALL_DATA
     ALL_DATA=$(jq -r -n --argjson cur "$CURRENT_WEATHER" --argjson fc "$FORECAST_DATA" --arg d1 "$D1_DATE" --arg d2 "$D2_DATE" --arg d3 "$D3_DATE" '
@@ -212,7 +211,7 @@ function get_weather() {
     [[ "$SUNRISE" =~ ^[0-9]+$ ]] && SUNRISE_TIME=$(LC_ALL=C date -d "@$SUNRISE" +"%H:%M" 2>/dev/null || echo "N/A")
     [[ "$SUNSET" =~ ^[0-9]+$ ]] && SUNSET_TIME=$(LC_ALL=C date -d "@$SUNSET" +"%H:%M" 2>/dev/null || echo "N/A")
     
-    # Get emojis using lookup table (no subshells)
+    # Get emojis using lookup table
     local CONDITION_EMOJI="${WEATHER_EMOJIS[$CONDITION_ID]:-🌡️}"
     local D1_EMOJI="${WEATHER_EMOJIS[$D1_COND]:-🌡️}"
     local D2_EMOJI="${WEATHER_EMOJIS[$D2_COND]:-🌡️}"
@@ -229,7 +228,7 @@ function get_weather() {
     # Timestamp
     local CURRENT_TIME="${current_time:-$(date +"%H:%M:%S")}"
     
-    # Build output with single printf
+    # Build output
     local OUTPUT
     printf -v OUTPUT '🌦️ *Clima em %s:*
 - %s %s

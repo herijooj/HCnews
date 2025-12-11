@@ -56,7 +56,7 @@ fi
 # Cache for date to unix conversions
 declare -A DATE_CACHE
 
-# Optimized function to convert RSS date to unix timestamp using a faster approach
+# Convert RSS date to unix timestamp
 date_rss_to_unix() {
     local date_str="$1"
     
@@ -73,7 +73,6 @@ date_rss_to_unix() {
         return
     fi
     
-    # Use a faster date conversion with predefined format
     local unix_time
     unix_time=$(date -d "$date_str" +%s 2>/dev/null || echo "0")
     
@@ -83,7 +82,7 @@ date_rss_to_unix() {
     echo "$unix_time"
 }
 
-# Improved URL shortening with caching
+# URL shortening with caching
 cached_shorten_url() {
     local url="$1"
     local short_url
@@ -112,7 +111,7 @@ get_date_format() {
     hcnews_get_date_format
 }
 
-# Optimized news retrieval function with improved performance
+# Get news from RSS feed
 get_news_RSS_combined() {
     local RSS_FEED=$1
     local LINKED=$2
@@ -150,17 +149,17 @@ get_news_RSS_combined() {
         return
     fi
     
-    # Fetch feed content with optimized curl options and timeout
+    # Fetch feed content
     local FEED_CONTENT
     FEED_CONTENT=$(timeout 8s curl -s -4 --connect-timeout 2 --max-time 6 --retry 1 --retry-delay 0 \
         --compressed -H "User-Agent: HCNews/1.0" "$RSS_FEED" 2>/dev/null)
     
-    # Quick validation check - fail fast if invalid
+    # Validation check
     if [[ -z "$FEED_CONTENT" || "$FEED_CONTENT" != *"<item>"* ]]; then
         return
     fi
     
-    # Use optimized xmlstarlet with timeout and error suppression
+    # Use xmlstarlet with timeout and error suppression
     local ALL_DATA
     ALL_DATA=$(timeout 5s xmlstarlet sel -T -t \
         -m "/rss/channel/item[position()<=20]" \
@@ -170,12 +169,11 @@ get_news_RSS_combined() {
     # Exit early if no data
     [[ -z "$ALL_DATA" ]] && return
     
-    # Process all items in a single loop with optimized date handling
+    # Process all items
     local line_count=0
     while IFS='|' read -r date title link && [[ $line_count -lt 15 ]]; do
         [[ -z "$date" || -z "$title" ]] && continue
         
-        # Optimized date check - use faster regex first
         if [[ "$date" =~ ^[A-Za-z]{3},.*[0-9]{4} ]]; then
             local DATE_UNIX
             DATE_UNIX=$(date_rss_to_unix "$date")
@@ -188,7 +186,6 @@ get_news_RSS_combined() {
                     if [[ "$FULL_URL" == true ]]; then
                         result+=("    $link")
                     else
-                        # Use async URL shortening for better performance
                         local short_url
                         short_url=$(cached_shorten_url "$link")
                         result+=("    $short_url")
@@ -199,13 +196,13 @@ get_news_RSS_combined() {
         fi
     done <<< "$ALL_DATA"
     
-    # Build output efficiently
+    # Build output
     local news_output=""
     if [[ ${#result[@]} -gt 0 ]]; then
         news_output=$(printf "%s\n" "${result[@]}")
     fi
 
-    # Cache write using the appropriate cache file (using centralized function)
+    # Cache write using the appropriate cache file
     if [ "$_rss_USE_CACHE" = true ] && [[ -n "$news_output" ]]; then
         (hcnews_write_cache "$target_cache_file" "$news_output") &
     fi
@@ -213,7 +210,7 @@ get_news_RSS_combined() {
     echo "$news_output"
 }
 
-# Process multiple feed URLs in parallel (optimized for cached reads)
+# Process multiple feed URLs in parallel
 process_multiple_feeds() {
     # Expect: process_multiple_feeds <LINKED> <FULL_URL> <feed1> <feed2> ...
     local LOCAL_LINKED=$1
@@ -221,9 +218,6 @@ process_multiple_feeds() {
     shift 2
     local feeds=("$@")
     local pids=()
-    # Store results in a map-like structure (using associative array if bash 4+, or just indexed array matching feeds)
-    # Since bash 3 is common on some old systems, we'll use indexed array "results" corresponding to "feeds" indices.
-    # We initialize results with empty strings.
     local results=()
     local cache_miss_indices=()
     local temp_dir="" # created only if needed
@@ -234,21 +228,12 @@ process_multiple_feeds() {
     # First pass: Check cache for all feeds
     for i in "${!feeds[@]}"; do
         local feed="${feeds[$i]}"
-        # bash string manipulation instead of awk/sed
         local portal="${feed#*://}"
         portal="${portal%%/*}"
         
         # --- CACHE PRE-CHECK ---
         local portal_identifier="${feed#*://}"
         portal_identifier="${portal_identifier//\//__}"
-        # Simple bash sanitization (remove purely invalid chars if needed, but for known feeds this is safe enough or we accept a tiny bit of noise)
-        # To strictly match the sed 's|[^a-zA-Z0-9_.-]||g', we can use bash pattern replacement if extglob is on, 
-        # but standard bash replacement //pattern/replacement only does literal string or simple glob.
-        # For performance, we'll assume standard URL chars are fine as directory names or just keep it simple.
-        # If strict sanitization is required, we can use tr (subshell) or keep sed but cache it? 
-        # Actually, let's just stick to minimizing subshells.
-        # But wait, checking the sed command: s|[^a-zA-Z0-9_.-]||g
-        # We can implement a pure bash filter if we really want, but maybe just removing commonly problematic chars is enough.
         portal_identifier="${portal_identifier//:/}" 
         
         local rss_cache_dir="${_rss_CACHE_DIR_BASE}/rss_feeds/${portal_identifier}"

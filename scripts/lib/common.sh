@@ -52,7 +52,6 @@ export _HERIPOCH_START_TIMESTAMP
 # Centralized Cache TTL Configuration (seconds)
 # =============================================================================
 # Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
-# Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
 declare -gA HCNEWS_CACHE_TTL=(
     ["header"]=86400       # 24 hours
     ["weather"]=10800      # 3 hours

@@ -47,7 +47,6 @@ date_format=$(date +"%Y%m%d")
 # Functions ========================================================================
 
 # Background job management for parallel network operations
-# Background job management
 source "$SCRIPT_DIR/scripts/lib/jobs.sh"
 
 # Initialize background jobs system
@@ -63,6 +62,7 @@ init_jobs
 #   -t, --timing: show function execution timing information"
 #   --no-cache: disable caching for this run
 #   --force: force refresh cache for this run
+#   --full-url: use full URLs in output instead of shortened links (used for web builds)
 show_help() {
     echo "Usage: ./hcnews.sh [options]"
     echo "Options:"
@@ -73,7 +73,6 @@ show_help() {
     echo "  -t, --timing: show function execution timing information"
     echo "  --no-cache: disable caching for this run"
     echo "  --force: force refresh cache for this run"
-    echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
     echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
 }
 
@@ -174,7 +173,6 @@ function hcseguidor {
     echo ""
 }
 
-# Prepare network-heavy jobs in background (excluding RSS news)
 # Start network background jobs (excluding news which is handled separately)
 start_network_jobs() {
     start_timing "network_parallel_start"
@@ -425,7 +423,6 @@ city="Curitiba"
 
 # Reset timing data and initialize timing file for cross-subshell persistence
 reset_timing_data
-# Reset timing data and initialize timing file for cross-subshell persistence
 init_timing_file
 
 # Compute run-specific cache options
