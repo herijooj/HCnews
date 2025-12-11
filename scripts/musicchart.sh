@@ -92,7 +92,7 @@ function write_music_chart () {
   TOP_10=$(get_music_chart)
 
   # write the header
-  echo "🎵 *Top 10 (Apple Music BR)*:"
+  echo "🎵 *Top 10 Músicas*:"
   # write the formatted list
   echo "$TOP_10"
   echo "_Fonte: Apple Music_"

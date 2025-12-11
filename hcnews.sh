@@ -328,6 +328,7 @@ render_output() {
     # 16. News
     if [[ -n "$news_output" ]]; then
         echo "$news_output"
+        echo ""
     fi
 
     # 17. Desculpa
