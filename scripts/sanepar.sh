@@ -1,30 +1,20 @@
 #!/usr/bin/env bash
 
-# Cache configuration
-_sanepar_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/sanepar"
-CACHE_TTL_SECONDS=$((6 * 60 * 60)) # 6 hours - dam levels don't change frequently
-# Default cache behavior is enabled
-_sanepar_USE_CACHE=true
-# Force refresh cache
-_sanepar_FORCE_REFRESH=false
-
-# Override defaults if --no-cache or --force is passed during sourcing
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then # Check if sourced
-    _current_sourcing_args_for_sanepar=("${@}") 
-    for arg in "${_current_sourcing_args_for_sanepar[@]}"; do
-      case "$arg" in
-        --no-cache)
-          _sanepar_USE_CACHE=false
-          ;;
-        --force)
-          _sanepar_FORCE_REFRESH=true
-          ;;
-      esac
-    done
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
+    fi
 fi
 
-# Ensure cache directory exists
-[[ -d "$_sanepar_CACHE_DIR" ]] || mkdir -p "$_sanepar_CACHE_DIR"
+# Cache configuration via common
+CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["sanepar"]:-21600}
+hcnews_parse_cache_args "$@"
+_sanepar_USE_CACHE=$_HCNEWS_USE_CACHE
+_sanepar_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 # Function to get date in YYYYMMDD format
 function get_date_format() {
@@ -36,57 +26,18 @@ function get_date_format() {
     fi
 }
 
-# Function to check if cache exists and is within TTL
-function check_cache() {
-    local cache_file_path="$1"
-    if [ -f "$cache_file_path" ] && [ "$_sanepar_FORCE_REFRESH" = false ]; then
-        # Check TTL
-        local file_mod_time
-        file_mod_time=$(stat -c %Y "$cache_file_path")
-        local current_time
-        # Use cached start_time if available, otherwise fall back to date command
-        if [[ -n "$start_time" ]]; then
-            current_time="$start_time"
-        else
-            current_time=$(date +%s)
-        fi
-        if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-            # Cache exists, not forced, and within TTL
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Function to read from cache
-function read_cache() {
-    local cache_file_path="$1"
-    cat "$cache_file_path"
-}
-
-# Function to write to cache
-function write_cache() {
-    local cache_file_path="$1"
-    local content="$2"
-    local cache_dir
-    cache_dir="$(dirname "$cache_file_path")"
-    
-    # Ensure the directory exists
-    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-    
-    # Write content to cache file with proper newline interpretation
-    echo -e "$content" > "$cache_file_path"
-}
+# Custom cache functions removed in favor of common library
 
 # Function to get dam levels from Sanepar
 function get_sanepar_levels() {
     local date_format
     date_format=$(get_date_format)
-    local cache_file="${_sanepar_CACHE_DIR}/${date_format}_sanepar.cache"
+    local cache_file
+    cache_file=$(hcnews_get_cache_path "sanepar" "$date_format")
 
     # Check cache first
-    if [ "$_sanepar_USE_CACHE" = true ] && check_cache "$cache_file"; then
-        read_cache "$cache_file"
+    if [ "$_sanepar_USE_CACHE" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_sanepar_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
         return
     fi
 
@@ -151,7 +102,7 @@ function get_sanepar_levels() {
         
         # Save to cache if enabled
         if [ "$_sanepar_USE_CACHE" = true ]; then
-            write_cache "$cache_file" "$formatted_output"
+            hcnews_write_cache "$cache_file" "$formatted_output"
         fi
         
         echo -e "$formatted_output"

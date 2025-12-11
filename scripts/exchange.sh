@@ -18,8 +18,7 @@ fi
 if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
     HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
 fi
-_exchange_CACHE_DIR="${HCNEWS_CACHE_DIR}/exchange"
-[[ -d "$_exchange_CACHE_DIR" ]] || mkdir -p "$_exchange_CACHE_DIR"
+# Cache configuration - handled by common.sh
 
 # Use centralized TTL
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["exchange"]:-14400}"
@@ -221,9 +220,10 @@ check_dependencies() {
 write_exchange() {
   local date_format
   date_format=$(get_date_format)
-  local cache_file="${_exchange_CACHE_DIR}/${date_format}.exchange"
+  local cache_file
+  cache_file=$(hcnews_get_cache_path "exchange" "$date_format")
 
-  if [ "$_exchange_USE_CACHE" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_exchange_FORCE_REFRESH"; then
+  if [ "${_HCNEWS_USE_CACHE:-true}" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
     hcnews_read_cache "$cache_file"
     return
   fi
@@ -254,7 +254,7 @@ write_exchange() {
   fi
   output+="_Fonte: Banco Central do Brasil · Atualizado: ${update_time}_\\n"
 
-  if [ "$_exchange_USE_CACHE" = true ]; then
+  if [ "${_HCNEWS_USE_CACHE:-true}" = true ]; then
     hcnews_write_cache "$cache_file" "$(echo -e "$output")"
   fi
   

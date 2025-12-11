@@ -1,12 +1,20 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# Cache configuration
-_horoscopo_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/news"
-CACHE_TTL_SECONDS=$((23 * 60 * 60)) # 23 hours
-# Default cache behavior is enabled
-_horoscopo_USE_CACHE=true
-# Force refresh cache
-_horoscopo_FORCE_REFRESH=false
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
+    fi
+fi
+
+# Cache configuration via common
+CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["horoscopo"]:-82800} # 23 hours
+hcnews_parse_cache_args "$@"
+_horoscopo_USE_CACHE=$_HCNEWS_USE_CACHE
+_horoscopo_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 function sign_to_emoji {
     declare -A EMOJIS=(
@@ -28,56 +36,12 @@ function format_sign_name {
 }
 
 # Function to get today's date in YYYYMMDD format
+# Function to get today's date in YYYYMMDD format
 get_date_format() {
-    # Use cached date_format if available, otherwise fall back to date command
-    if [[ -n "$date_format" ]]; then
-        echo "$date_format"
-    else
-        date +"%Y%m%d"
-    fi
+    hcnews_get_date_format
 }
 
-# Function to check if cache exists and is from today and within TTL
-check_cache() {
-    local cache_file_path="$1"
-    if [ -f "$cache_file_path" ] && [ "$_horoscopo_FORCE_REFRESH" = false ]; then
-        # Check TTL
-        local file_mod_time
-        file_mod_time=$(stat -c %Y "$cache_file_path")
-        local current_time
-        # Use cached start_time if available, otherwise fall back to date command
-        if [[ -n "$start_time" ]]; then
-            current_time="$start_time"
-        else
-            current_time=$(date +%s)
-        fi
-        if (( (current_time - file_mod_time) < CACHE_TTL_SECONDS )); then
-            # Cache exists, not forced, and within TTL
-            return 0
-        fi
-    fi
-    return 1
-}
-
-# Function to read from cache
-read_cache() {
-    local cache_file_path="$1"
-    cat "$cache_file_path"
-}
-
-# Function to write to cache
-write_cache() {
-    local cache_file_path="$1"
-    local content="$2"
-    local cache_dir
-    cache_dir="$(dirname "$cache_file_path")"
-    
-    # Ensure the directory exists
-    [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
-    
-    # Write content to cache file
-    printf "%b" "$content" > "$cache_file_path"
-}
+# Removed custom check_cache, read_cache, write_cache in favor of common functions
 
 # this function retrieves the horoscope from the website
 #https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-aries/
@@ -177,15 +141,26 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     get_arguments "$@"
     
     date_format=$(get_date_format)
-    cache_file_name="${date_format}.hrcp"
-    cache_file_path="${_horoscopo_CACHE_DIR}/${cache_file_name}"
+    # Determine cache file path using standardized function
+    # Note: If -s is provided, we might be writing to a specific file, but script logic below suggests
+    # it uses the cache location?
+    # Original used: cache_file_path="${_horoscopo_CACHE_DIR}/${cache_file_name}" in data/news
+    # We will mostly rely on standard path unless specific override needed
+    # But this script supports calculating for ALL signs if no sign provided.
+    # If no sign provided, where do we cache?
+    
+    # If no sign is provided, the original script didn't seem to cache the combined output deeply?
+    # Ah, it set "cache_file_name" to just DATE.hrcp.
+    # So if SIGN is empty, variant is empty.
+    
+    cache_file_path=$(hcnews_get_cache_path "horoscopo" "$date_format" "$SIGN")
 
     # If -s is not used, but we want to cache, set a default filename for caching
     effective_cache_file_path="$cache_file_path"
 
     # Check cache if _horoscopo_USE_CACHE is true (regardless of -s)
-    if [[ "$_horoscopo_USE_CACHE" = true ]] && check_cache "$effective_cache_file_path"; then
-        output=$(read_cache "$effective_cache_file_path")
+    if [[ "$_horoscopo_USE_CACHE" = true ]] && hcnews_check_cache "$effective_cache_file_path" "$CACHE_TTL_SECONDS" "$_horoscopo_FORCE_REFRESH"; then
+        output=$(hcnews_read_cache "$effective_cache_file_path")
         if [[ "$SAVE_TO_FILE" = true ]]; then
              echo "✅ Output is already cached. Use -f to force refresh."
         fi
@@ -218,7 +193,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
     # Save to file if -s is used OR if _horoscopo_USE_CACHE is true and -s is not used (cache the output)
     if [[ "$SAVE_TO_FILE" = true || ("$_horoscopo_USE_CACHE" = true && "$SAVE_TO_FILE" = false) ]]; then
-        write_cache "$effective_cache_file_path" "$output"
+        hcnews_write_cache "$effective_cache_file_path" "$output"
         if [[ "$SAVE_TO_FILE" = true ]]; then
             echo "✅ Saved to $effective_cache_file_path"
         fi

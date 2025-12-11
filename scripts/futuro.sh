@@ -26,11 +26,7 @@ if [[ -z "${MAX_OUTPUT_TOKENS:-}" ]]; then
 fi
 
 # Use centralized cache directory from common.sh
-if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
-    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
-fi
-_futuro_CACHE_DIR="${HCNEWS_CACHE_DIR}/futuro"
-[[ -d "$_futuro_CACHE_DIR" ]] || mkdir -p "$_futuro_CACHE_DIR"
+# Cache configuration - handled by common.sh
 
 # Use centralized TTL
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["futuro"]:-86400}"
@@ -66,9 +62,10 @@ function get_ai_fortune() {
     else
         date_format_local=$(date +"%Y%m%d")
     fi
-    local cache_file="${_futuro_CACHE_DIR}/${date_format_local}_fortune.cache"
+    local cache_file
+    cache_file=$(hcnews_get_cache_path "futuro" "$date_format_local")
 
-    if [[ "$_futuro_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_futuro_FORCE_REFRESH"; then
+    if [[ "${_HCNEWS_USE_CACHE:-true}" == true ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
         hcnews_read_cache "$cache_file"
         return 0
     fi
@@ -209,7 +206,7 @@ function get_ai_fortune() {
     fi
 
     # Output raw fortune text if successful
-    if [[ "$_futuro_USE_CACHE" == true ]]; then
+    if [[ "${_HCNEWS_USE_CACHE:-true}" == true ]]; then
         hcnews_write_cache "$cache_file" "$fortune_raw"
     fi
     echo "$fortune_raw"
@@ -223,7 +220,7 @@ function write_ai_fortune() {
     local fortune_raw fortune_clean
 
     # Get the fortune text; capture stdout, check return status
-    fortune_raw=$(get_ai_fortune)
+    fortune_raw=$(get_ai_fortune 2>/dev/null)
     local get_status=$?
 
     # If getting the fortune failed, display funny error message in Portuguese

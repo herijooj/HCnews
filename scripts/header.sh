@@ -1,12 +1,15 @@
 #!/usr/bin/env bash
 # Optimized directory resolution
 HEADER_DIR="${BASH_SOURCE[0]%/*}"
-# Define cache directory relative to this script's location
-# HEADER_DIR is .../scripts (or relative path), so we handle relative path for parent
-if [[ "$HEADER_DIR" == "." ]]; then
-    _header_CACHE_DIR="../Data/cache/header"
-else
-    _header_CACHE_DIR="$HEADER_DIR/../data/cache/header"
+HEADER_DIR="${BASH_SOURCE[0]%/*}"
+
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    if [[ -f "$HEADER_DIR/lib/common.sh" ]]; then
+        source "$HEADER_DIR/lib/common.sh"
+    elif [[ -f "$(dirname "$HEADER_DIR")/lib/common.sh" ]]; then
+        source "$(dirname "$HEADER_DIR")/lib/common.sh"
+    fi
 fi
 
 # Returns the current date in a pretty format.

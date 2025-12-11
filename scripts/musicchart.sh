@@ -11,15 +11,7 @@ if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
 fi
 
 # Cache configuration
-# Use global cache dir from common.sh if available
-if [[ -n "${HCNEWS_CACHE_DIR:-}" ]]; then
-    _musicchart_CACHE_BASE_DIR="${HCNEWS_CACHE_DIR}/musicchart"
-else
-    _musicchart_CACHE_BASE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache/musicchart"
-fi
-
-# Ensure the cache directory exists
-[[ -d "$_musicchart_CACHE_BASE_DIR" ]] || mkdir -p "$_musicchart_CACHE_BASE_DIR"
+# Cache directory handled by common
 
 # Settings
 CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["musicchart"]:-43200} # 12 hours
@@ -46,12 +38,13 @@ get_music_date_format() {
 function get_music_chart () {
   local date_string
   date_string=$(get_music_date_format)
-  local cache_file="${_musicchart_CACHE_BASE_DIR}/${date_string}.musicchart"
+  local cache_file
+  cache_file=$(hcnews_get_cache_path "musicchart" "$date_string")
   
   # Check if we have a recent output cache
-  if [[ "$_musicchart_USE_CACHE" == "true" ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_musicchart_FORCE_REFRESH"; then
+  if [[ "${_HCNEWS_USE_CACHE:-true}" == "true" ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
     hcnews_read_cache "$cache_file"
-    return
+    return 0
   fi
   
   # Fetch from Apple Music RSS (Brazil)

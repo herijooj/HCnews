@@ -1,25 +1,13 @@
 #!/usr/bin/env bash
 
-QUOTE_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-# Define cache directory relative to this script's location
-_quote_CACHE_DIR="$(dirname "$QUOTE_DIR")/data/cache/quote"
-
-# Default cache behavior
-_quote_USE_CACHE=true
-_quote_FORCE_REFRESH=false
-
-# Parse arguments when sourced (like other scripts)
-if [[ "${BASH_SOURCE[0]}" != "${0}" ]]; then
-    for arg in "$@"; do
-        case "$arg" in
-            --no-cache)
-                _quote_USE_CACHE=false
-                ;;
-            --force)
-                _quote_FORCE_REFRESH=true
-                ;;
-        esac
-    done
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
+    fi
 fi
 
 # Returns the quote of the day.
@@ -28,8 +16,11 @@ fi
 # Usage: quote
 # Example output: "The best way to predict the future is to invent it." - Alan Kay
 function quote {
-    local use_cache=$_quote_USE_CACHE
-    local force_refresh=$_quote_FORCE_REFRESH
+    # Check for global flags via common helper
+    hcnews_parse_cache_args "$@"
+    local use_cache=$_HCNEWS_USE_CACHE
+    local force_refresh=$_HCNEWS_FORCE_REFRESH
+    local ttl=${HCNEWS_CACHE_TTL["quote"]:-86400}
 
     local date_format_local
     # Use cached date_format if available, otherwise fall back to date command
@@ -39,13 +30,12 @@ function quote {
         date_format_local=$(date +"%Y%m%d")
     fi
     
-    # Ensure the cache directory exists
-    [[ -d "$_quote_CACHE_DIR" ]] || mkdir -p "$_quote_CACHE_DIR"
-    local cache_file="${_quote_CACHE_DIR}/${date_format_local}_quote.cache"
+    local cache_file
+    cache_file=$(hcnews_get_cache_path "quote" "$date_format_local")
 
-    # Check cache first (unless force refresh is requested)
-    if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then
-        cat "$cache_file"
+    # Check cache first
+    if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
+        hcnews_read_cache "$cache_file"
         return 0
     fi
 
@@ -71,7 +61,7 @@ function quote {
 
     # Save to cache if caching is enabled
     if [[ "$use_cache" == true ]]; then
-        echo -e "$output" > "$cache_file"
+        hcnews_write_cache "$cache_file" "$(echo -e "$output")"
     fi
 
     # return the quote
@@ -103,11 +93,11 @@ get_arguments() {
         exit 0
         ;;
       --no-cache)
-        _quote_USE_CACHE=false
+        _HCNEWS_USE_CACHE=false
         shift
         ;;
       --force)
-        _quote_FORCE_REFRESH=true
+        _HCNEWS_FORCE_REFRESH=true
         shift
         ;;
       *)

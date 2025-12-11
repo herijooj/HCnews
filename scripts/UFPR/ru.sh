@@ -56,9 +56,7 @@ hcnews_parse_cache_args "$@"
 [[ "${_HCNEWS_USE_CACHE}" == "false" ]] && _ru_USE_CACHE=false
 [[ "${_HCNEWS_FORCE_REFRESH}" == "true" ]] && _ru_FORCE_REFRESH=true
 
-# Resolve cache directory relative to common logic
-CACHE_DIR="${HCNEWS_CACHE_DIR}/ru"
-[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
+# Resolve cache directory relative to common logic - handled by get_cache_path
 
 function list_locations() {
     echo "Available RU locations:"
@@ -92,10 +90,11 @@ function get_menu () {
     local location="$1"
     local date_string
     date_string=$(hcnews_get_date_format)
-    local cache_file="${CACHE_DIR}/${date_string}_${location}.ru"
+    local cache_file
+    cache_file=$(hcnews_get_cache_path "ru" "$date_string" "$location")
     
     # Check cache
-    if [[ "$_ru_USE_CACHE" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "$_ru_FORCE_REFRESH"; then
+    if [[ "${_HCNEWS_USE_CACHE:-true}" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "${_HCNEWS_FORCE_REFRESH:-false}"; then
         hcnews_read_cache "$cache_file"
         return
     fi

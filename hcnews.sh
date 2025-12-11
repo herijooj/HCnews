@@ -432,9 +432,11 @@ init_timing_file
 cache_options=""
 if [[ "$hc_no_cache" == true ]]; then
     cache_options+=" --no-cache"
+    export _HCNEWS_USE_CACHE=false
 fi
 if [[ "$hc_force_refresh" == true ]]; then
     cache_options+=" --force"
+    export _HCNEWS_FORCE_REFRESH=true
 fi
 
 # RSS feed globals

@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 
-BICHO_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-# Define cache directory relative to this script's location
-_bicho_CACHE_DIR="$(dirname "$BICHO_DIR")/data/cache/bicho"
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
+    fi
+fi
 
 # Return the guess of the jogo do bicho of the day.
 # we retrieve the guess from the website https://www.ojogodobicho.com/palpite.htm
@@ -10,13 +16,11 @@ function get_bicho_data {
   local use_cache=true
   local force_refresh=false
 
-  # Check for global flags from hcnews.sh if this script is sourced
-  if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
-    use_cache=false
-  fi
-  if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
-    force_refresh=true
-  fi
+  # Check for global flags via common helper
+  hcnews_parse_cache_args "$@"
+  local use_cache=$_HCNEWS_USE_CACHE
+  local force_refresh=$_HCNEWS_FORCE_REFRESH
+  local ttl=${HCNEWS_CACHE_TTL["bicho"]:-86400}
 
   local date_format_local
   # Use cached date_format if available, otherwise fall back to date command
@@ -26,13 +30,12 @@ function get_bicho_data {
     date_format_local=$(date +"%Y%m%d")
   fi
   
-  # Ensure the cache directory exists
-  [[ -d "$_bicho_CACHE_DIR" ]] || mkdir -p "$_bicho_CACHE_DIR"
-  local cache_file="${_bicho_CACHE_DIR}/${date_format_local}_bicho.cache"
-
-  # Check cache first (unless force refresh is requested)
-  if [[ "$use_cache" == true && "$force_refresh" == false && -f "$cache_file" ]]; then
-    cat "$cache_file"
+  local cache_file
+  cache_file=$(hcnews_get_cache_path "bicho" "$date_format_local")
+  
+  # Check cache using common function
+  if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
+    hcnews_read_cache "$cache_file"
     return 0
   fi
 
@@ -44,7 +47,7 @@ function get_bicho_data {
 
   # Save to cache if caching is enabled
   if [[ "$use_cache" == true && -n "$bicho_data" ]]; then
-    echo "$bicho_data" > "$cache_file"
+    hcnews_write_cache "$cache_file" "$bicho_data"
   fi
 
   echo "$bicho_data"
@@ -163,6 +166,14 @@ get_arguments() {
     -h|--help)
     show_help
     exit 0
+    ;;
+    --no-cache)
+    _HCNEWS_USE_CACHE=false
+    shift
+    ;;
+    --force)
+    _HCNEWS_FORCE_REFRESH=true
+    shift
     ;;
     *)
     echo "Invalid argument: $1"

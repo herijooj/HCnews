@@ -26,6 +26,11 @@ if [[ -z "${HCNEWS_DATA_DIR:-}" ]]; then
 fi
 export HCNEWS_DATA_DIR
 
+if [[ -z "${HCNEWS_NEWS_DIR:-}" ]]; then
+    HCNEWS_NEWS_DIR="${HCNEWS_DATA_DIR}/news"
+fi
+export HCNEWS_NEWS_DIR
+
 if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
     HCNEWS_CACHE_DIR="${HCNEWS_DATA_DIR}/cache"
 fi
@@ -47,7 +52,9 @@ export _HERIPOCH_START_TIMESTAMP
 # Centralized Cache TTL Configuration (seconds)
 # =============================================================================
 # Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
+# Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
 declare -gA HCNEWS_CACHE_TTL=(
+    ["header"]=86400       # 24 hours
     ["weather"]=10800      # 3 hours
     ["exchange"]=14400     # 4 hours
     ["saints"]=82800       # 23 hours
@@ -59,6 +66,10 @@ declare -gA HCNEWS_CACHE_TTL=(
     ["didyouknow"]=86400   # 24 hours
     ["futuro"]=86400       # 24 hours
     ["ru"]=43200           # 12 hours
+    ["horoscopo"]=82800    # 23 hours
+    ["sanepar"]=21600      # 6 hours
+    ["holidays"]=604800    # 1 week (rarely changes)
+    ["states"]=604800      # 1 week (rarely changes)
 )
 
 # Helper to get script directory with fallback (avoids realpath if possible)
@@ -183,7 +194,89 @@ hcnews_write_cache() {
     [[ -d "$cache_dir" ]] || mkdir -p "$cache_dir"
     
     # Write content
+    # Use printf for safer writing of arbitrary strings (vs echo)
+    # But if content contains % it might cause issues if not escaped properly in the format string.
+    # Safe way: printf '%s' "$content"
     printf '%s' "$content" > "$cache_file_path"
+}
+
+# Get the standard cache path for a component and date
+# Usage: path=$(hcnews_get_cache_path "component_name" ["date_string"] ["variant"])
+hcnews_get_cache_path() {
+    local component="$1"
+    local date_str="$2"
+    local variant="$3"
+    
+    # Default date if not provided
+    if [[ -z "$date_str" ]]; then
+        date_str=$(hcnews_get_date_format)
+    fi
+    
+    local base_dir="${HCNEWS_CACHE_DIR}/${component}"
+    local filename
+    
+    # Handle specific exceptions or variants
+    case "$component" in
+        "header")
+            # Legacy/Specific: header usually doesn't have a date in filename in some contexts? 
+            # Actually header.sh doesn't cache the *output* currently, it caches date calcs which are now in memory.
+            # But if we were to cache output:
+            filename="${date_str}_header.cache"
+            ;;
+        "ru")
+            # Variant is location (e.g., politecnico)
+            if [[ -z "$variant" ]]; then variant="politecnico"; fi
+            filename="${date_str}_${variant}.ru"
+            ;;
+        "weather")
+             # Variant is city (normalized)
+            local city_norm="${variant// /_}"
+            [[ -z "$city_norm" ]] && city_norm="Curitiba"
+            city_norm="${city_norm,,}" # lowercase
+            filename="${date_str}_${city_norm}.weather"
+            ;;
+        "rss")
+             # RSS uses subfolders for feeds, handled by rss.sh specifically usually.
+             # But if centralized: variant could be portal_identifier
+             if [[ -n "$variant" ]]; then
+                 base_dir="${HCNEWS_CACHE_DIR}/rss/rss_feeds/${variant}"
+                 filename="${date_str}.news"
+             else
+                 # Fallback or base rss logic
+                 filename="${date_str}_rss.cache"
+             fi
+             ;;
+        "horoscopo")
+            # Uses news dir? Let's standardize to cache dir.
+            # Variant is sign (e.g., aries)
+            # If variant is empty, it might be the full list?
+            if [[ -n "$variant" ]]; then
+                filename="${date_str}_${variant}.hrcp"
+            else
+                filename="${date_str}.hrcp"
+            fi
+            ;;
+        "sanepar")
+             filename="${date_str}_sanepar.cache"
+             ;;
+        "moonphase")
+             # Legacy might have used 'header' dir? We standardize to 'moonphase' dir.
+             filename="${date_str}_moon_phase.cache"
+             ;;
+        "musicchart")
+             filename="${date_str}.musicchart"
+             ;;
+        *)
+            # Default generic format: YYYYMMDD_component.cache
+            if [[ -n "$variant" ]]; then
+                filename="${date_str}_${component}_${variant}.cache"
+            else
+                filename="${date_str}_${component}.cache"
+            fi
+            ;;
+    esac
+    
+    echo "${base_dir}/${filename}"
 }
 
 # =============================================================================
@@ -221,8 +314,14 @@ hcnews_decode_html_entities() {
 # Sets _HCNEWS_USE_CACHE and _HCNEWS_FORCE_REFRESH
 # Usage: hcnews_parse_cache_args "$@"
 hcnews_parse_cache_args() {
-    _HCNEWS_USE_CACHE=true
-    _HCNEWS_FORCE_REFRESH=false
+    # Default to true via env var if set, else true
+    if [[ -z "${_HCNEWS_USE_CACHE:-}" ]]; then
+        _HCNEWS_USE_CACHE=true
+    fi
+    # Default to false via env var if set, else false
+    if [[ -z "${_HCNEWS_FORCE_REFRESH:-}" ]]; then
+        _HCNEWS_FORCE_REFRESH=false
+    fi
     
     for arg in "$@"; do
         case "$arg" in

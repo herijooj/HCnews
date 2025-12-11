@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # Source tokens.sh if it exists, to load API keys locally.
 # In CI/CD, secrets are passed as environment variables.
@@ -27,9 +27,8 @@ if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
     HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
 fi
 
-CACHE_DIR="${HCNEWS_CACHE_DIR}/weather"
-# Ensure the cache directory exists (should be handled by Init but good for standalone)
-[[ -d "$CACHE_DIR" ]] || mkdir -p "$CACHE_DIR"
+# Use centralized cache directory via common.sh
+# Directory creation is handled by hcnews_get_cache_path/hcnews_write_cache
 
 # Use centralized TTL
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["weather"]:-10800}"
@@ -108,10 +107,11 @@ function get_weather() {
     NORMALIZED_CITY="${city_lower// /_}"
     local date_format
     date_format=$(get_date_format)
-    local cache_file="${CACHE_DIR}/${date_format}_${NORMALIZED_CITY}.weather"
+    local cache_file
+    cache_file=$(hcnews_get_cache_path "weather" "$date_format" "$CITY")
     
     # Check if cache exists and should be used
-    if [ "$_weather_USE_CACHE" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_weather_FORCE_REFRESH"; then
+    if [ "${_HCNEWS_USE_CACHE:-true}" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
         hcnews_read_cache "$cache_file"
         return
     fi

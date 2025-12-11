@@ -7,20 +7,25 @@ decode_html_entities() {
   printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
 }
 
-_didyouknow_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-_didyouknow_CACHE_DIR="$(dirname "$_didyouknow_SCRIPT_DIR")/data/cache/didyouknow"
+# Source common library if not already loaded
+if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
+    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
+    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
+        source "$SCRIPT_DIR/lib/common.sh"
+    elif [[ -f "scripts/lib/common.sh" ]]; then
+        source "scripts/lib/common.sh"
+    fi
+fi
 
 function get_didyouknow() {
     local local_use_cache=true
     local local_force_refresh=false
 
-    # Check for global flags from hcnews.sh if this script is sourced
-    if [[ -n "${hc_no_cache+x}" && "$hc_no_cache" == true ]]; then
-        local_use_cache=false
-    fi
-    if [[ -n "${hc_force_refresh+x}" && "$hc_force_refresh" == true ]]; then
-        local_force_refresh=true
-    fi
+    # Check for global flags via common helper
+    hcnews_parse_cache_args "$@"
+    local local_use_cache=$_HCNEWS_USE_CACHE
+    local local_force_refresh=$_HCNEWS_FORCE_REFRESH
+    local ttl=${HCNEWS_CACHE_TTL["didyouknow"]:-86400}
 
     local date_format_local
     # Use cached date_format if available, otherwise fall back to date command
@@ -29,11 +34,11 @@ function get_didyouknow() {
     else
         date_format_local=$(date +"%Y%m%d")
     fi
-    [[ -d "$_didyouknow_CACHE_DIR" ]] || mkdir -p "$_didyouknow_CACHE_DIR" # Ensure cache directory exists
-    local cache_file="${_didyouknow_CACHE_DIR}/${date_format_local}_didyouknow.cache"
-
-    if [[ "$local_use_cache" == true && "$local_force_refresh" == false && -f "$cache_file" ]]; then
-        cat "$cache_file"
+    local cache_file
+    cache_file=$(hcnews_get_cache_path "didyouknow" "$date_format_local")
+    
+    if [[ "$local_use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$local_force_refresh"; then
+        hcnews_read_cache "$cache_file"
         return 0
     fi
 
@@ -58,7 +63,7 @@ function get_didyouknow() {
     FACT=$(decode_html_entities "$FACT")
 
     if [[ "$local_use_cache" == true && -n "$FACT" ]]; then
-        echo "$FACT" > "$cache_file"
+        hcnews_write_cache "$cache_file" "$FACT"
     fi
 
     # return the fact
@@ -98,7 +103,16 @@ get_arguments() {
         show_help
         exit 0
         ;;
+      --no-cache)
+        _HCNEWS_USE_CACHE=false
+        shift
+        ;;
+      --force)
+        _HCNEWS_FORCE_REFRESH=true
+        shift
+        ;;
       *)
+        echo "Invalid argument: $1"
         show_help
         exit 1
         ;;
