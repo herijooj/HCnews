@@ -28,7 +28,7 @@ get_date_format() {
 # This function prints the name(s) and the description of the saint(s).
 get_saints_of_the_day_verbose () {
     local date_format
-    hcnews_set_date_format date_format
+    date_format=$(get_date_format)
     local cache_file="${_saints_CACHE_DIR}/${date_format}_saints-verbose.txt"
 
     # Check if we have cached data
@@ -40,8 +40,8 @@ get_saints_of_the_day_verbose () {
     # Get the current month and day using cached values
     local month_local
     local day_local
-    hcnews_set_month month_local
-    hcnews_set_day day_local
+    month_local=$(hcnews_get_month)
+    day_local=$(hcnews_get_day)
 
     # Get the URL
     local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"
@@ -90,7 +90,7 @@ get_saints_of_the_day_verbose () {
 # This function only prints the name of the saint(s).
 get_saints_of_the_day () {
     local date_format
-    hcnews_set_date_format date_format
+    date_format=$(get_date_format)
     local cache_file="${_saints_CACHE_DIR}/${date_format}_saints-regular.txt"
 
     # Check if we have cached data
@@ -120,8 +120,8 @@ get_saints_of_the_day () {
     # Get the current month and day using cached values
     local month_local
     local day_local
-    hcnews_set_month month_local
-    hcnews_set_day day_local
+    month_local=$(hcnews_get_month)
+    day_local=$(hcnews_get_day)
 
     # Get the URL
     local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"

@@ -20,7 +20,7 @@ function quote {
     if [[ -n "$date_format" ]]; then
         date_format_local="$date_format"
     else
-        hcnews_set_date_format date_format_local
+        date_format_local=$(date +"%Y%m%d")
     fi
     
     local cache_file

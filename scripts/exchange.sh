@@ -39,9 +39,9 @@ log_message() {
 }
 
 # Function to get today's date in YYYYMMDD format
-# get_date_format() {
-#   hcnews_get_date_format
-# }
+get_date_format() {
+  hcnews_get_date_format
+}
 
 # Function to get exchange rates from the Brazilian Central Bank
 get_exchange_BC() {
@@ -219,8 +219,7 @@ check_dependencies() {
 # Write complete exchange rate information
 write_exchange() {
   local date_format
-  local date_format
-  hcnews_set_date_format date_format
+  date_format=$(get_date_format)
   local cache_file
   hcnews_set_cache_path cache_file "exchange" "$date_format"
 
@@ -230,21 +229,21 @@ write_exchange() {
   fi
 
   local output=""
-  output+="📈 *Cotação do Dia:*\\n"
+  output+="📈 *Cotação do Dia:"$'\n'
   
   if ! check_dependencies; then
     output+="- *Erro na configuração ou dependências ausentes. Verifique os logs.*"
-    echo -e "$output"
+    echo "$output"
     return 1
   fi
   
   # Capture BC output
   bc_output=$(get_exchange_BC)
-  output+="$bc_output\\n"
+  output+="$bc_output"$'\n'
   
   # Capture CMC output (if you re-enable it)
   # cmc_output=$(generate_exchange_CMC) # This function prints directly, adjust if needed
-  # output+="$cmc_output\\n" 
+  # output+="$cmc_output"$'\n'
 
   # Use cached current_time if available (format: HH:MM:SS), otherwise fall back to date
   local update_time
@@ -253,16 +252,13 @@ write_exchange() {
   else
     update_time=$(date +%H:%M:%S)
   fi
-  output+="_Fonte: Banco Central do Brasil · Atualizado: ${update_time}_\\n"
+  output+="_Fonte: Banco Central do Brasil · Atualizado: ${update_time}_"
 
   if [ "${_HCNEWS_USE_CACHE:-true}" = true ]; then
-    hcnews_write_cache "$cache_file" "$(echo -e "$output")"
+    hcnews_write_cache "$cache_file" "$output"
   fi
   
-  # Print output without adding an extra newline
-  # Remove trailing backslash and rely on echo -e to handle newlines in $output
-  output="${output%\\}"
-  echo -e "$output"
+  echo "$output"
 }
 
 # Help function

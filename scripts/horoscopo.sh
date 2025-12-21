@@ -159,10 +159,7 @@ get_arguments () {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     get_arguments "$@"
     
-    # get_date_format is a local wrapper around hcnews_get_date_format which is now slow wrapper
-    # Let's use the optimized set function directly
-    hcnews_set_date_format date_format
-    
+    date_format=$(get_date_format)
     # Determine cache file path using standardized function
     # Note: If -s is provided, we might be writing to a specific file, but script logic below suggests
     # it uses the cache location?
@@ -176,7 +173,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     
     cache_name="horoscopo"
     
-    hcnews_set_cache_path cache_file_path "$cache_name" "$date_format" "$SIGN"
+    cache_file_path=$(hcnews_get_cache_path "$cache_name" "$date_format" "$SIGN")
 
     # If -s is not used, but we want to cache, set a default filename for caching
     effective_cache_file_path="$cache_file_path"
