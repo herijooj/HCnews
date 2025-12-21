@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Source common library if not already loaded
-[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/../lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # Define available RU locations
 declare -A RU_LOCATIONS=(
@@ -286,12 +286,15 @@ help () {
 # Main script execution
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     # Process arguments checks
+    # Process arguments checks
+    hcnews_parse_args "$@"
+    _ru_USE_CACHE=$_HCNEWS_USE_CACHE
+    _ru_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+    
+    set -- "${_HCNEWS_REMAINING_ARGS[@]}"
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                help
-                exit 0
-                ;;
             -l|--list)
                 list_locations
                 exit 0
@@ -312,14 +315,6 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
                 ;;
             -t|--today)
                 SHOW_ONLY_TODAY=true
-                ;;
-            -n|--no-cache)
-                _ru_USE_CACHE=false
-                _HCNEWS_USE_CACHE=false
-                ;;
-            -f|--force)
-                _ru_FORCE_REFRESH=true
-                _HCNEWS_FORCE_REFRESH=true
                 ;;
         esac
         shift

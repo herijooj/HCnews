@@ -80,35 +80,8 @@ show_help() {
   echo "  -h, --help: show the help"
 }
 
-# this function will receive the arguments
-get_arguments() {
-  # Get the arguments
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h|--help)
-        show_help
-        exit 0
-        ;;
-      --no-cache)
-        _HCNEWS_USE_CACHE=false
-        shift
-        ;;
-      --force)
-        _HCNEWS_FORCE_REFRESH=true
-        shift
-        ;;
-      *)
-        echo "Invalid argument: $1"
-        show_help
-        exit 1
-        ;;
-    esac
-    shift
-  done
-}
-
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    get_arguments "$@"
+    hcnews_parse_args "$@"
     echo 
     write_did_you_know
 fi

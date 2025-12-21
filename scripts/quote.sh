@@ -76,34 +76,8 @@ show_help() {
   echo "  --force: force refresh cache"
 }
 
-# this function will receive the arguments
-get_arguments() {
-  # Get the arguments
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h|--help)
-        show_help
-        exit 0
-        ;;
-      --no-cache)
-        _HCNEWS_USE_CACHE=false
-        shift
-        ;;
-      --force)
-        _HCNEWS_FORCE_REFRESH=true
-        shift
-        ;;
-      *)
-        echo "Invalid argument: $1"
-        show_help
-        exit 1
-        ;;
-    esac
-  done
-}
-
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   # run the script
-  get_arguments "$@"
+  hcnews_parse_args "$@"
   quote
 fi

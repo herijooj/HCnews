@@ -47,8 +47,6 @@ function moon_phase () {
 
 # help function
 # Usage: ./moonphase.sh [options]
-# Options:
-#   -h, --help: show the help
 show_help() {
   echo "Usage: ./moonphase.sh [options]"
   echo "The moon phase will be printed to the console."
@@ -56,34 +54,8 @@ show_help() {
   echo "  -h, --help: show the help"
 }
 
-# this function will receive the arguments
-get_arguments() {
-  # Get the arguments
-  while [[ $# -gt 0 ]]; do
-    case "$1" in
-      -h|--help)
-        show_help
-        exit 0
-        ;;
-      --no-cache)
-        _HCNEWS_USE_CACHE=false
-        shift
-        ;;
-      --force)
-        _HCNEWS_FORCE_REFRESH=true
-        shift
-        ;;
-      *)
-        echo "Invalid argument: $1"
-        show_help
-        exit 1
-        ;;
-    esac
-  done
-}
-
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   # run the script
-  get_arguments "$@"
+  hcnews_parse_args "$@"
   moon_phase
 fi

@@ -132,32 +132,27 @@ save_to_file() {
 }
 
 # this function will receive the arguments
+# this function will receive the arguments
 get_arguments () {
     SAVE_TO_FILE=false
-    # Get the arguments
+    
+    # Use unified argument parser
+    hcnews_parse_args "$@"
+    _horoscopo_USE_CACHE=$_HCNEWS_USE_CACHE
+    _horoscopo_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+    
+    # Process remaining arguments
+    set -- "${_HCNEWS_REMAINING_ARGS[@]}"
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                help
-                exit 0
-                ;;
             -s|--save)
                 SAVE_TO_FILE=true
-                shift
-                ;;
-            -n|--no-cache)
-                _horoscopo_USE_CACHE=false
-                shift
-                ;;
-            -f|--force)
-                _horoscopo_FORCE_REFRESH=true
-                shift
                 ;;
             *)
                 SIGN="$1"
-                shift
                 ;;
         esac
+        shift
     done
 }
 

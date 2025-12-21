@@ -186,24 +186,15 @@ get_arguments() {
     # Define variables
     saints_verbose=false
 
-    # Get the arguments
+    # Use unified argument parser
+    hcnews_parse_args "$@"
+    
+    # Process remaining arguments
+    set -- "${_HCNEWS_REMAINING_ARGS[@]}"
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                show_help
-                exit 0
-                ;;
             -v|--verbose)
                 saints_verbose=true
-                shift
-                ;;
-            -n|--no-cache)
-                _saints_USE_CACHE=false
-                shift
-                ;;
-            -f|--force)
-                _saints_FORCE_REFRESH=true
-                shift
                 ;;
             *)
                 echo "Invalid argument: $1"
@@ -211,6 +202,7 @@ get_arguments() {
                 exit 1
                 ;;
         esac
+        shift
     done
 }
 

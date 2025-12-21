@@ -14,29 +14,16 @@ if [[ -z "$(type -t hcnews_log)" ]]; then
     source "$_local_script_dir/lib/common.sh"
 fi
 
-# Check for telegram flag
-FOR_TELEGRAM=false
-if [[ "$@" == *"--telegram"* ]]; then
-    FOR_TELEGRAM=true
-    # Remove the --telegram flag from arguments
-    set -- "${@/--telegram/}"
-fi
-
-# Use centralized cache directory if available
-if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
-    HCNEWS_CACHE_DIR="$(dirname "$(dirname "${BASH_SOURCE[0]}")")/data/cache"
-fi
-
-# Use centralized cache directory via common.sh
-# Directory creation is handled by hcnews_get_cache_path/hcnews_write_cache
+# Standard argument parsing
+hcnews_parse_args "$@"
+FOR_TELEGRAM=$_HCNEWS_TELEGRAM
+_weather_USE_CACHE=$_HCNEWS_USE_CACHE
+_weather_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+# Shift to remaining arguments for city name
+set -- "${_HCNEWS_REMAINING_ARGS[@]}"
 
 # Use centralized TTL
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["weather"]:-10800}"
-
-# Parse cache args
-hcnews_parse_cache_args "$@"
-_weather_USE_CACHE=$_HCNEWS_USE_CACHE
-_weather_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
 # Weather emoji lookup table (faster than case statement)
 declare -A WEATHER_EMOJIS=(
@@ -305,27 +292,11 @@ function get_arguments() {
     CITY=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            -h|--help)
-                help
-                exit 0
-                ;;
-            --telegram)
-                FOR_TELEGRAM=true
-                shift
-                ;;
-            --no-cache)
-                _weather_USE_CACHE=false
-                shift
-                ;;
-            --force)
-                _weather_FORCE_REFRESH=true
-                shift
-                ;;
             *)
                 CITY="$1"
-                shift
                 ;;
         esac
+        shift
     done
     
     # Set default city if not specified

@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 
+# Source common library if not already loaded
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+
 # URL shortening function using is.gd service with timeout and retries
 shorten_url_isgd() {
     local url="$1"
@@ -10,7 +13,7 @@ shorten_url_isgd() {
     
     # URL encode the input to ensure it works with special characters
     local encoded_url
-    encoded_url=$(printf '%s' "$url" | jq -s -R -r @uri)
+    encoded_url=$(hcnews_url_encode "$url")
     
     while (( retry_count < max_retries )) && [[ "$success" == false ]]; do
         # Call the URL shortening service with strict timeouts

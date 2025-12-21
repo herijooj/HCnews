@@ -311,37 +311,54 @@ hcnews_decode_html_entities() {
 # Argument Parsing Helpers
 # =============================================================================
 
-# Parse common cache-related arguments from command line or sourcing
-# Sets _HCNEWS_USE_CACHE and _HCNEWS_FORCE_REFRESH
-# Usage: hcnews_parse_cache_args "$@"
-hcnews_parse_cache_args() {
-    # Default to true via env var if set, else true
-    if [[ -z "${_HCNEWS_USE_CACHE:-}" ]]; then
-        _HCNEWS_USE_CACHE=true
-    fi
-    # Default to false via env var if set, else false
-    if [[ -z "${_HCNEWS_FORCE_REFRESH:-}" ]]; then
-        _HCNEWS_FORCE_REFRESH=false
-    fi
+# Parse common arguments from command line or sourcing
+# Handles: --no-cache, --force, --telegram, -h, --help
+# Sets global variables: _HCNEWS_USE_CACHE, _HCNEWS_FORCE_REFRESH, _HCNEWS_TELEGRAM
+# Remaining arguments are stored in _HCNEWS_REMAINING_ARGS array
+# If help is requested, it calls show_help or help function if they exist.
+# Usage: hcnews_parse_args "$@"
+hcnews_parse_args() {
+    # Initialize defaults if not already set by environment
+    _HCNEWS_USE_CACHE=${_HCNEWS_USE_CACHE:-true}
+    _HCNEWS_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
+    _HCNEWS_TELEGRAM=${_HCNEWS_TELEGRAM:-false}
     
-    for arg in "$@"; do
-        case "$arg" in
+    # Also check global flags from main script environment (backward compatibility)
+    [[ "${hc_no_cache:-}" == "true" ]] && _HCNEWS_USE_CACHE=false
+    [[ "${hc_force_refresh:-}" == "true" ]] && _HCNEWS_FORCE_REFRESH=true
+
+    _HCNEWS_REMAINING_ARGS=()
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            -h|--help)
+                if declare -f show_help >/dev/null; then show_help; exit 0;
+                elif declare -f help >/dev/null; then help; exit 0; fi
+                # If no help function found, we just keep it in remaining args if we want, 
+                # but usually we want to stop if help is requested.
+                _HCNEWS_REMAINING_ARGS+=("$1")
+                ;;
             --no-cache)
                 _HCNEWS_USE_CACHE=false
                 ;;
             --force)
                 _HCNEWS_FORCE_REFRESH=true
                 ;;
+            --telegram)
+                _HCNEWS_TELEGRAM=true
+                ;;
+            *)
+                _HCNEWS_REMAINING_ARGS+=("$1")
+                ;;
         esac
+        shift
     done
-    
-    # Also check global flags from hcnews.sh
-    if [[ "${hc_no_cache:-}" == "true" ]]; then
-        _HCNEWS_USE_CACHE=false
-    fi
-    if [[ "${hc_force_refresh:-}" == "true" ]]; then
-        _HCNEWS_FORCE_REFRESH=true
-    fi
+}
+
+# Backward compatibility and wrapper for the simpler case
+# Usage: hcnews_parse_cache_args "$@"
+hcnews_parse_cache_args() {
+    hcnews_parse_args "$@"
 }
 
 # =============================================================================
