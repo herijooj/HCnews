@@ -56,31 +56,80 @@ fi
 # Cache for date to unix conversions
 declare -A DATE_CACHE
 
-# Optimized function to convert RSS date to unix timestamp using a faster approach
+# Optimized function to convert RSS date to unix timestamp using pure Bash
 date_rss_to_unix() {
     local date_str="$1"
     
     # Return from cache if available
-    if [[ -n "${DATE_CACHE[$date_str]}" ]]; then
-        echo "${DATE_CACHE[$date_str]}"
-        return
-    fi
+    [[ -n "${DATE_CACHE[$date_str]:-}" ]] && { echo "${DATE_CACHE[$date_str]}"; return; }
     
     # Quick format check - if it doesn't look like a date, return 0
-    if [[ -z "$date_str" || ! $date_str =~ ^[A-Za-z]+ ]]; then
+    if [[ -z "$date_str" || ! $date_str =~ ^[A-Za-z,0-9\ ] ]]; then
         DATE_CACHE[$date_str]="0"
         echo "0"
         return
     fi
     
-    # Use a faster date conversion with predefined format
-    local unix_time
-    unix_time=$(date -d "$date_str" +%s 2>/dev/null || echo "0")
+    # Pure Bash parsing for RFC 822/2822
+    local day mon_name year hour min sec tz hms
+    local temp_date="${date_str#*, }" # Remove day of week if present
     
-    # Store in cache
-    DATE_CACHE[$date_str]="$unix_time"
+    # Read components
+    read -r day mon_name year hms tz <<< "$temp_date"
     
-    echo "$unix_time"
+    # Split HH:MM:SS
+    IFS=':' read -r hour min sec <<< "$hms"
+    
+    # Convert month name to number
+    local mon
+    case "${mon_name,,}" in
+        jan) mon=1 ;; feb) mon=2 ;; mar) mon=3 ;; apr) mon=4 ;;
+        may) mon=5 ;; jun) mon=6 ;; jul) mon=7 ;; aug) mon=8 ;;
+        sep) mon=9 ;; oct) mon=10 ;; nov) mon=11 ;; dec) mon=12 ;;
+        *) DATE_CACHE[$date_str]="0"; echo "0"; return ;;
+    esac
+    
+    # Calculate days since epoch (1970-01-01)
+    # This is a simplified Julian Day calculation approach
+    local y=$((10#$year))
+    local m=$((10#$mon))
+    local d=$((10#$day))
+    
+    local years_since_epoch=$((y - 1970))
+    local leap_days=$(((y - 1969) / 4 - (y - 1901) / 100 + (y - 1601) / 400))
+    local total_days=$((years_since_epoch * 365 + leap_days))
+    
+    local month_days=(0 31 28 31 30 31 30 31 31 30 31 30 31)
+    if (( (y % 4 == 0 && y % 100 != 0) || (y % 400 == 0) )); then
+        month_days[2]=29
+    fi
+    for ((i=1; i<m; i++)); do
+        total_days=$((total_days + month_days[i]))
+    done
+    total_days=$((total_days + d - 1))
+    
+    # Seconds
+    hour=$((10#$hour))
+    min=$((10#$min))
+    sec=$((10#$sec))
+    local timestamp=$((total_days * 86400 + hour * 3600 + min * 60 + sec))
+    
+    # Timezone adjustment
+    if [[ -n "$tz" ]]; then
+        if [[ "$tz" =~ ^[+-][0-9]{4}$ ]]; then
+            local sign="${tz:0:1}"
+            local tz_h=$((10#${tz:1:2}))
+            local tz_m=$((10#${tz:3:2}))
+            local offset=$((tz_h * 3600 + tz_m * 60))
+            if [[ "$sign" == "+" ]]; then timestamp=$((timestamp - offset)); else timestamp=$((timestamp + offset)); fi
+        elif [[ "$tz" != "GMT" && "$tz" != "UTC" && "$tz" != "Z" ]]; then
+            # If unknown timezone name, fallback to date command just in case
+            timestamp=$(date -d "$date_str" +%s 2>/dev/null || echo "0")
+        fi
+    fi
+    
+    DATE_CACHE[$date_str]="$timestamp"
+    echo "$timestamp"
 }
 
 # Improved URL shortening with caching
