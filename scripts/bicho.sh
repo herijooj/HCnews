@@ -24,7 +24,7 @@ function get_bicho_data {
   fi
   
   local cache_file
-  cache_file=$(hcnews_get_cache_path "bicho" "$date_format_local")
+  hcnews_set_cache_path cache_file "bicho" "$date_format_local"
   
   # Check cache using common function
   if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then

@@ -221,7 +221,7 @@ write_exchange() {
   local date_format
   date_format=$(get_date_format)
   local cache_file
-  cache_file=$(hcnews_get_cache_path "exchange" "$date_format")
+  hcnews_set_cache_path cache_file "exchange" "$date_format"
 
   if [ "${_HCNEWS_USE_CACHE:-true}" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
     hcnews_read_cache "$cache_file"

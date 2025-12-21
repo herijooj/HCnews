@@ -146,6 +146,8 @@ hcnews_get_day() {
 
 # Check if cache file exists, is not forced to refresh, and is within TTL
 # Usage: hcnews_check_cache "cache_file_path" "ttl_seconds" "force_refresh_flag"
+# Check if cache file exists, is not forced to refresh, and is within TTL
+# Usage: hcnews_check_cache "cache_file_path" "ttl_seconds" "force_refresh_flag"
 hcnews_check_cache() {
     local cache_file_path="$1"
     local ttl_seconds="${2:-3600}"  # Default 1 hour
@@ -154,6 +156,11 @@ hcnews_check_cache() {
     # If global _HCNEWS_USE_CACHE is false, force a "miss" (return 1) unless logic overrides it
     if [[ "${_HCNEWS_USE_CACHE:-true}" == "false" ]]; then
         return 1
+    fi
+
+    # Optimization: If cache is already verified by caller (e.g. via batch stat), skip stat
+    if [[ "${_HCNEWS_CACHE_VERIFIED:-false}" == "true" ]]; then
+        return 0
     fi
 
     # Use -s to check exists AND non-empty in one test
@@ -207,6 +214,18 @@ hcnews_get_cache_path() {
     local component="$1"
     local date_str="$2"
     local variant="$3"
+    local ret_path
+    hcnews_set_cache_path ret_path "$component" "$date_str" "$variant"
+    echo "$ret_path"
+}
+
+# Optimized version: Sets the variable named by the first argument to the path
+# Usage: hcnews_set_cache_path var_name "component" ["date_string"] ["variant"]
+hcnews_set_cache_path() {
+    local -n _ret_var=$1
+    local component="$2"
+    local date_str="$3"
+    local variant="$4"
     
     # Default date if not provided
     if [[ -z "$date_str" ]]; then
@@ -277,7 +296,7 @@ hcnews_get_cache_path() {
             ;;
     esac
     
-    echo "${base_dir}/${filename}"
+    _ret_var="${base_dir}/${filename}"
 }
 
 # =============================================================================

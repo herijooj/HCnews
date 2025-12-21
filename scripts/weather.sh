@@ -95,7 +95,7 @@ function get_weather() {
     local date_format
     date_format=$(get_date_format)
     local cache_file
-    cache_file=$(hcnews_get_cache_path "weather" "$date_format" "$CITY")
+    hcnews_set_cache_path cache_file "weather" "$date_format" "$CITY"
     
     # Check if cache exists and should be used
     if [ "${_HCNEWS_USE_CACHE:-true}" = true ] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then

@@ -318,7 +318,11 @@ process_multiple_feeds() {
         if [ "$_rss_USE_CACHE" = true ] && hcnews_check_cache "$target_cache_file" "$CACHE_TTL_SECONDS" "$_rss_FORCE_REFRESH"; then
             # Cache HIT: Read into memory
             local cached_content
-            cached_content=$(hcnews_read_cache "$target_cache_file" 2>/dev/null)
+            if [[ -s "$target_cache_file" ]]; then
+                cached_content=$(<"$target_cache_file")
+            else
+                cached_content=""
+            fi
             if [[ -n "$cached_content" ]]; then
                 results[$i]="$cached_content"
             fi

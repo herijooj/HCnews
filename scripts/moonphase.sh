@@ -20,7 +20,7 @@ function moon_phase () {
     fi
     
     local cache_file
-    cache_file=$(hcnews_get_cache_path "moonphase" "$date_format_local")
+    hcnews_set_cache_path cache_file "moonphase" "$date_format_local"
 
     if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
         hcnews_read_cache "$cache_file"

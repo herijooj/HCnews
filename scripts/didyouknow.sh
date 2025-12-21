@@ -21,7 +21,7 @@ function get_didyouknow() {
         date_format_local=$(date +"%Y%m%d")
     fi
     local cache_file
-    cache_file=$(hcnews_get_cache_path "didyouknow" "$date_format_local")
+    hcnews_set_cache_path cache_file "didyouknow" "$date_format_local"
     
     if [[ "$local_use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$local_force_refresh"; then
         hcnews_read_cache "$cache_file"

@@ -63,7 +63,7 @@ function get_ai_fortune() {
         date_format_local=$(date +"%Y%m%d")
     fi
     local cache_file
-    cache_file=$(hcnews_get_cache_path "futuro" "$date_format_local")
+    hcnews_set_cache_path cache_file "futuro" "$date_format_local"
 
     if [[ "${_HCNEWS_USE_CACHE:-true}" == true ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
         hcnews_read_cache "$cache_file"

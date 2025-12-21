@@ -81,7 +81,7 @@ function get_menu () {
     local date_string
     date_string=$(hcnews_get_date_format)
     local cache_file
-    cache_file=$(hcnews_get_cache_path "ru" "$date_string" "$location")
+    hcnews_set_cache_path cache_file "ru" "$date_string" "$location"
     
     # Check cache
     if [[ "${_HCNEWS_USE_CACHE:-true}" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "${_HCNEWS_FORCE_REFRESH:-false}"; then
@@ -207,8 +207,10 @@ function write_menu () {
     menu_content=$(get_menu "$SELECTED_LOCATION")
     
     # Extract header (first line)
+    # Extract header (first line)
     local header
-    header=$(echo "$menu_content" | head -n1 | sed 's/^- //')
+    header="${menu_content%%$'\n'*}"
+    header="${header#- }"
     
     if [[ "$SHOW_ONLY_TODAY" == "true" ]]; then
         local today

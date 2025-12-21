@@ -179,36 +179,158 @@ function hcseguidor {
 # Start network background jobs (excluding news which is handled separately)
 start_network_jobs() {
     start_timing "network_parallel_start"
+
+    # Pre-calculate paths
+    local ru_cache music_cache futuro_cache weather_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache quote_cache
+    
     if [[ $weekday -lt 6 ]]; then
-        start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
+        ru_cache="${HCNEWS_CACHE_DIR}/ru/${date_format}_politecnico.ru"
     fi
-    start_background_job "music_chart" "(_musicchart_USE_CACHE=\$_HCNEWS_USE_CACHE; _musicchart_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_music_chart)"
-    start_background_job "ai_fortune" "(_futuro_USE_CACHE=\$_HCNEWS_USE_CACHE; _futuro_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_ai_fortune)"
-    start_background_job "weather" "(_weather_USE_CACHE=\$_HCNEWS_USE_CACHE; _weather_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_weather '$city')"
-    start_background_job "saints" "(_saints_USE_CACHE=\$_HCNEWS_USE_CACHE; _saints_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_saints '$saints_verbose')"
-    start_background_job "exchange" "(_exchange_USE_CACHE=\$_HCNEWS_USE_CACHE; _exchange_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_exchange)"
-    start_background_job "did_you_know" "(_didyouknow_USE_CACHE=\$_HCNEWS_USE_CACHE; _didyouknow_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_did_you_know)"
-    # desculpa is local/fast, run synchronously later
-    start_background_job "bicho" "(_bicho_USE_CACHE=\$_HCNEWS_USE_CACHE; _bicho_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_bicho)"
-    start_background_job "header_moon" "(_moonphase_USE_CACHE=\$_HCNEWS_USE_CACHE; _moonphase_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; moon_phase)"
-    start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; quote)"
+    music_cache="${HCNEWS_CACHE_DIR}/musicchart/${date_format}.musicchart"
+    futuro_cache="${HCNEWS_CACHE_DIR}/futuro/${date_format}_futuro.cache"
+    
+    local city_norm="${city,,}"
+    city_norm="${city_norm// /_}"
+    weather_cache="${HCNEWS_CACHE_DIR}/weather/${date_format}_${city_norm}.weather"
+
+    if [[ "$saints_verbose" == "true" ]]; then
+        saints_cache_file="${HCNEWS_CACHE_DIR}/saints/${date_format}_saints-verbose.txt"
+    else
+        saints_cache_file="${HCNEWS_CACHE_DIR}/saints/${date_format}_saints-regular.txt"
+    fi
+
+    exchange_cache="${HCNEWS_CACHE_DIR}/exchange/${date_format}_exchange.cache"
+    dyk_cache="${HCNEWS_CACHE_DIR}/didyouknow/${date_format}_didyouknow.cache"
+    bicho_cache="${HCNEWS_CACHE_DIR}/bicho/${date_format}_bicho.cache"
+    moon_cache="${HCNEWS_CACHE_DIR}/moonphase/${date_format}_moon_phase.cache"
+    quote_cache="${HCNEWS_CACHE_DIR}/quote/${date_format}_quote.cache"
+
+    # Batch Stat: Check existence and mod time for ALL caches in one fork
+    # Only if cache use is enabled and not force refresh
+    local -A CACHE_MOD_TIMES
+    if [[ "$_HCNEWS_USE_CACHE" == "true" && "$_HCNEWS_FORCE_REFRESH" != "true" ]]; then
+        local paths_to_check=("$music_cache" "$futuro_cache" "$weather_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$quote_cache")
+        [[ -n "$ru_cache" ]] && paths_to_check+=("$ru_cache")
+        
+        # Stat format: size timestamp filename
+        local stat_output
+        stat_output=$(stat -c "%s %Y %n" "${paths_to_check[@]}" 2>/dev/null)
+        
+        while read -r size time path; do
+             # Check if file is not empty
+             if (( size > 0 )); then
+                 CACHE_MOD_TIMES["$path"]=$time
+             fi
+        done <<< "$stat_output"
+    fi
+
+    # Helper function to check validity using the associative array
+    # Usage: check_cache_inline path ttl
+    function check_cache_inline() {
+        local path="$1"
+        local ttl="$2"
+        # Immediate fail if global cache disabled or forced
+        [[ "$_HCNEWS_USE_CACHE" == "false" || "$_HCNEWS_FORCE_REFRESH" == "true" ]] && return 1
+        
+        local mod_time=${CACHE_MOD_TIMES["$path"]}
+        [[ -n "$mod_time" ]] || return 1
+        
+        if (( (start_time - mod_time) < ttl )); then
+            return 0
+        fi
+        return 1
+    }
+
+    # 1. Menu (RU)
+    if [[ -n "$ru_cache" ]]; then
+        if check_cache_inline "$ru_cache" "${HCNEWS_CACHE_TTL["ru"]:-43200}"; then
+            # Cache HIT: Run synchronously, skipping internal checks
+            menu_output=$(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=$_HCNEWS_USE_CACHE; _HCNEWS_CACHE_VERIFIED=true; write_menu)
+        else
+            start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
+        fi
+    fi
+
+    # 2. Music Chart
+    if check_cache_inline "$music_cache" "${HCNEWS_CACHE_TTL["musicchart"]:-43200}"; then
+        music_chart_output=$(_HCNEWS_CACHE_VERIFIED=true; write_music_chart)
+    else
+        start_background_job "music_chart" "(_musicchart_USE_CACHE=\$_HCNEWS_USE_CACHE; _musicchart_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_music_chart)"
+    fi
+
+    # 3. AI Fortune
+    if check_cache_inline "$futuro_cache" "${HCNEWS_CACHE_TTL["futuro"]:-86400}"; then
+        ai_fortune_output=$(_HCNEWS_CACHE_VERIFIED=true; write_ai_fortune)
+    else
+        start_background_job "ai_fortune" "(_futuro_USE_CACHE=\$_HCNEWS_USE_CACHE; _futuro_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_ai_fortune)"
+    fi
+
+    # 4. Weather
+    if check_cache_inline "$weather_cache" "${HCNEWS_CACHE_TTL["weather"]:-10800}"; then
+        weather_output=$(_HCNEWS_CACHE_VERIFIED=true; write_weather "$city")
+    else
+        start_background_job "weather" "(_weather_USE_CACHE=\$_HCNEWS_USE_CACHE; _weather_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_weather '$city')"
+    fi
+
+    # 5. Saints
+    if check_cache_inline "$saints_cache_file" "${HCNEWS_CACHE_TTL["saints"]:-82800}"; then
+        saints_output=$(_HCNEWS_CACHE_VERIFIED=true; write_saints "$saints_verbose")
+    else
+        start_background_job "saints" "(_saints_USE_CACHE=\$_HCNEWS_USE_CACHE; _saints_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_saints '$saints_verbose')"
+    fi
+
+    # 6. Exchange
+    if check_cache_inline "$exchange_cache" "${HCNEWS_CACHE_TTL["exchange"]:-14400}"; then
+        exchange_output=$(_HCNEWS_CACHE_VERIFIED=true; write_exchange)
+    else
+        start_background_job "exchange" "(_exchange_USE_CACHE=\$_HCNEWS_USE_CACHE; _exchange_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_exchange)"
+    fi
+
+    # 7. Did You Know
+    if check_cache_inline "$dyk_cache" "${HCNEWS_CACHE_TTL["didyouknow"]:-86400}"; then
+         didyouknow_output=$(_HCNEWS_CACHE_VERIFIED=true; write_did_you_know)
+    else
+        start_background_job "did_you_know" "(_didyouknow_USE_CACHE=\$_HCNEWS_USE_CACHE; _didyouknow_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_did_you_know)"
+    fi
+
+    # 8. Bicho
+    if check_cache_inline "$bicho_cache" "${HCNEWS_CACHE_TTL["bicho"]:-86400}"; then
+         bicho_output=$(_HCNEWS_CACHE_VERIFIED=true; write_bicho)
+    else
+        start_background_job "bicho" "(_bicho_USE_CACHE=\$_HCNEWS_USE_CACHE; _bicho_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_bicho)"
+    fi
+
+    # 9. Moon Phase
+    if check_cache_inline "$moon_cache" "${HCNEWS_CACHE_TTL["moonphase"]:-86400}"; then
+         moon_phase_output=$(_HCNEWS_CACHE_VERIFIED=true; moon_phase)
+    else
+        start_background_job "header_moon" "(_moonphase_USE_CACHE=\$_HCNEWS_USE_CACHE; _moonphase_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; moon_phase)"
+    fi
+
+    # 10. Quote
+    if check_cache_inline "$quote_cache" "${HCNEWS_CACHE_TTL["quote"]:-86400}"; then
+         quote_output=$(_HCNEWS_CACHE_VERIFIED=true; quote)
+    else
+        start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; quote)"
+    fi
+
     end_timing "network_parallel_start"
 }
 
 # Collect results from network background jobs
 collect_network_data() {
-    moon_phase_output=$(wait_for_job "header_moon") || moon_phase_output=""
-    quote_output=$(wait_for_job "header_quote") || quote_output=""
-    saints_output=$(wait_for_job "saints") || saints_output=""
-    ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""
-    exchange_output=$(wait_for_job "exchange") || exchange_output=""
-    music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""
-    weather_output=$(wait_for_job "weather") || weather_output=""
-    didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""
-    bicho_output=$(wait_for_job "bicho") || bicho_output=""
+    [[ -z "$moon_phase_output" ]] && { moon_phase_output=$(wait_for_job "header_moon") || moon_phase_output=""; }
+    [[ -z "$quote_output" ]] && { quote_output=$(wait_for_job "header_quote") || quote_output=""; }
+    [[ -z "$saints_output" ]] && { saints_output=$(wait_for_job "saints") || saints_output=""; }
+    [[ -z "$ai_fortune_output" ]] && { ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""; }
+    [[ -z "$exchange_output" ]] && { exchange_output=$(wait_for_job "exchange") || exchange_output=""; }
+    [[ -z "$music_chart_output" ]] && { music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""; }
+    [[ -z "$weather_output" ]] && { weather_output=$(wait_for_job "weather") || weather_output=""; }
+    [[ -z "$didyouknow_output" ]] && { didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""; }
+    [[ -z "$bicho_output" ]] && { bicho_output=$(wait_for_job "bicho") || bicho_output=""; }
     
     if [[ $weekday -lt 6 ]]; then
-        menu_output=$(wait_for_job "menu") || menu_output=""
+        [[ -z "$menu_output" ]] && { menu_output=$(wait_for_job "menu") || menu_output=""; }
     fi
 }
 

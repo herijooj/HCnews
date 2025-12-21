@@ -32,7 +32,7 @@ function get_music_chart () {
   local date_string
   date_string=$(get_music_date_format)
   local cache_file
-  cache_file=$(hcnews_get_cache_path "musicchart" "$date_string")
+  hcnews_set_cache_path cache_file "musicchart" "$date_string"
   
   # Check if we have a recent output cache
   if [[ "${_HCNEWS_USE_CACHE:-true}" == "true" ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then

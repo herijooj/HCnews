@@ -24,7 +24,7 @@ function quote {
     fi
     
     local cache_file
-    cache_file=$(hcnews_get_cache_path "quote" "$date_format_local")
+    hcnews_set_cache_path cache_file "quote" "$date_format_local"
 
     # Check cache first
     if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
