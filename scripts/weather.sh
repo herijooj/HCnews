@@ -93,7 +93,7 @@ function get_weather() {
     local city_lower="${CITY,,}"
     NORMALIZED_CITY="${city_lower// /_}"
     local date_format
-    date_format=$(get_date_format)
+    hcnews_set_date_format date_format
     local cache_file
     hcnews_set_cache_path cache_file "weather" "$date_format" "$CITY"
     

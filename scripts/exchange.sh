@@ -39,9 +39,9 @@ log_message() {
 }
 
 # Function to get today's date in YYYYMMDD format
-get_date_format() {
-  hcnews_get_date_format
-}
+# get_date_format() {
+#   hcnews_get_date_format
+# }
 
 # Function to get exchange rates from the Brazilian Central Bank
 get_exchange_BC() {
@@ -219,7 +219,8 @@ check_dependencies() {
 # Write complete exchange rate information
 write_exchange() {
   local date_format
-  date_format=$(get_date_format)
+  local date_format
+  hcnews_set_date_format date_format
   local cache_file
   hcnews_set_cache_path cache_file "exchange" "$date_format"
 

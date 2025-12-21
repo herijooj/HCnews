@@ -172,7 +172,7 @@ get_news_RSS_combined() {
     # Generate a safe filename for the portal from the RSS_FEED URL
     portal_identifier=$(echo "$RSS_FEED" | sed -e 's|https*://||g' -e 's|/|__|g' -e 's|[^a-zA-Z0-9_.-]||g')
     local date_format
-    date_format=$(get_date_format)
+    hcnews_set_date_format date_format
     
     # Create individual folder for each RSS feed
     local rss_cache_dir="${_rss_CACHE_DIR_BASE}/rss_feeds/${portal_identifier}"
@@ -278,7 +278,7 @@ process_multiple_feeds() {
     local temp_dir="" # created only if needed
 
     local date_format
-    date_format=$(get_date_format)
+    hcnews_set_date_format date_format
     
     # First pass: Check cache for all feeds
     for i in "${!feeds[@]}"; do

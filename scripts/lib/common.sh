@@ -96,48 +96,77 @@ fi
 # =============================================================================
 
 # Use pre-cached values from main script if available, otherwise compute once
-hcnews_get_date_format() {
+# Use pre-cached values from main script if available, otherwise compute once
+hcnews_set_date_format() {
+    local -n _ret_var=$1
     if [[ -n "${date_format:-}" ]]; then
-        echo "$date_format"
+        _ret_var="$date_format"
     elif [[ -n "${_HCNEWS_DATE_FORMAT:-}" ]]; then
-        echo "$_HCNEWS_DATE_FORMAT"
+        _ret_var="$_HCNEWS_DATE_FORMAT"
     else
         _HCNEWS_DATE_FORMAT=$(date +"%Y%m%d")
-        echo "$_HCNEWS_DATE_FORMAT"
+        _ret_var="$_HCNEWS_DATE_FORMAT"
+    fi
+}
+
+hcnews_get_date_format() {
+    local val
+    hcnews_set_date_format val
+    echo "$val"
+}
+
+hcnews_set_current_time() {
+    local -n _ret_var=$1
+    if [[ -n "${start_time:-}" ]]; then
+        _ret_var="$start_time"
+    elif [[ -n "${_HCNEWS_CURRENT_TIME:-}" ]]; then
+        _ret_var="$_HCNEWS_CURRENT_TIME"
+    else
+        _HCNEWS_CURRENT_TIME=$(date +%s)
+        _ret_var="$_HCNEWS_CURRENT_TIME"
     fi
 }
 
 hcnews_get_current_time() {
-    if [[ -n "${start_time:-}" ]]; then
-        echo "$start_time"
-    elif [[ -n "${_HCNEWS_CURRENT_TIME:-}" ]]; then
-        echo "$_HCNEWS_CURRENT_TIME"
+    local val
+    hcnews_set_current_time val
+    echo "$val"
+}
+
+hcnews_set_month() {
+    local -n _ret_var=$1
+    if [[ -n "${month:-}" ]]; then
+        _ret_var="$month"
+    elif [[ -n "${_HCNEWS_MONTH:-}" ]]; then
+        _ret_var="$_HCNEWS_MONTH"
     else
-        _HCNEWS_CURRENT_TIME=$(date +%s)
-        echo "$_HCNEWS_CURRENT_TIME"
+        _HCNEWS_MONTH=$(date +%m)
+        _ret_var="$_HCNEWS_MONTH"
     fi
 }
 
 hcnews_get_month() {
-    if [[ -n "${month:-}" ]]; then
-        echo "$month"
-    elif [[ -n "${_HCNEWS_MONTH:-}" ]]; then
-        echo "$_HCNEWS_MONTH"
+    local val
+    hcnews_set_month val
+    echo "$val"
+}
+
+hcnews_set_day() {
+    local -n _ret_var=$1
+    if [[ -n "${day:-}" ]]; then
+        _ret_var="$day"
+    elif [[ -n "${_HCNEWS_DAY:-}" ]]; then
+        _ret_var="$_HCNEWS_DAY"
     else
-        _HCNEWS_MONTH=$(date +%m)
-        echo "$_HCNEWS_MONTH"
+        _HCNEWS_DAY=$(date +%d)
+        _ret_var="$_HCNEWS_DAY"
     fi
 }
 
 hcnews_get_day() {
-    if [[ -n "${day:-}" ]]; then
-        echo "$day"
-    elif [[ -n "${_HCNEWS_DAY:-}" ]]; then
-        echo "$_HCNEWS_DAY"
-    else
-        _HCNEWS_DAY=$(date +%d)
-        echo "$_HCNEWS_DAY"
-    fi
+    local val
+    hcnews_set_day val
+    echo "$val"
 }
 
 # =============================================================================
@@ -169,7 +198,7 @@ hcnews_check_cache() {
         file_mod_time=$(stat -c %Y "$cache_file_path" 2>/dev/null) || return 1
         
         local current_time
-        current_time=$(hcnews_get_current_time)
+        hcnews_set_current_time current_time
         
         if (( (current_time - file_mod_time) < ttl_seconds )); then
             return 0  # Cache is valid
@@ -229,7 +258,7 @@ hcnews_set_cache_path() {
     
     # Default date if not provided
     if [[ -z "$date_str" ]]; then
-        date_str=$(hcnews_get_date_format)
+        hcnews_set_date_format date_str
     fi
     
     local base_dir="${HCNEWS_CACHE_DIR}/${component}"
