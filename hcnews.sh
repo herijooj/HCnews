@@ -6,6 +6,7 @@ SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
 # Source all the required scripts
 source "$SCRIPT_DIR/scripts/lib/common.sh"
+export HCNEWS_COMMON_PATH="$SCRIPT_DIR/scripts/lib/common.sh"
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
 source "$SCRIPT_DIR/scripts/moonphase.sh"

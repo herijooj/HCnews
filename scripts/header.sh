@@ -4,13 +4,7 @@ HEADER_DIR="${BASH_SOURCE[0]%/*}"
 HEADER_DIR="${BASH_SOURCE[0]%/*}"
 
 # Source common library if not already loaded
-if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
-    if [[ -f "$HEADER_DIR/lib/common.sh" ]]; then
-        source "$HEADER_DIR/lib/common.sh"
-    elif [[ -f "$(dirname "$HEADER_DIR")/lib/common.sh" ]]; then
-        source "$(dirname "$HEADER_DIR")/lib/common.sh"
-    fi
-fi
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # Returns the current date in a pretty format.
 # Usage: pretty_date [weekday] [day] [month] [year]

@@ -1,10 +1,7 @@
 #!/usr/bin/env bash
 
 # Source common library if not already loaded
-if [[ -z "$(type -t hcnews_log)" ]]; then
-    _local_script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-    source "$_local_script_dir/lib/common.sh"
-fi
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # Cache configuration - use centralized dir
 if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then

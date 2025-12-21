@@ -1,21 +1,7 @@
 #!/usr/bin/env bash
 
-# Function to decode HTML entities using pure Bash/sed (avoids spawning Python)
-decode_html_entities() {
-  local input="$1"
-  # Handle common HTML entities and numeric/hex character references
-  printf '%s' "$input" | sed "s/&amp;/\&/g; s/&quot;/\"/g; s/&lt;/</g; s/&gt;/>/g; s/&#39;/'/g; s/&apos;/'/g; s/&nbsp;/ /g; s/&rsquo;/'/g; s/&lsquo;/'/g; s/&rdquo;/\"/g; s/&ldquo;/\"/g; s/&mdash;/—/g; s/&ndash;/–/g; s/&hellip;/…/g; s/&#x[0-9a-fA-F]\\+;//g; s/&#[0-9]\\+;//g"
-}
-
 # Source common library if not already loaded
-if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
-    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
-        source "$SCRIPT_DIR/lib/common.sh"
-    elif [[ -f "scripts/lib/common.sh" ]]; then
-        source "scripts/lib/common.sh"
-    fi
-fi
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 function get_didyouknow() {
     local local_use_cache=true
@@ -60,7 +46,7 @@ function get_didyouknow() {
     
 
     # decode HTML entities before handling encoding
-    FACT=$(decode_html_entities "$FACT")
+    FACT=$(hcnews_decode_html_entities "$FACT")
 
     if [[ "$local_use_cache" == true && -n "$FACT" ]]; then
         hcnews_write_cache "$cache_file" "$FACT"

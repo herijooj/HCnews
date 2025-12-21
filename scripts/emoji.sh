@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Source common library if not already loaded
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # Define the path to the emoji test file (adjust as needed)
 EMOJI_TEST_FILE="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/../data/emoji-test.txt"

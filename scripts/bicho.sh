@@ -1,14 +1,7 @@
 #!/usr/bin/env bash
 
 # Source common library if not already loaded
-if [[ -z "${_HCNEWS_COMMON_LOADED:-}" ]]; then
-    SCRIPT_DIR="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-    if [[ -f "$SCRIPT_DIR/lib/common.sh" ]]; then
-        source "$SCRIPT_DIR/lib/common.sh"
-    elif [[ -f "scripts/lib/common.sh" ]]; then
-        source "scripts/lib/common.sh"
-    fi
-fi
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # Return the guess of the jogo do bicho of the day.
 # we retrieve the guess from the website https://www.ojogodobicho.com/palpite.htm

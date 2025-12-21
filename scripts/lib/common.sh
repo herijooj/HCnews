@@ -20,6 +20,7 @@ if [[ -z "${HCNEWS_ROOT:-}" ]]; then
     HCNEWS_ROOT="$(dirname "$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")")"
 fi
 export HCNEWS_ROOT
+export HCNEWS_COMMON_PATH="$(realpath "${BASH_SOURCE[0]}")"
 
 if [[ -z "${HCNEWS_DATA_DIR:-}" ]]; then
     HCNEWS_DATA_DIR="${HCNEWS_ROOT}/data"
