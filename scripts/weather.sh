@@ -115,8 +115,8 @@ function get_weather() {
     local forecast_temp="${tmp_dir}/.weather_fc_$$"
     
     # Parallel curl requests
-    curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$CURRENT_WEATHER_URL" > "$current_temp" &
-    curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$FORECAST_URL" > "$forecast_temp" &
+    curl -s -4 -A "Mozilla/5.0 (Script; HCnews)" --compressed --connect-timeout 5 --max-time 10 "$CURRENT_WEATHER_URL" > "$current_temp" &
+    curl -s -4 -A "Mozilla/5.0 (Script; HCnews)" --compressed --connect-timeout 5 --max-time 10 "$FORECAST_URL" > "$forecast_temp" &
     wait
     
     local CURRENT_WEATHER FORECAST_DATA

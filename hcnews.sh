@@ -242,14 +242,14 @@ start_network_jobs() {
     }
 
     # 1. Menu (RU)
-    if [[ -n "$ru_cache" ]]; then
-        if check_cache_inline "$ru_cache" "${HCNEWS_CACHE_TTL["ru"]:-43200}"; then
-            # Cache HIT: Run synchronously, skipping internal checks
-            menu_output=$(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=$_HCNEWS_USE_CACHE; _HCNEWS_CACHE_VERIFIED=true; write_menu)
-        else
-            start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
-        fi
-    fi
+    # if [[ -n "$ru_cache" ]]; then
+    #     if check_cache_inline "$ru_cache" "${HCNEWS_CACHE_TTL["ru"]:-43200}"; then
+    #         # Cache HIT: Run synchronously, skipping internal checks
+    #         menu_output=$(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=$_HCNEWS_USE_CACHE; _HCNEWS_CACHE_VERIFIED=true; write_menu)
+    #     else
+    #         start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
+    #     fi
+    # fi
 
     # 2. Music Chart
     if check_cache_inline "$music_cache" "${HCNEWS_CACHE_TTL["musicchart"]:-43200}"; then
@@ -329,9 +329,9 @@ collect_network_data() {
     [[ -z "$didyouknow_output" ]] && { didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""; }
     [[ -z "$bicho_output" ]] && { bicho_output=$(wait_for_job "bicho") || bicho_output=""; }
     
-    if [[ $weekday -lt 6 ]]; then
-        [[ -z "$menu_output" ]] && { menu_output=$(wait_for_job "menu") || menu_output=""; }
-    fi
+    # if [[ $weekday -lt 6 ]]; then
+    #     [[ -z "$menu_output" ]] && { menu_output=$(wait_for_job "menu") || menu_output=""; }
+    # fi
 }
 
 # Run local synchronous jobs and capture output in global variables
@@ -438,11 +438,11 @@ render_output() {
     # 13. HC Follower interlude
     hcseguidor
 
-    # 14. Menu
-    if [[ $weekday -lt 6 ]] && [[ -n "$menu_output" ]]; then
-        echo "$menu_output"
-        echo ""
-    fi
+    # # 14. Menu
+    # if [[ $weekday -lt 6 ]] && [[ -n "$menu_output" ]]; then
+    #     echo "$menu_output"
+    #     echo ""
+    # fi
 
     # 15. Emoji
     echo "$emoji_output"

@@ -312,7 +312,7 @@ hcnews_decode_html_entities() {
         -e 's/&quot;/"/g' \
         -e 's/&lt;/</g' \
         -e 's/&gt;/>/g' \
-        -e "s/&#39;/'/g" \
+        -e "s/&#0*39;/'/g" \
         -e "s/&apos;/'/g" \
         -e 's/&nbsp;/ /g' \
         -e "s/&rsquo;/'/g" \
@@ -322,6 +322,7 @@ hcnews_decode_html_entities() {
         -e 's/&mdash;/—/g' \
         -e 's/&ndash;/–/g' \
         -e 's/&hellip;/…/g' \
+        -e 's/\xe2\x80\x8b//g' \
         -e 's/&#x[0-9a-fA-F]\+;//g' \
         -e 's/&#[0-9]\+;//g'
 }
