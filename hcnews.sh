@@ -18,16 +18,19 @@ source "$SCRIPT_DIR/scripts/UFPR/ferias.sh"
 source "$SCRIPT_DIR/scripts/UFPR/ru.sh"
 source "$SCRIPT_DIR/scripts/musicchart.sh"
 source "$SCRIPT_DIR/scripts/weather.sh"
+source "$SCRIPT_DIR/scripts/airquality.sh"
+source "$SCRIPT_DIR/scripts/earthquake.sh"
 source "$SCRIPT_DIR/scripts/didyouknow.sh"
-source "$SCRIPT_DIR/scripts/desculpa.sh"
+# source "$SCRIPT_DIR/scripts/desculpa.sh"
 source "$SCRIPT_DIR/scripts/holidays.sh"
 source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
 source "$SCRIPT_DIR/scripts/emoji.sh"
-source "$SCRIPT_DIR/scripts/futuro.sh"
+# source "$SCRIPT_DIR/scripts/futuro.sh"
 # source "$SCRIPT_DIR/scripts/sanepar.sh"  # Temporarily disabled - API offline
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
+source "$SCRIPT_DIR/scripts/onthisday.sh"
 
 # Initialize cache directories (from common.sh)
 hcnews_init_cache_dirs
@@ -181,17 +184,19 @@ start_network_jobs() {
     start_timing "network_parallel_start"
 
     # Pre-calculate paths
-    local ru_cache music_cache futuro_cache weather_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache quote_cache
+    local ru_cache music_cache futuro_cache weather_cache airquality_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache quote_cache
     
     if [[ $weekday -lt 6 ]]; then
         ru_cache="${HCNEWS_CACHE_DIR}/ru/${date_format}_politecnico.ru"
     fi
     music_cache="${HCNEWS_CACHE_DIR}/musicchart/${date_format}.musicchart"
-    futuro_cache="${HCNEWS_CACHE_DIR}/futuro/${date_format}_futuro.cache"
+    # futuro_cache="${HCNEWS_CACHE_DIR}/futuro/${date_format}_futuro.cache"
     
     local city_norm="${city,,}"
     city_norm="${city_norm// /_}"
     weather_cache="${HCNEWS_CACHE_DIR}/weather/${date_format}_${city_norm}.weather"
+    airquality_cache="${HCNEWS_CACHE_DIR}/airquality/${date_format}_${city_norm}.cache"
+    earthquake_cache="${HCNEWS_CACHE_DIR}/earthquake/${date_format}_earthquake.cache"
 
     if [[ "$saints_verbose" == "true" ]]; then
         saints_cache_file="${HCNEWS_CACHE_DIR}/saints/${date_format}_saints-verbose.txt"
@@ -203,13 +208,15 @@ start_network_jobs() {
     dyk_cache="${HCNEWS_CACHE_DIR}/didyouknow/${date_format}_didyouknow.cache"
     bicho_cache="${HCNEWS_CACHE_DIR}/bicho/${date_format}_bicho.cache"
     moon_cache="${HCNEWS_CACHE_DIR}/moonphase/${date_format}_moon_phase.cache"
+    moon_cache="${HCNEWS_CACHE_DIR}/moonphase/${date_format}_moon_phase.cache"
     quote_cache="${HCNEWS_CACHE_DIR}/quote/${date_format}_quote.cache"
+    onthisday_cache="${HCNEWS_CACHE_DIR}/onthisday/${date_format}_onthisday.cache"
 
     # Batch Stat: Check existence and mod time for ALL caches in one fork
     # Only if cache use is enabled and not force refresh
     local -A CACHE_MOD_TIMES
     if [[ "$_HCNEWS_USE_CACHE" == "true" && "$_HCNEWS_FORCE_REFRESH" != "true" ]]; then
-        local paths_to_check=("$music_cache" "$futuro_cache" "$weather_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$quote_cache")
+        local paths_to_check=("$music_cache" "$weather_cache" "$airquality_cache" "$earthquake_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$quote_cache" "$onthisday_cache")
         [[ -n "$ru_cache" ]] && paths_to_check+=("$ru_cache")
         
         # Stat format: size timestamp filename
@@ -259,17 +266,31 @@ start_network_jobs() {
     fi
 
     # 3. AI Fortune
-    if check_cache_inline "$futuro_cache" "${HCNEWS_CACHE_TTL["futuro"]:-86400}"; then
-        ai_fortune_output=$(_HCNEWS_CACHE_VERIFIED=true; write_ai_fortune)
-    else
-        start_background_job "ai_fortune" "(_futuro_USE_CACHE=\$_HCNEWS_USE_CACHE; _futuro_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_ai_fortune)"
-    fi
+    # if check_cache_inline "$futuro_cache" "${HCNEWS_CACHE_TTL["futuro"]:-86400}"; then
+    #     ai_fortune_output=$(_HCNEWS_CACHE_VERIFIED=true; write_ai_fortune)
+    # else
+    #     start_background_job "ai_fortune" "(_futuro_USE_CACHE=\$_HCNEWS_USE_CACHE; _futuro_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_ai_fortune)"
+    # fi
 
     # 4. Weather
     if check_cache_inline "$weather_cache" "${HCNEWS_CACHE_TTL["weather"]:-10800}"; then
         weather_output=$(_HCNEWS_CACHE_VERIFIED=true; write_weather "$city")
     else
         start_background_job "weather" "(_weather_USE_CACHE=\$_HCNEWS_USE_CACHE; _weather_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_weather '$city')"
+    fi
+
+    # 4b. Air Quality
+    if check_cache_inline "$airquality_cache" "${HCNEWS_CACHE_TTL["airquality"]:-10800}"; then
+        airquality_output=$(_HCNEWS_CACHE_VERIFIED=true; write_airquality "$city")
+    else
+        start_background_job "airquality" "(_airquality_USE_CACHE=\$_HCNEWS_USE_CACHE; _airquality_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_airquality '$city')"
+    fi
+
+    # 4c. Earthquakes
+    if check_cache_inline "$earthquake_cache" "${HCNEWS_CACHE_TTL["earthquake"]:-7200}"; then
+        earthquake_output=$(_HCNEWS_CACHE_VERIFIED=true; write_earthquake)
+    else
+        start_background_job "earthquake" "(_earthquake_USE_CACHE=\$_HCNEWS_USE_CACHE; _earthquake_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_earthquake)"
     fi
 
     # 5. Saints
@@ -284,6 +305,13 @@ start_network_jobs() {
         exchange_output=$(_HCNEWS_CACHE_VERIFIED=true; write_exchange)
     else
         start_background_job "exchange" "(_exchange_USE_CACHE=\$_HCNEWS_USE_CACHE; _exchange_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_exchange)"
+    fi
+
+    # 6b. On This Day
+    if check_cache_inline "$onthisday_cache" "${HCNEWS_CACHE_TTL["onthisday"]:-86400}"; then
+        onthisday_output=$(_HCNEWS_CACHE_VERIFIED=true; write_onthisday)
+    else
+        start_background_job "onthisday" "(_onthisday_USE_CACHE=\$_HCNEWS_USE_CACHE; _onthisday_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_onthisday)"
     fi
 
     # 7. Did You Know
@@ -322,12 +350,15 @@ collect_network_data() {
     [[ -z "$moon_phase_output" ]] && { moon_phase_output=$(wait_for_job "header_moon") || moon_phase_output=""; }
     [[ -z "$quote_output" ]] && { quote_output=$(wait_for_job "header_quote") || quote_output=""; }
     [[ -z "$saints_output" ]] && { saints_output=$(wait_for_job "saints") || saints_output=""; }
-    [[ -z "$ai_fortune_output" ]] && { ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""; }
+    # [[ -z "$ai_fortune_output" ]] && { ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""; }
     [[ -z "$exchange_output" ]] && { exchange_output=$(wait_for_job "exchange") || exchange_output=""; }
     [[ -z "$music_chart_output" ]] && { music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""; }
     [[ -z "$weather_output" ]] && { weather_output=$(wait_for_job "weather") || weather_output=""; }
+    [[ -z "$airquality_output" ]] && { airquality_output=$(wait_for_job "airquality") || airquality_output=""; }
+    [[ -z "$earthquake_output" ]] && { earthquake_output=$(wait_for_job "earthquake") || earthquake_output=""; }
     [[ -z "$didyouknow_output" ]] && { didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""; }
     [[ -z "$bicho_output" ]] && { bicho_output=$(wait_for_job "bicho") || bicho_output=""; }
+    [[ -z "$onthisday_output" ]] && { onthisday_output=$(wait_for_job "onthisday") || onthisday_output=""; }
     
     # if [[ $weekday -lt 6 ]]; then
     #     [[ -z "$menu_output" ]] && { menu_output=$(wait_for_job "menu") || menu_output=""; }
@@ -352,9 +383,9 @@ run_local_jobs() {
     emoji_output=$(write_emoji)
     end_timing "local_emoji"
 
-    start_timing "local_desculpa"
-    desculpa_output=$(write_excuse)
-    end_timing "local_desculpa"
+    # start_timing "local_desculpa"
+    # desculpa_output=$(write_excuse)
+    # end_timing "local_desculpa"
 }
 
 # Master orchestration function to fetch all data needed for the newspaper
@@ -396,11 +427,17 @@ render_output() {
         echo ""
     fi
 
-    # 6. AI Fortune
-    if [[ -n "$ai_fortune_output" ]]; then
-        echo "$ai_fortune_output"
+    # 5b. On This Day
+    if [[ -n "$onthisday_output" ]]; then
+        echo "$onthisday_output"
         echo ""
     fi
+
+    # 6. AI Fortune
+    # if [[ -n "$ai_fortune_output" ]]; then
+    #     echo "$ai_fortune_output"
+    #     echo ""
+    # fi
 
     # 7. Exchange
     if [[ -n "$exchange_output" ]]; then
@@ -420,6 +457,18 @@ render_output() {
     # 10. Weather
     if [[ -n "$weather_output" ]]; then
         echo "$weather_output"
+        echo ""
+    fi
+
+    # 10b. Air Quality
+    if [[ -n "$airquality_output" ]]; then
+        echo "$airquality_output"
+        echo ""
+    fi
+
+    # 10c. Earthquakes
+    if [[ -n "$earthquake_output" ]]; then
+        echo "$earthquake_output"
         echo ""
     fi
 
@@ -455,10 +504,10 @@ render_output() {
     fi
 
     # 17. Desculpa
-    if [[ -n "$desculpa_output" ]]; then
-        echo "$desculpa_output"
-        echo ""
-    fi
+    # if [[ -n "$desculpa_output" ]]; then
+    #     echo "$desculpa_output"
+    #     echo ""
+    # fi
 }
 
 function output {

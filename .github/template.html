@@ -154,6 +154,7 @@
         <a href="index.html" class="nav-tab" id="tab-tudo">Tudo</a>
         <a href="noticias.html" class="nav-tab" id="tab-noticias">Notícias</a>
         <a href="horoscopo.html" class="nav-tab" id="tab-horoscopo">Horóscopo</a>
+        <a href="airquality.html" class="nav-tab" id="tab-airquality">Qualidade do Ar</a>
     </nav>
 
     <div id="rich-content"></div>
@@ -299,6 +300,7 @@
             if (activePage === 'index.html') document.getElementById('tab-tudo').classList.add('active');
             else if (activePage === 'noticias.html') document.getElementById('tab-noticias').classList.add('active');
             else if (activePage === 'horoscopo.html') document.getElementById('tab-horoscopo').classList.add('active');
+            else if (activePage === 'airquality.html') document.getElementById('tab-airquality').classList.add('active');
 
             const sourceEl = document.getElementById('source-content');
             let cleanText = sourceEl.textContent.replace(/^\n/, '');

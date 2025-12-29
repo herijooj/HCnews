@@ -84,8 +84,8 @@ jobs:
             ./build_daily.sh
           fi
           # Ensure generated news files are not empty before producing HTML
-          if [ ! -s news_tudo.txt ] || [ ! -s news_noticias.txt ] || [ ! -s news_horoscopo.txt ]; then
-            echo "Error: one or more generated news files are empty (news_tudo.txt, news_noticias.txt, or news_horoscopo.txt)" >&2
+          if [ ! -s news_tudo.txt ] || [ ! -s news_noticias.txt ] || [ ! -s news_horoscopo.txt ] || [ ! -s news_airquality.txt ]; then
+            echo "Error: one or more generated news files are empty (news_tudo.txt, news_noticias.txt, news_horoscopo.txt, or news_airquality.txt)" >&2
             ls -al news_*.txt || true
             exit 1
           fi
@@ -105,6 +105,10 @@ jobs:
           # Generate Horóscopo (horoscopo.html)
           sed "s|{{DATE}}|$DATE|g" .github/template.html \
             | sed -e '/{{CONTENT}}/r news_horoscopo.txt' -e '/{{CONTENT}}/d' > public/horoscopo.html
+
+          # Generate Qualidade do Ar (airquality.html)
+          sed "s|{{DATE}}|$DATE|g" .github/template.html \
+            | sed -e '/{{CONTENT}}/r news_airquality.txt' -e '/{{CONTENT}}/d' > public/airquality.html
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
