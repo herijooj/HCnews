@@ -1,242 +1,179 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Horoscopo - Daily horoscope for all zodiac signs
+# =============================================================================
+# Source: https://joaobidu.com.br/horoscopo-do-dia/
+# Cache TTL: 82800 (23 hours)
+# Output: Daily horoscope predictions formatted for Telegram/terminal
+# =============================================================================
 
-
-# Source common library if not already loaded
+# -----------------------------------------------------------------------------
+# Source Common Library (ALWAYS FIRST)
+# -----------------------------------------------------------------------------
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
-# Cache configuration via common
-CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["horoscopo"]:-82800} # 23 hours
-hcnews_parse_cache_args "$@"
+# -----------------------------------------------------------------------------
+# Parse Arguments
+# -----------------------------------------------------------------------------
+hcnews_parse_args "$@"
 _horoscopo_USE_CACHE=$_HCNEWS_USE_CACHE
 _horoscopo_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
-function sign_to_emoji {
-    declare -A EMOJIS=(
-        ["aries"]="♈" ["peixes"]="♓" ["aquario"]="♒" ["capricornio"]="♑"
-        ["sagitario"]="♐" ["escorpiao"]="♏" ["libra"]="♎" ["virgem"]="♍"
-        ["leao"]="♌" ["cancer"]="♋" ["gemeos"]="♊" ["touro"]="♉"
-    )
-    echo "${EMOJIS[$1]}"
-}
+# Shift to remaining arguments for sign name
+set -- "${_HCNEWS_REMAINING_ARGS[@]}"
 
-# Add new function to format sign names properly
-function format_sign_name {
-    declare -A SIGN_NAMES=(
-        ["aries"]="Áries" ["peixes"]="Peixes" ["aquario"]="Aquário" ["capricornio"]="Capricórnio"
-        ["sagitario"]="Sagitário" ["escorpiao"]="Escorpião" ["libra"]="Libra" ["virgem"]="Virgem"
-        ["leao"]="Leão" ["cancer"]="Câncer" ["gemeos"]="Gêmeos" ["touro"]="Touro"
-    )
-    echo "${SIGN_NAMES[$1]}"
-}
+# -----------------------------------------------------------------------------
+# Configuration Constants
+# -----------------------------------------------------------------------------
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["horoscopo"]:-82800}"
 
-# Function to get today's date in YYYYMMDD format
-# Function to get today's date in YYYYMMDD format
-get_date_format() {
-    hcnews_get_date_format
-}
+# -----------------------------------------------------------------------------
+# Lookup Tables
+# -----------------------------------------------------------------------------
+declare -A SIGN_EMOJIS=(
+    ["aries"]="♈" ["touro"]="♉" ["gemeos"]="♊" ["cancer"]="♋"
+    ["leao"]="♌" ["virgem"]="♍" ["libra"]="♎" ["escorpiao"]="♏"
+    ["sagitario"]="♐" ["capricornio"]="♑" ["aquario"]="♒" ["peixes"]="♓"
+)
 
-# Removed custom check_cache, read_cache, write_cache in favor of common functions
+declare -A SIGN_NAMES=(
+    ["aries"]="Áries" ["touro"]="Touro" ["gemeos"]="Gêmeos" ["cancer"]="Câncer"
+    ["leao"]="Leão" ["virgem"]="Virgem" ["libra"]="Libra" ["escorpiao"]="Escorpião"
+    ["sagitario"]="Sagitário" ["capricornio"]="Capricórnio" ["aquario"]="Aquário" ["peixes"]="Peixes"
+)
 
-# this function retrieves the horoscope from the website
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-aries/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-peixes/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-aquario/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-capricornio/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-sagitario/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-escorpiao/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-libra/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-virgem/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-leao/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-cancer/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-gemeos/
-#https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-touro/
-function get_horoscopo {
-    SIGN="$1"
-    URL="https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-$SIGN/"
-    USER_AGENT="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/58.0.3029.110 Safari/537.3"
-    
-    HOROSCOPO=$(curl -s -A "$USER_AGENT" "$URL")
-    # extract the horoscope using the correct selector for the current website structure
-    RAW_TEXT=$(echo "$HOROSCOPO" | pup '.text-block text{}')
+# -----------------------------------------------------------------------------
+# Data Fetching Function
+# -----------------------------------------------------------------------------
+get_horoscopo_data() {
+    local sign="$1"
+    local ttl="$CACHE_TTL_SECONDS"
+    local date_str; date_str=$(hcnews_get_date_format)
+    local cache_file; hcnews_set_cache_path cache_file "horoscopo" "$date_str" "$sign"
 
-    # Format the text using awk
-    # sed removes non-breaking spaces (U+00A0) which cause awk regex issues
-    echo "$RAW_TEXT" | sed 's/\xc2\xa0/ /g' | awk '
-    function print_buffer() {
-        if (buffer != "") {
-            print "- " buffer
-            buffer = ""
-        }
-    }
-    {
-        gsub(/^[[:space:]]+|[[:space:]]+$/, "");
-    }
-    length($0) == 0 { next }
-    /:$/ {
-        print_buffer()
-        print "*" $0 "*"
-        next
-    }
-    {
-        if (buffer == "") {
-            buffer = $0
-        } else {
-            buffer = buffer " " $0
-        }
-    }
-    END {
-        print_buffer()
-    }
-    '
-}
-
-function write_horoscopo {
-    # get the arguments
-    SIGN="$1"
-    EMOJI=$(sign_to_emoji "$SIGN")
-    FORMATTED_SIGN=$(format_sign_name "$SIGN")
-    # get the horoscope
-    HOROSCOPO=$(get_horoscopo "$SIGN")
-    # write the horoscope to the console
-    echo "$HOROSCOPO"
-    echo ""
-    echo "🔸 $FORMATTED_SIGN $EMOJI"
-    echo "_Fonte: joaobidu.com.br_"
-    echo ""
-}
-# -------------------------------- Running locally --------------------------------
-
-# help function
-# Usage: ./horoscopo.sh [options] <sign>
-# The command will be printed to the console.
-# Options:
-#   -h, --help: show the help
-#   -s, --save: save the output to a file (YYYYMMDD.hrcp)
-#   -n, --no-cache: Do not use cached data
-#   -f, --force: Force refresh cache
-help () {
-    echo "Usage: ./horoscopo.sh [options] <sign>"
-    echo "The command will be printed to the console."
-    echo "Options:"
-    echo "  -h, --help: show the help"
-    echo "  -s, --save: save the output to a file (YYYYMMDD.hrcp)"
-    echo "  -n, --no-cache: Do not use cached data"
-    echo "  -f, --force: Force refresh cache"
-}
-
-save_to_file() {
-    local content="$1"
-    local filename="$2"
-    printf "%b" "$content" > "$filename"
-    echo "✅ Saved to $filename"
-}
-
-# this function will receive the arguments
-# this function will receive the arguments
-get_arguments () {
-    SAVE_TO_FILE=false
-    
-    # Use unified argument parser
-    hcnews_parse_args "$@"
-    _horoscopo_USE_CACHE=$_HCNEWS_USE_CACHE
-    _horoscopo_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-    
-    # Process remaining arguments
-    set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-    while [[ $# -gt 0 ]]; do
-        case "$1" in
-            -s|--save)
-                SAVE_TO_FILE=true
-                ;;
-            *)
-                SIGN="$1"
-                ;;
-        esac
-        shift
-    done
-}
-
-if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-    get_arguments "$@"
-    
-    date_format=$(get_date_format)
-    # Determine cache file path using standardized function
-    # Note: If -s is provided, we might be writing to a specific file, but script logic below suggests
-    # it uses the cache location?
-    # Original used: cache_file_path="${_horoscopo_CACHE_DIR}/${cache_file_name}" in data/news
-    # We will mostly rely on standard path unless specific override needed
-    # But this script supports calculating for ALL signs if no sign provided.
-    # If no sign provided, where do we cache?
-    
-    # Ah, it set "cache_file_name" to just DATE.hrcp.
-    # So if SIGN is empty, variant is empty.
-    
-    cache_name="horoscopo"
-    
-    cache_file_path=$(hcnews_get_cache_path "$cache_name" "$date_format" "$SIGN")
-
-    # If -s is not used, but we want to cache, set a default filename for caching
-    effective_cache_file_path="$cache_file_path"
-
-    # Check cache if _horoscopo_USE_CACHE is true (regardless of -s)
-    if [[ "$_horoscopo_USE_CACHE" = true ]] && hcnews_check_cache "$effective_cache_file_path" "$CACHE_TTL_SECONDS" "$_horoscopo_FORCE_REFRESH"; then
-        output=$(hcnews_read_cache "$effective_cache_file_path")
-        if [[ "$SAVE_TO_FILE" = true ]]; then
-             echo "✅ Output is already cached. Use -f to force refresh."
-        fi
-        printf "%b" "$output"
-        exit 0
+    # Check cache first
+    if [[ "$_horoscopo_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_horoscopo_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
+        return 0
     fi
 
-    output="🔮 *Horóscopo do dia*\n\n"
-    
-    # Set default directory to data/news if -s flag is used or if caching is enabled without -s
-    filename_to_save=""
-    if [[ "$SAVE_TO_FILE" = true ]]; then
-        filename_to_save="$cache_file_path"
+    # Fetch horoscope from website
+    local url="https://joaobidu.com.br/horoscopo-do-dia/horoscopo-do-dia-para-${sign}/"
+    local response
+    response=$(curl -s -A "Mozilla/5.0" "$url")
+
+    # Extract the horoscope text
+    local raw_text
+    raw_text=$(echo "$response" | pup '.text-block text{}')
+
+    # Format the text
+    local formatted
+    formatted=$(echo "$raw_text" | sed 's/\xc2\xa0/ /g' | awk '
+        function print_buffer() {
+            if (buffer != "") {
+                print "- " buffer
+                buffer = ""
+            }
+        }
+        {
+            gsub(/^[[:space:]]+|[[:space:]]+$/, "");
+        }
+        length($0) == 0 { next }
+        /:$/ {
+            print_buffer()
+            print "*" $0 "*"
+            next
+        }
+        {
+            if (buffer == "") {
+                buffer = $0
+            } else {
+                buffer = buffer " " $0
+            }
+        }
+        END {
+            print_buffer()
+        }
+    ')
+
+    # Save to cache if enabled
+    if [[ "$_horoscopo_USE_CACHE" == true && -n "$formatted" ]]; then
+        hcnews_write_cache "$cache_file" "$formatted"
     fi
 
-    if [[ -z "$SIGN" ]]; then
-        SIGNS=("aries" "peixes" "aquario" "capricornio" "sagitario" "escorpiao" "libra" "virgem" "leao" "cancer" "gemeos" "touro")
-        for SIGN in "${SIGNS[@]}"; do
-            HOROSCOPO=$(get_horoscopo "$SIGN")
-            EMOJI=$(sign_to_emoji "$SIGN")
-            FORMATTED_SIGN=$(format_sign_name "$SIGN")
-            
-            output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n\n"
-            
-            # Be polite to the server
+    echo "$formatted"
+}
+
+# -----------------------------------------------------------------------------
+# Output Function
+# -----------------------------------------------------------------------------
+write_horoscopo() {
+    local sign="${1:-}"
+    local emoji="🔮"
+    local sign_name="Sign"
+
+    # Get emoji and name from lookup tables
+    if [[ -n "$sign" ]]; then
+        emoji="${SIGN_EMOJIS[$sign]:-🔮}"
+        sign_name="${SIGN_NAMES[$sign]:-}"
+    fi
+
+    # If no sign provided, fetch all signs
+    if [[ -z "$sign" ]]; then
+        echo "🔮 *Horóscopo do dia*"
+        echo ""
+        local all_signs=("aries" "touro" "gemeos" "cancer" "leao" "virgem" "libra" "escorpiao" "sagitario" "capricornio" "aquario" "peixes")
+        for s in "${all_signs[@]}"; do
+            local text; text=$(get_horoscopo_data "$s")
+            local s_emoji="${SIGN_EMOJIS[$s]:-🔮}"
+            local s_name="${SIGN_NAMES[$s]:-}"
+            echo "$s_emoji *$s_name*"
+            echo "$text"
+            echo ""
             sleep 1
         done
     else
-        HOROSCOPO=$(get_horoscopo "$SIGN")
-        EMOJI=$(sign_to_emoji "$SIGN")
-        FORMATTED_SIGN=$(format_sign_name "$SIGN")
-        
-        output+="$EMOJI *$FORMATTED_SIGN*\n$HOROSCOPO\n"
+        local text; text=$(get_horoscopo_data "$sign")
+        [[ -z "$text" ]] && return 1
+
+        echo "$text"
+        echo ""
+        echo "🔸 $sign_name $emoji"
+        echo "_Fonte: joaobidu.com.br_"
+        echo ""
     fi
+}
 
-    # Trim trailing whitespace including literal \n sequences
-    while [[ "$output" == *$'\n' ]] || [[ "$output" == *"\\n" ]] || [[ "$output" == *" " ]]; do
-        if [[ "$output" == *"\\n" ]]; then
-           output="${output%\\n}"
-        else
-           output="${output%?}"
-        fi
-    done
-    
-    # Add exactly one newline back (literal \n for printf %b)
-    output+="\n"
+# -----------------------------------------------------------------------------
+# Help Function
+# -----------------------------------------------------------------------------
+show_help() {
+    echo "Usage: ./horoscopo.sh [options] [sign]"
+    echo "The horoscope will be printed to the console."
+    echo "If no sign is provided, all signs will be fetched."
+    echo ""
+    echo "Options:"
+    echo "  -h, --help     Show this help message"
+    echo "  --all          Fetch all signs (default for build script)"
+    echo "  --no-cache     Bypass cache for this run"
+    echo "  --force        Force refresh cached data"
+    echo ""
+    echo "Signs:"
+    echo "  aries, touro, gemeos, cancer, leao, virgem, libra"
+    echo "  escorpiao, sagitario, capricornio, aquario, peixes"
+}
 
-    output+="_Fonte: joaobidu.com.br_\n"
-    output+="\n"
+# -----------------------------------------------------------------------------
+# Main Entry Point
+# -----------------------------------------------------------------------------
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    hcnews_parse_args "$@"
+    # Shift remaining args for the sign
+    set -- "${_HCNEWS_REMAINING_ARGS[@]}"
 
-    # Save to file if -s is used OR if _horoscopo_USE_CACHE is true and -s is not used (cache the output)
-    if [[ "$SAVE_TO_FILE" = true || ("$_horoscopo_USE_CACHE" = true && "$SAVE_TO_FILE" = false) ]]; then
-        hcnews_write_cache "$effective_cache_file_path" "$output"
-        if [[ "$SAVE_TO_FILE" = true ]]; then
-            echo "✅ Saved to $effective_cache_file_path"
-        fi
+    if [[ "$1" == "--all" ]]; then
+        write_horoscopo ""  # Empty = all signs
+    else
+        write_horoscopo "${1:-}"  # Empty = all signs
     fi
-    printf "%b" "$output"
 fi

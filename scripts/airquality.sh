@@ -20,17 +20,6 @@ if [[ -z "$(type -t hcnews_log)" ]]; then
     source "$_local_script_dir/lib/common.sh"
 fi
 
-# Standard argument parsing
-hcnews_parse_args "$@"
-FOR_TELEGRAM=$_HCNEWS_TELEGRAM
-_airquality_USE_CACHE=$_HCNEWS_USE_CACHE
-_airquality_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-# Shift to remaining arguments for city name
-set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-
-# Use centralized TTL (added to common.sh)
-CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["airquality"]:-10800}"
-
 # AQI Level descriptions and emojis
 # OpenWeatherMap AQI: 1=Good, 2=Fair, 3=Moderate, 4=Poor, 5=Very Poor
 declare -A AQI_LEVELS=(
@@ -74,6 +63,20 @@ declare -A CITY_COORDS=(
     ["maringa"]="-23.4205,-51.9333"
     ["ponta grossa"]="-25.0945,-50.1633"
 )
+
+# Help function
+help() {
+    echo "Usage: ./airquality.sh [City] [--no-cache|--force|--telegram]"
+    echo ""
+    echo "Fetches Air Quality Index (AQI) data for one or more cities."
+    echo ""
+    echo "Options:"
+    echo "  --no-cache    Disable cache use"
+    echo "  --force       Force refresh even if cache exists"
+    echo "  --telegram    Format output for Telegram"
+    echo ""
+    echo "If no city is provided, it fetches a pre-defined list of cities in parallel."
+}
 
 # Get coordinates for a city (fallback to geocoding API if not in lookup)
 get_city_coords() {
@@ -201,7 +204,7 @@ get_airquality() {
             "$level_emoji" "$CITY" "${level_desc#* }" "$(format_pollutant "PM2.5" "$pm25")"
     else
         printf -v OUTPUT '🌬️ *Qualidade do Ar - %s*
-%s Índice: *%s*
+Índice: *%s*
 💡 _%s_
 
 📊 *Poluentes:*
@@ -210,7 +213,7 @@ get_airquality() {
 
 _Fonte: OpenWeatherMap · %s_' \
             "$CITY" \
-            "$level_emoji" "$level_desc" \
+            "$level_desc" \
             "$health_tip" \
             "$(format_pollutant "PM2.5" "$pm25")" \
             "$(format_pollutant "PM10" "$pm10")" \
@@ -247,7 +250,7 @@ write_airquality_all() {
     
     echo "🌬️ *Qualidade do Ar no Brasil*"
     echo ""
-
+    
     # Fetch in parallel
     for i in "${!CITIES[@]}"; do
         (
@@ -288,19 +291,16 @@ write_airquality_all() {
     rm -rf "$tmp_dir"
 }
 
-# Help function
-help() {
-    echo "Usage: ./airquality.sh [City] [--no-cache|--force|--telegram]"
-    echo ""
-    echo "Fetches Air Quality Index (AQI) data for one or more cities."
-    echo ""
-    echo "Options:"
-    echo "  --no-cache    Disable cache use"
-    echo "  --force       Force refresh even if cache exists"
-    echo "  --telegram    Format output for Telegram"
-    echo ""
-    echo "If no city is provided, it fetches a pre-defined list of cities in parallel."
-}
+# Standard argument parsing
+hcnews_parse_args "$@"
+FOR_TELEGRAM=$_HCNEWS_TELEGRAM
+_airquality_USE_CACHE=$_HCNEWS_USE_CACHE
+_airquality_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+# Shift to remaining arguments for city name
+set -- "${_HCNEWS_REMAINING_ARGS[@]}"
+
+# Use centralized TTL (added to common.sh)
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["airquality"]:-10800}"
 
 # Run standalone if executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
@@ -311,3 +311,4 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         write_airquality_all
     fi
 fi
+

@@ -1,160 +1,162 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Bicho - Jogo do Bicho daily predictions
+# =============================================================================
+# Source: https://www.ojogodobicho.com/palpite.htm
+# Cache TTL: 86400 (24 hours)
+# Output: Daily Jogo do Bicho predictions with animal emojis
+# =============================================================================
 
-# Source common library if not already loaded
+# -----------------------------------------------------------------------------
+# Source Common Library (ALWAYS FIRST)
+# -----------------------------------------------------------------------------
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
-# Return the guess of the jogo do bicho of the day.
-# we retrieve the guess from the website https://www.ojogodobicho.com/palpite.htm
-function get_bicho_data {
-  local use_cache=true
-  local force_refresh=false
+# -----------------------------------------------------------------------------
+# Parse Arguments
+# -----------------------------------------------------------------------------
+hcnews_parse_args "$@"
+_bicho_USE_CACHE=$_HCNEWS_USE_CACHE
+_bicho_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
-  # Check for global flags via common helper
-  hcnews_parse_cache_args "$@"
-  local use_cache=$_HCNEWS_USE_CACHE
-  local force_refresh=$_HCNEWS_FORCE_REFRESH
-  local ttl=${HCNEWS_CACHE_TTL["bicho"]:-86400}
+# -----------------------------------------------------------------------------
+# Configuration Constants
+# -----------------------------------------------------------------------------
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["bicho"]:-86400}"
 
-  local date_format_local
-  # Use cached date_format if available, otherwise fall back to date command
-  if [[ -n "$date_format" ]]; then
-    date_format_local="$date_format"
-  else
-    date_format_local=$(date +"%Y%m%d")
-  fi
-  
-  local cache_file
-  hcnews_set_cache_path cache_file "bicho" "$date_format_local"
-  
-  # Check cache using common function
-  if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
-    hcnews_read_cache "$cache_file"
-    return 0
-  fi
+# -----------------------------------------------------------------------------
+# Lookup Tables
+# -----------------------------------------------------------------------------
+declare -A BICHO_EMOJIS=(
+    ["1"]="🦩" ["2"]="🦅" ["3"]="🐴" ["4"]="🦋" ["5"]="🐶" ["6"]="🐐"
+    ["7"]="🐑" ["8"]="🐫" ["9"]="🐍" ["10"]="🐇" ["11"]="🐎" ["12"]="🐘"
+    ["13"]="🐓" ["14"]="🐈" ["15"]="🐊" ["16"]="🦁" ["17"]="🐒" ["18"]="🐖"
+    ["19"]="🦚" ["20"]="🦃" ["21"]="🐂" ["22"]="🐅" ["23"]="🐻" ["24"]="🦌"
+    ["25"]="🐄"
+)
 
-  # Download the webpage and extract the raw data
-  local bicho_data
-  bicho_data=$(curl -s "https://www.ojogodobicho.com/palpite.htm" |
-    pup 'div.content ul.inline-list json{}' |
-    jq -r '.[] | .children | map(.text) | join(" ")')
+declare -A BICHO_NAMES=(
+    ["1"]="Avestruz" ["2"]="Águia" ["3"]="Burro" ["4"]="Borboleta" ["5"]="Cachorro" ["6"]="Cabra"
+    ["7"]="Carneiro" ["8"]="Camelo" ["9"]="Cobra" ["10"]="Coelho" ["11"]="Cavalo" ["12"]="Elefante"
+    ["13"]="Galo" ["14"]="Gato" ["15"]="Jacaré" ["16"]="Leão" ["17"]="Macaco" ["18"]="Porco"
+    ["19"]="Pavão" ["20"]="Peru" ["21"]="Touro" ["22"]="Tigre" ["23"]="Urso" ["24"]="Veado"
+    ["25"]="Vaca"
+)
 
-  # Save to cache if caching is enabled
-  if [[ "$use_cache" == true && -n "$bicho_data" ]]; then
-    hcnews_write_cache "$cache_file" "$bicho_data"
-  fi
-
-  echo "$bicho_data"
+# -----------------------------------------------------------------------------
+# Helper Functions
+# -----------------------------------------------------------------------------
+_number_to_bicho() {
+    local number="$1"
+    local stripped="${number#0}"
+    [[ -z "$stripped" ]] && stripped="100"
+    local group=$(( (stripped - 1) / 4 + 1 ))
+    echo "${BICHO_EMOJIS[$group]:-🎲} ${stripped} ${BICHO_NAMES[$group]:-}"
 }
 
-function format_bicho_data {
-  local raw_data="$1"
-  
-  echo "$raw_data" | awk '
-  function number_to_bicho_with_emoji(number) {
-    stripped = number
-    sub(/^0*/, "", stripped)
-    if (stripped == "") stripped = 100
-    D = stripped
-    group = int((D - 1) / 4 + 1)
-    
-    emojis = "🦩 🦅 🐴 🦋 🐶 🐐 🐑 🐫 🐍 🐇 🐎 🐘 🐓 🐈 🐊 🦁 🐒 🐖 🦚 🦃 🐂 🐅 🐻 🦌 🐄"
-    names = "Avestruz Águia Burro Borboleta Cachorro Cabra Carneiro Camelo Cobra Coelho Cavalo Elefante Galo Gato Jacaré Leão Macaco Porco Pavão Peru Touro Tigre Urso Veado Vaca"
-    
-    split(emojis, emoji_array, " ")
-    split(names, name_array, " ")
-    
-    return emoji_array[group] " " stripped " " name_array[group]
-  }
-  
-  function format_grupo(items) {
-    line = "- "
-    line_length = 2  # Start with "- "
-    split(items, arr, " ")
-    
-    for (i = 1; i <= length(arr); i++) {
-      item = number_to_bicho_with_emoji(arr[i])
-      
-      # Check if adding this item will exceed the limit
-      item_with_separator = (i > 1 ? "| " : "") item
-      new_length = line_length + length(item_with_separator) + 1
-      
-      if (new_length > 38 && line_length > 2) {
-        # Print current line and start a new one
-        print line
-        line = "- " item
-        line_length = 2 + length(item)
-      } else {
-        # Add to current line
-        if (i > 1) line = line " | "
-        line = line item
-        line_length = line_length + length(item_with_separator)
-      }
-    }
-    
-    # Print the last line if not empty
-    if (line_length > 2) {
-      print line
-    }
-    
-    # Add a blank line after section
-    print ""
-  }
-  
-  function format_simple_category(items, emoji, category_name) {
-    line = emoji " " category_name ": "
-    split(items, arr, " ")
-    
-    for (i = 1; i <= length(arr); i++) {
-      if (i > 1) line = line ", "
-      line = line arr[i]
-    }
-    
-    print line
-  }
-  
-  BEGIN {
-    FS = "\n"
-  }
-  {
-    lines[NR] = $0
-  }
-  END {
-    # Format Grupo with bicho names and emojis
-    format_grupo(lines[1])
-    
-    # Format Dezena, Centena and Milhar with simple format
-    format_simple_category(lines[2], "🔟", "Dezena")
-    format_simple_category(lines[3], "💯", "Centena")
-    format_simple_category(lines[4], "🏆", "Milhar")
-  }'
+# -----------------------------------------------------------------------------
+# Data Fetching Function
+# -----------------------------------------------------------------------------
+get_bicho_data() {
+    local ttl="$CACHE_TTL_SECONDS"
+    local date_str; date_str=$(hcnews_get_date_format)
+    local cache_file; hcnews_set_cache_path cache_file "bicho" "$date_str"
+
+    # Check cache first
+    if [[ "$_bicho_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_bicho_FORCE_REFRESH"; then
+        hcnews_read_cache "$cache_file"
+        return 0
+    fi
+
+    # Fetch data from website - new structure uses <li> tags inside <ul>
+    local raw_data
+    raw_data=$(curl -s "https://www.ojogodobicho.com/palpite.htm" |
+        pup 'div.content ul.inline-list json{}' |
+        jq -r '.[] | .children | map(.text) | join(" ")')
+
+    # Save to cache if enabled
+    if [[ "$_bicho_USE_CACHE" == true && -n "$raw_data" ]]; then
+        hcnews_write_cache "$cache_file" "$raw_data"
+    fi
+
+    echo "$raw_data"
 }
 
-function write_bicho {
-  local raw_bicho_data=$(get_bicho_data)
-  
-  echo "🎲 *Palpites do Jogo do Bicho:*"
-  format_bicho_data "$raw_bicho_data"
-  echo "🍀 *Boa sorte!*"
-  echo ""
+# -----------------------------------------------------------------------------
+# Output Function
+# -----------------------------------------------------------------------------
+write_bicho() {
+    local raw_data; raw_data=$(get_bicho_data)
+    [[ -z "$raw_data" ]] && return 1
+
+    echo "🎲 *Palpites do Jogo do Bicho:*"
+
+    # Parse each group (space-separated numbers): Grupo, Dezena, Centena, Milhar
+    local -a groups=()
+    while IFS= read -r group; do
+        [[ -n "$group" ]] && groups+=("$group")
+    done <<< "$raw_data"
+
+    # Format Grupo (animals) - convert numbers to bicho format
+    if [[ -n "${groups[0]}" ]]; then
+        local line="- "
+        local line_length=2
+        local first=true
+        for item in ${groups[0]}; do
+            [[ -z "$item" ]] && continue
+            local formatted
+            formatted=$(_number_to_bicho "$item")
+            local new_length=$((line_length + ${#formatted} + 1))
+            if [[ $new_length -gt 38 && $line_length -gt 2 ]]; then
+                echo "$line"
+                line="- $formatted"
+                line_length=$((2 + ${#formatted}))
+            else
+                if [[ "$first" == "true" ]]; then
+                    line+="$formatted"
+                    first=false
+                else
+                    line+=" | $formatted"
+                fi
+                line_length=$((line_length + ${#formatted} + 3))
+            fi
+        done
+        [[ $line_length -gt 2 ]] && echo "$line"
+    fi
+
+    # Format Dezena, Centena, Milhar (just show the numbers)
+    if [[ -n "${groups[1]}" ]]; then
+        echo "🔟 Dezena: ${groups[1]}"
+    fi
+    if [[ -n "${groups[2]}" ]]; then
+        echo "💯 Centena: ${groups[2]}"
+    fi
+    if [[ -n "${groups[3]}" ]]; then
+        echo "🏆 Milhar: ${groups[3]}"
+    fi
+
+    echo ""
+    echo "🍀 *Boa sorte!*"
+    echo ""
 }
 
-# -------------------------------- Running locally --------------------------------
-
-# help function
-# Usage: ./bicho.sh [options]
-# Options:
-#   -h, --help: show the help
+# -----------------------------------------------------------------------------
+# Help Function
+# -----------------------------------------------------------------------------
 show_help() {
-  echo "Usage: ./bicho.sh [options]"
-  echo "The guess of the jogo do bicho of the day will be printed to the console."
-  echo "Options:"
-  echo "  -h, --help: show the help"
+    echo "Usage: ./bicho.sh [options]"
+    echo "The Jogo do Bicho predictions will be printed to the console."
+    echo ""
+    echo "Options:"
+    echo "  -h, --help     Show this help message"
+    echo "  --no-cache     Bypass cache for this run"
+    echo "  --force        Force refresh cached data"
 }
 
-
-# Only run the main script if not being sourced
+# -----------------------------------------------------------------------------
+# Main Entry Point
+# -----------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  # run the script
-  hcnews_parse_args "$@"
-  write_bicho
+    hcnews_parse_args "$@"
+    write_bicho
 fi

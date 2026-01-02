@@ -1,83 +1,97 @@
 #!/usr/bin/env bash
+# =============================================================================
+# Quote - Daily inspirational quote
+# =============================================================================
+# Source: https://www.pensador.com/rss.php
+# Cache TTL: 86400 (24 hours)
+# Output: Daily inspirational quote formatted for Telegram/terminal
+# =============================================================================
 
-# Source common library if not already loaded
+# -----------------------------------------------------------------------------
+# Source Common Library (ALWAYS FIRST)
+# -----------------------------------------------------------------------------
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
-# Returns the quote of the day.
-# we retrieve the quote from the Pensador RSS feed
-# https://www.pensador.com/rss.php
-# Usage: quote
-# Example output: "The best way to predict the future is to invent it." - Alan Kay
-function quote {
-    # Check for global flags via common helper
-    hcnews_parse_cache_args "$@"
-    local use_cache=$_HCNEWS_USE_CACHE
-    local force_refresh=$_HCNEWS_FORCE_REFRESH
-    local ttl=${HCNEWS_CACHE_TTL["quote"]:-86400}
+# -----------------------------------------------------------------------------
+# Parse Arguments
+# -----------------------------------------------------------------------------
+hcnews_parse_args "$@"
+_quote_USE_CACHE=$_HCNEWS_USE_CACHE
+_quote_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
-    local date_format_local
-    # Use cached date_format if available, otherwise fall back to date command
-    if [[ -n "$date_format" ]]; then
-        date_format_local="$date_format"
-    else
-        date_format_local=$(date +"%Y%m%d")
-    fi
-    
-    local cache_file
-    hcnews_set_cache_path cache_file "quote" "$date_format_local"
+# -----------------------------------------------------------------------------
+# Configuration Constants
+# -----------------------------------------------------------------------------
+CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["quote"]:-86400}"
+
+# -----------------------------------------------------------------------------
+# Data Fetching Function
+# -----------------------------------------------------------------------------
+get_quote_data() {
+    local ttl="$CACHE_TTL_SECONDS"
+    local date_str; date_str=$(hcnews_get_date_format)
+    local cache_file; hcnews_set_cache_path cache_file "quote" "$date_str"
 
     # Check cache first
-    if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
+    if [[ "$_quote_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_quote_FORCE_REFRESH"; then
         hcnews_read_cache "$cache_file"
         return 0
     fi
 
-    # get the quote from the RSS feed (Pensador)
-    local URL="https://www.pensador.com/rss.php"
+    # Fetch quote from RSS feed (Pensador)
     local response
-    response=$(curl -s "$URL")
+    response=$(curl -s "https://www.pensador.com/rss.php")
 
-    # Use xmlstarlet with inline text processing to avoid multiple subshells
-    # Extract the first item's description (fall back to title when it's empty), then decode HTML entities in one pass
-    local QUOTE
-    # extract description (first item) — Pensador uses <description> with CDATA
-    QUOTE=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "description" 2>/dev/null)
-    if [[ -z "$QUOTE" ]]; then
-      QUOTE=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "title" 2>/dev/null)
+    # Extract first item's description (fall back to title)
+    local quote
+    quote=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "description" 2>/dev/null)
+    if [[ -z "$quote" ]]; then
+        quote=$(echo "$response" | xmlstarlet sel -t -m "/rss/channel/item[1]" -v "title" 2>/dev/null)
     fi
 
-    # Clean up and decode entities while preserving UTF-8 using perl for robust unicode handling
-    QUOTE=$(printf '%s' "$QUOTE" | perl -CS -Mutf8 -pe 's/\x{200B}//g; s/\x{00A0}/ /g; s/&amp;/&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#0*39;/\x27/g; s/&rsquo;/\x27/g; s/&lsquo;/\x27/g; s/&rdquo;/"/g; s/&ldquo;/"/g; s/&#[0-9]+;//g; s/\s*Frase Minha.*//gi; s/^\s+|\s+$//g; s/\n{2,}/\n\n/g')
-    
-    # Build output
-    local output="📝 *Frase do dia:*\n${QUOTE}\n\n"
+    # Clean up and decode HTML entities using common library
+    # Note: Pensador uses complex entities, so we use perl for full decoding
+    local cleaned_quote
+    cleaned_quote=$(printf '%s' "$quote" | perl -CS -Mutf8 -pe 's/\x{200B}//g; s/\x{00A0}/ /g; s/&amp;/&/g; s/&lt;/</g; s/&gt;/>/g; s/&quot;/"/g; s/&#0*39;/\x27/g; s/&rsquo;/\x27/g; s/&lsquo;/\x27/g; s/&rdquo;/"/g; s/&ldquo;/"/g; s/&#[0-9]+;//g; s/\s*Frase Minha.*//gi; s/^\s+|\s+$//g; s/\n{2,}/\n\n/g')
 
-    # Save to cache if caching is enabled
-    if [[ "$use_cache" == true ]]; then
-        hcnews_write_cache "$cache_file" "$(echo -e "$output")"
+    # Build output using printf for better performance
+    local output
+    printf -v output '📝 *Frase do dia:*\n%s\n\n' "$cleaned_quote"
+
+    # Save to cache if enabled
+    if [[ "$_quote_USE_CACHE" == true && -n "$output" ]]; then
+        hcnews_write_cache "$cache_file" "$output"
     fi
 
-    # return the quote
-    echo -e "$output"
+    printf '%b' "$output"
 }
 
-# -------------------------------- Running locally --------------------------------
+# -----------------------------------------------------------------------------
+# Output Function
+# -----------------------------------------------------------------------------
+write_quote() {
+    local data; data=$(get_quote_data)
+    [[ -z "$data" ]] && return 1
+    echo "$data"
+}
 
-# help function
-# Usage: ./quote.sh [options]
-# Options:
-#   -h, --help: show the help
+# -----------------------------------------------------------------------------
+# Help Function
+# -----------------------------------------------------------------------------
 show_help() {
-  echo "Usage: ./quote.sh [options]"
-  echo "The quote of the day will be printed to the console."
-  echo "Options:"
-  echo "  -h, --help: show the help"
-  echo "  --no-cache: do not use cached data"
-  echo "  --force: force refresh cache"
+    echo "Usage: ./quote.sh [options]"
+    echo "The quote of the day will be printed to the console."
+    echo ""
+    echo "Options:"
+    echo "  -h, --help     Show this help message"
+    echo "  --no-cache     Bypass cache for this run"
+    echo "  --force        Force refresh cached data"
 }
 
+# -----------------------------------------------------------------------------
+# Main Entry Point
+# -----------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  # run the script
-  hcnews_parse_args "$@"
-  quote
+    hcnews_parse_args "$@"
+    write_quote
 fi

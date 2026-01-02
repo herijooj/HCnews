@@ -5,6 +5,9 @@ data/schedules.json
 # new files
 news/
 *.news
+*.out
+# local config overrides (do not commit)
+config.local.sh
 # data folder
 data/
 *.data

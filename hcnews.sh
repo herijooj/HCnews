@@ -3,6 +3,13 @@
 
 # Includes ========================================================================
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
+export HCNEWS_HOME="$SCRIPT_DIR"
+
+# Source configuration (defaults)
+# config.local.sh will override these settings if it exists
+source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
+# Source local overrides if they exist
+[[ -f "$SCRIPT_DIR/config.local.sh" ]] && source "$SCRIPT_DIR/config.local.sh"
 
 # Source all the required scripts
 source "$SCRIPT_DIR/scripts/lib/common.sh"
@@ -18,7 +25,7 @@ source "$SCRIPT_DIR/scripts/UFPR/ferias.sh"
 source "$SCRIPT_DIR/scripts/UFPR/ru.sh"
 source "$SCRIPT_DIR/scripts/musicchart.sh"
 source "$SCRIPT_DIR/scripts/weather.sh"
-source "$SCRIPT_DIR/scripts/airquality.sh"
+# source "$SCRIPT_DIR/scripts/airquality.sh"  # Now integrated into weather.sh
 source "$SCRIPT_DIR/scripts/earthquake.sh"
 source "$SCRIPT_DIR/scripts/didyouknow.sh"
 # source "$SCRIPT_DIR/scripts/desculpa.sh"
@@ -184,7 +191,7 @@ start_network_jobs() {
     start_timing "network_parallel_start"
 
     # Pre-calculate paths
-    local ru_cache music_cache futuro_cache weather_cache airquality_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache quote_cache
+    local ru_cache music_cache futuro_cache weather_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache quote_cache
     
     if [[ $weekday -lt 6 ]]; then
         ru_cache="${HCNEWS_CACHE_DIR}/ru/${date_format}_politecnico.ru"
@@ -195,7 +202,7 @@ start_network_jobs() {
     local city_norm="${city,,}"
     city_norm="${city_norm// /_}"
     weather_cache="${HCNEWS_CACHE_DIR}/weather/${date_format}_${city_norm}.weather"
-    airquality_cache="${HCNEWS_CACHE_DIR}/airquality/${date_format}_${city_norm}.cache"
+    # airquality now integrated into weather.sh
     earthquake_cache="${HCNEWS_CACHE_DIR}/earthquake/${date_format}_earthquake.cache"
 
     if [[ "$saints_verbose" == "true" ]]; then
@@ -216,7 +223,7 @@ start_network_jobs() {
     # Only if cache use is enabled and not force refresh
     local -A CACHE_MOD_TIMES
     if [[ "$_HCNEWS_USE_CACHE" == "true" && "$_HCNEWS_FORCE_REFRESH" != "true" ]]; then
-        local paths_to_check=("$music_cache" "$weather_cache" "$airquality_cache" "$earthquake_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$quote_cache" "$onthisday_cache")
+        local paths_to_check=("$music_cache" "$weather_cache" "$earthquake_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$quote_cache" "$onthisday_cache")
         [[ -n "$ru_cache" ]] && paths_to_check+=("$ru_cache")
         
         # Stat format: size timestamp filename
@@ -279,12 +286,7 @@ start_network_jobs() {
         start_background_job "weather" "(_weather_USE_CACHE=\$_HCNEWS_USE_CACHE; _weather_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_weather '$city')"
     fi
 
-    # 4b. Air Quality
-    if check_cache_inline "$airquality_cache" "${HCNEWS_CACHE_TTL["airquality"]:-10800}"; then
-        airquality_output=$(_HCNEWS_CACHE_VERIFIED=true; write_airquality "$city")
-    else
-        start_background_job "airquality" "(_airquality_USE_CACHE=\$_HCNEWS_USE_CACHE; _airquality_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_airquality '$city')"
-    fi
+    # 4b. Air Quality - now integrated into weather.sh (no separate job needed)
 
     # 4c. Earthquakes
     if check_cache_inline "$earthquake_cache" "${HCNEWS_CACHE_TTL["earthquake"]:-7200}"; then
@@ -337,9 +339,9 @@ start_network_jobs() {
 
     # 10. Quote
     if check_cache_inline "$quote_cache" "${HCNEWS_CACHE_TTL["quote"]:-86400}"; then
-         quote_output=$(_HCNEWS_CACHE_VERIFIED=true; quote)
+         quote_output=$(_HCNEWS_CACHE_VERIFIED=true; write_quote)
     else
-        start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; quote)"
+        start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_quote)"
     fi
 
     end_timing "network_parallel_start"
@@ -354,7 +356,7 @@ collect_network_data() {
     [[ -z "$exchange_output" ]] && { exchange_output=$(wait_for_job "exchange") || exchange_output=""; }
     [[ -z "$music_chart_output" ]] && { music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""; }
     [[ -z "$weather_output" ]] && { weather_output=$(wait_for_job "weather") || weather_output=""; }
-    [[ -z "$airquality_output" ]] && { airquality_output=$(wait_for_job "airquality") || airquality_output=""; }
+    # airquality now integrated into weather output
     [[ -z "$earthquake_output" ]] && { earthquake_output=$(wait_for_job "earthquake") || earthquake_output=""; }
     [[ -z "$didyouknow_output" ]] && { didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""; }
     [[ -z "$bicho_output" ]] && { bicho_output=$(wait_for_job "bicho") || bicho_output=""; }
@@ -460,11 +462,7 @@ render_output() {
         echo ""
     fi
 
-    # 10b. Air Quality
-    if [[ -n "$airquality_output" ]]; then
-        echo "$airquality_output"
-        echo ""
-    fi
+    # 10b. Air Quality - now integrated into weather output above
 
     # 10c. Earthquakes
     if [[ -n "$earthquake_output" ]]; then
@@ -593,7 +591,7 @@ unix_24h_ago=$((start_time - 86400))  # 24 hours = 86400 seconds
 # Scripts should check for these variables before calling date commands
 export weekday month day year days_since start_time current_time start_time_precise date_format unix_24h_ago
 
-city="Curitiba"
+city="${HCNEWS_CITY:-Curitiba}"
 
 # Reset timing data and initialize timing file for cross-subshell persistence
 reset_timing_data
@@ -611,18 +609,43 @@ if [[ "$hc_force_refresh" == true ]]; then
     export _HCNEWS_FORCE_REFRESH=true
 fi
 
-# RSS feed globals
-o_popular=https://opopularpr.com.br/feed/
-plantao190=https://plantao190.com.br/feed/
-xvcuritiba=https://xvcuritiba.com.br/feed/
-bandab=https://www.bandab.com.br/web-stories/feed/
-g1=https://g1.globo.com/rss/g1/pr/parana/
-g1cinema=https://g1.globo.com/rss/g1/pop-arte/cinema/
-newyorker=https://www.newyorker.com/feed/magazine/rss
-folha=https://feeds.folha.uol.com.br/mundo/rss091.xml
-formula1=https://www.formula1.com/content/fom-website/en/latest/all.xml
-bcc=http://feeds.bbci.co.uk/news/world/latin_america/rss.xml
-all_feeds="${o_popular},${plantao190},${xvcuritiba}"
+# RSS feed globals (can be overridden via config.sh)
+# Define individual variables from HCNEWS_FEEDS array if available
+if [[ -v HCNEWS_FEEDS[@] ]]; then
+    o_popular="${HCNEWS_FEEDS[opopular]:-https://opopularpr.com.br/feed/}"
+    plantao190="${HCNEWS_FEEDS[plantao190]:-https://plantao190.com.br/feed/}"
+    xvcuritiba="${HCNEWS_FEEDS[xvcuritiba]:-https://xvcuritiba.com.br/feed/}"
+    bandab="${HCNEWS_FEEDS[bandab]:-https://www.bandab.com.br/web-stories/feed/}"
+    g1="${HCNEWS_FEEDS[g1_parana]:-https://g1.globo.com/rss/g1/pr/parana/}"
+    g1cinema="${HCNEWS_FEEDS[g1_cinema]:-https://g1.globo.com/rss/g1/pop-arte/cinema/}"
+    newyorker="${HCNEWS_FEEDS[newyorker]:-https://www.newyorker.com/feed/magazine/rss}"
+    folha="${HCNEWS_FEEDS[folha]:-https://feeds.folha.uol.com.br/mundo/rss091.xml}"
+    formula1="${HCNEWS_FEEDS[formula1]:-https://www.formula1.com/content/fom-website/en/latest/all.xml}"
+    bcc="${HCNEWS_FEEDS[bbc]:-http://feeds.bbci.co.uk/news/world/latin_america/rss.xml}"
+else
+    o_popular="https://opopularpr.com.br/feed/"
+    plantao190="https://plantao190.com.br/feed/"
+    xvcuritiba="https://xvcuritiba.com.br/feed/"
+    bandab="https://www.bandab.com.br/web-stories/feed/"
+    g1="https://g1.globo.com/rss/g1/pr/parana/"
+    g1cinema="https://g1.globo.com/rss/g1/pop-arte/cinema/"
+    newyorker="https://www.newyorker.com/feed/magazine/rss"
+    folha="https://feeds.folha.uol.com.br/mundo/rss091.xml"
+    formula1="https://www.formula1.com/content/fom-website/en/latest/all.xml"
+    bcc="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
+fi
+
+# Build all_feeds from comma-separated feed keys
+if [[ -n "${HCNEWS_FEEDS_PRIMARY:-}" ]]; then
+    all_feeds=""
+    IFS=',' read -ra feed_keys <<< "$HCNEWS_FEEDS_PRIMARY"
+    for key in "${feed_keys[@]}"; do
+        [[ -n "$all_feeds" ]] && all_feeds+=","
+        all_feeds+="${HCNEWS_FEEDS[$key]:-}"
+    done
+else
+    all_feeds="${o_popular},${plantao190},${xvcuritiba}"
+fi
 
 # If running directly, execute the output generation
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

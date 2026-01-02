@@ -14,18 +14,23 @@ DATE=$(date +'%d/%m/%Y')
 
 # Generate Tudo (index.html)
 sed "s|{{DATE}}|$DATE|g" .github/template.html \
-  | sed -e '/{{CONTENT}}/r news_tudo.txt' -e '/{{CONTENT}}/d' > public/index.html
+  | sed -e '/{{CONTENT}}/r news_tudo.out' -e '/{{CONTENT}}/d' > public/index.html
 echo "   - public/index.html"
 
 # Generate Notícias (noticias.html)
 sed "s|{{DATE}}|$DATE|g" .github/template.html \
-  | sed -e '/{{CONTENT}}/r news_noticias.txt' -e '/{{CONTENT}}/d' > public/noticias.html
+  | sed -e '/{{CONTENT}}/r news_noticias.out' -e '/{{CONTENT}}/d' > public/noticias.html
 echo "   - public/noticias.html"
 
 # Generate Horóscopo (horoscopo.html)
 sed "s|{{DATE}}|$DATE|g" .github/template.html \
-  | sed -e '/{{CONTENT}}/r news_horoscopo.txt' -e '/{{CONTENT}}/d' > public/horoscopo.html
+  | sed -e '/{{CONTENT}}/r news_horoscopo.out' -e '/{{CONTENT}}/d' > public/horoscopo.html
 echo "   - public/horoscopo.html"
+
+# Generate Previsão do Tempo (weather.html)
+sed "s|{{DATE}}|$DATE|g" .github/template.html \
+  | sed -e '/{{CONTENT}}/r news_weather.out' -e '/{{CONTENT}}/d' > public/weather.html
+echo "   - public/weather.html"
 
 echo "✅ Build complete!"
 echo ""
