@@ -229,7 +229,7 @@ get_rss_data() {
 }
 
 # -----------------------------------------------------------------------------
-# Output Function (aliased to write_news for main script compatibility)
+# Output Function
 # -----------------------------------------------------------------------------
 write_rss() {
     local feed_url="$1"
@@ -267,11 +267,6 @@ write_rss() {
             echo ""
         fi
     fi
-}
-
-# Alias for main script compatibility
-write_news() {
-    write_rss "$@"
 }
 
 # -----------------------------------------------------------------------------

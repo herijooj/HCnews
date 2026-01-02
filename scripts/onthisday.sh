@@ -4,7 +4,7 @@
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 get_onthisday() {
-    hcnews_parse_cache_args "$@"
+    hcnews_parse_args "$@"
     local date_str=$(hcnews_get_date_format)
     local cache_file; hcnews_set_cache_path cache_file "onthisday" "$date_str"
     local ttl=${HCNEWS_CACHE_TTL["onthisday"]:-86400}
@@ -75,7 +75,7 @@ write_onthisday() {
 }
 
 # Standard help
-help() {
+show_help() {
   echo "Usage: ./onthisday.sh [--no-cache|--force|--telegram]"
   echo "Fetches historical events for today from Wikipedia."
 }

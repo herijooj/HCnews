@@ -79,7 +79,7 @@ refresh_component() {
         "rss")
             # Refresh main RSS feeds
             local feeds="https://opopularpr.com.br/feed/,https://plantao190.com.br/feed/,https://g1.globo.com/rss/g1/parana/"
-            timeout $timeout bash -c "source '$script' && write_news '$feeds' false true" >/dev/null 2>&1
+            timeout $timeout bash -c "source '$script' && write_rss '$feeds' false true" >/dev/null 2>&1
             ;;
         "saints")
             timeout $timeout bash -c "source '$script' && write_saints true" >/dev/null 2>&1
@@ -88,7 +88,7 @@ refresh_component() {
             timeout $timeout bash -c "source '$script' && write_bicho" >/dev/null 2>&1
             ;;
         "moonphase")
-            timeout $timeout bash -c "source '$script' && moon_phase" >/dev/null 2>&1
+            timeout $timeout bash -c "source '$script' && write_moon_phase" >/dev/null 2>&1
             ;;
         "quote")
             timeout $timeout bash -c "source '$script' && quote" >/dev/null 2>&1

@@ -378,12 +378,6 @@ hcnews_parse_args() {
     done
 }
 
-# Backward compatibility and wrapper for the simpler case
-# Usage: hcnews_parse_cache_args "$@"
-hcnews_parse_cache_args() {
-    hcnews_parse_args "$@"
-}
-
 # =============================================================================
 # URL Encoding - Pure Bash (avoids jq subprocess)
 # =============================================================================

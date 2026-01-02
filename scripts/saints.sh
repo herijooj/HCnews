@@ -14,7 +14,7 @@ _saints_CACHE_DIR="${HCNEWS_CACHE_DIR}/saints"
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["saints"]:-82800}"
 
 # Parse cache args
-hcnews_parse_cache_args "$@"
+hcnews_parse_args "$@"
 _saints_USE_CACHE=$_HCNEWS_USE_CACHE
 _saints_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 

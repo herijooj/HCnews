@@ -332,9 +332,9 @@ start_network_jobs() {
 
     # 9. Moon Phase
     if check_cache_inline "$moon_cache" "${HCNEWS_CACHE_TTL["moonphase"]:-86400}"; then
-         moon_phase_output=$(_HCNEWS_CACHE_VERIFIED=true; moon_phase)
+         moon_phase_output=$(_HCNEWS_CACHE_VERIFIED=true; write_moon_phase)
     else
-        start_background_job "header_moon" "(_moonphase_USE_CACHE=\$_HCNEWS_USE_CACHE; _moonphase_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; moon_phase)"
+        start_background_job "header_moon" "(_moonphase_USE_CACHE=\$_HCNEWS_USE_CACHE; _moonphase_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_moon_phase)"
     fi
 
     # 10. Quote
@@ -517,7 +517,7 @@ function output {
     # $3 and $4 are no cache/force flags already handled globally
     
     # Explicitly start news generation for CLI mode FIRST (heaviest task)
-    start_background_job "all_news" "(_rss_USE_CACHE=\$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_news '$all_feeds' '$news_shortened' true ${hc_full_url})"
+    start_background_job "all_news" "(_rss_USE_CACHE=\$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_rss '$all_feeds' '$news_shortened' true ${hc_full_url})"
 
     # Fetch all other data
     fetch_newspaper_data
@@ -526,7 +526,7 @@ function output {
     news_output=$(wait_for_job "all_news")
     if [[ $? -ne 0 || -z "$news_output" ]]; then
         # Fallback if job failed (shouldn't happen in normal CLI flow)
-        news_output=$(_rss_USE_CACHE=$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH; write_news "$all_feeds" "$news_shortened" true ${hc_full_url})
+        news_output=$(_rss_USE_CACHE=$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH; write_rss "$all_feeds" "$news_shortened" true ${hc_full_url})
     fi
 
     # Render everything

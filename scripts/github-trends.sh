@@ -9,7 +9,7 @@ fi
 
 # Shared utilities
 _local_dir="${BASH_SOURCE[0]%/*}"
-source "$_local_dir/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
 
 # Parse common flags
 hcnews_parse_args "$@"
@@ -145,7 +145,7 @@ write_github_trends() {
   fi
 }
 
-help() {
+show_help() {
   echo "Usage: ./github-trends.sh [Language] [--no-cache|--force|--telegram]"
   echo "Examples:"
   echo "  ./github-trends.sh                    # Show trending repos across all languages"

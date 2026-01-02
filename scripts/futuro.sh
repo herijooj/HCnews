@@ -9,10 +9,7 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
 fi
 
 # Source common library if not already loaded
-if [[ -z "$(type -t hcnews_log)" ]]; then
-    _local_script_dir=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
-    source "$_local_script_dir/lib/common.sh"
-fi
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # === Configuration ===
 
@@ -32,7 +29,7 @@ fi
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["futuro"]:-86400}"
 
 # Parse cache args
-hcnews_parse_cache_args "$@"
+hcnews_parse_args "$@"
 _futuro_USE_CACHE=$_HCNEWS_USE_CACHE
 _futuro_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
@@ -57,11 +54,7 @@ function get_ai_fortune() {
 
     local date_format_local
     # Use cached date_format if available, otherwise fall back to date command
-    if [[ -n "$date_format" ]]; then
-        date_format_local="$date_format"
-    else
-        date_format_local=$(date +"%Y%m%d")
-    fi
+    local date_format_local; date_format_local=$(hcnews_get_date_format)
     local cache_file
     hcnews_set_cache_path cache_file "futuro" "$date_format_local"
 
@@ -252,7 +245,7 @@ function write_ai_fortune() {
 }
 
 # Function to display help message
-function help() {
+function show_help() {
     echo "Usage: ./futuro.sh [options]"
     echo "Generates a futuristic prediction using a generative AI model."
     echo ""
@@ -267,7 +260,7 @@ function get_arguments() {
     for arg in "$@"; do
         case "$arg" in
             -h|--help)
-                help
+                show_help
                 exit 0
                 ;;
             --no-cache)

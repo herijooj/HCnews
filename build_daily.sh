@@ -28,7 +28,7 @@ fetch_newspaper_data
 _hc_full_url_saved="$hc_full_url"
 hc_full_url=true
 echo "🗞️ Generating RSS content..." >&2
-news_output=$(_rss_USE_CACHE=$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH; write_news "$all_feeds" true true ${hc_full_url})
+news_output=$(_rss_USE_CACHE=$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH; write_rss "$all_feeds" true true ${hc_full_url})
 
 # 4. Assemble 'Tudo' content
 content_tudo_body=$(render_output)

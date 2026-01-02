@@ -12,19 +12,14 @@ _musicchart_USE_CACHE=${_HCNEWS_USE_CACHE:-true}
 _musicchart_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
 
 # Parse local arguments if sourced/executed with args
-hcnews_parse_cache_args "$@"
+hcnews_parse_args "$@"
 # Update local variables based on global/parsed values
 [[ "${_HCNEWS_USE_CACHE}" == "false" ]] && _musicchart_USE_CACHE=false
 [[ "${_HCNEWS_FORCE_REFRESH}" == "true" ]] && _musicchart_FORCE_REFRESH=true
 
 # Function to get today's date in YYYYMMDD format
 get_music_date_format() {
-  # Use cached date_format if available (from common.sh or global)
-  if [[ -n "$date_format" ]]; then
-    echo "$date_format"
-  else
-    date +"%Y%m%d"
-  fi
+  hcnews_get_date_format
 }
 
 # optimized get_music_chart using caching and faster requests

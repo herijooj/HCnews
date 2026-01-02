@@ -8,7 +8,7 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
 fi
 
 _local_dir="${BASH_SOURCE[0]%/*}"
-source "$_local_dir/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
 
 # Parse shared flags
 hcnews_parse_args "$@"
@@ -92,7 +92,7 @@ write_earthquake() {
   fi
 }
 
-help() {
+show_help() {
   echo "Usage: ./earthquake.sh [--no-cache|--force|--telegram]"
 }
 

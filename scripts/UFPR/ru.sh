@@ -41,7 +41,7 @@ _ru_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
 _ru_CACHE_TTL=${HCNEWS_CACHE_TTL["ru"]:-43200} # 12 hours
 
 # Parse local arguments if sourced/executed with args
-hcnews_parse_cache_args "$@"
+hcnews_parse_args "$@"
 # Update local variables based on global/parsed values
 [[ "${_HCNEWS_USE_CACHE}" == "false" ]] && _ru_USE_CACHE=false
 [[ "${_HCNEWS_FORCE_REFRESH}" == "true" ]] && _ru_FORCE_REFRESH=true
