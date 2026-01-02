@@ -20,7 +20,7 @@ if [[ -z "${HCNEWS_ROOT:-}" ]]; then
     HCNEWS_ROOT="$(dirname "$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")")"
 fi
 export HCNEWS_ROOT
-export HCNEWS_COMMON_PATH="$(realpath "${BASH_SOURCE[0]}")"
+export HCNEWS_COMMON_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/"
 
 if [[ -z "${HCNEWS_DATA_DIR:-}" ]]; then
     HCNEWS_DATA_DIR="${HCNEWS_ROOT}/data"
@@ -303,31 +303,33 @@ hcnews_set_cache_path() {
 }
 
 # =============================================================================
-# HTML Entity Decoding - Pure Bash/sed implementation
+# HTML Entity Decoding - Pure Bash implementation
 # =============================================================================
 
-# Decode common HTML entities without spawning Python
+# Decode common HTML entities without spawning subprocesses
 # Usage: decoded=$(hcnews_decode_html_entities "$raw_text")
 hcnews_decode_html_entities() {
     local input="$1"
-    printf '%s' "$input" | sed \
-        -e 's/&amp;/\&/g' \
-        -e 's/&quot;/"/g' \
-        -e 's/&lt;/</g' \
-        -e 's/&gt;/>/g' \
-        -e "s/&#0*39;/'/g" \
-        -e "s/&apos;/'/g" \
-        -e 's/&nbsp;/ /g' \
-        -e "s/&rsquo;/'/g" \
-        -e "s/&lsquo;/'/g" \
-        -e 's/&rdquo;/"/g' \
-        -e 's/&ldquo;/"/g' \
-        -e 's/&mdash;/—/g' \
-        -e 's/&ndash;/–/g' \
-        -e 's/&hellip;/…/g' \
-        -e 's/\xe2\x80\x8b//g' \
-        -e 's/&#x[0-9a-fA-F]\+;//g' \
-        -e 's/&#[0-9]\+;//g'
+
+    # Use bash parameter expansion for common entities (faster, no subprocess)
+    input="${input//&amp;/&}"
+    input="${input//&quot;/\"}"
+    input="${input//&lt;/<}"
+    input="${input//&gt;/>}"
+    input="${input//&#0*39;/\'}"
+    input="${input//&apos;/\'}"
+    input="${input//&nbsp;/ }"
+    input="${input//&rsquo;/\'}"
+    input="${input//&lsquo;/\'}"
+    input="${input//&rdquo;/\"}"
+    input="${input//&ldquo;/\"}"
+    input="${input//&mdash;/—}"
+    input="${input//&ndash;/–}"
+    input="${input//&hellip;/…}"
+    input="${input//$'\xe2\x80\x8b'/}"
+
+    # Handle numeric hex entities (requires sed for patterns)
+    printf '%s' "$input" | sed -e 's/&#x[0-9a-fA-F]\+;//g' -e 's/&#[0-9]\+;//g'
 }
 
 # =============================================================================

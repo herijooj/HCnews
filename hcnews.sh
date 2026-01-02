@@ -13,7 +13,7 @@ source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
 
 # Source all the required scripts
 source "$SCRIPT_DIR/scripts/lib/common.sh"
-export HCNEWS_COMMON_PATH="$SCRIPT_DIR/scripts/lib/common.sh"
+export HCNEWS_COMMON_PATH="$SCRIPT_DIR/scripts/lib/"
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
 source "$SCRIPT_DIR/scripts/moonphase.sh"

@@ -9,7 +9,7 @@ elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
 fi
 
 # Source common library if not already loaded
-[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # === Configuration ===
 

@@ -55,12 +55,21 @@ jobs:
             hcnews-cache-${{ runner.os }}-${{ steps.cache-key.outputs.day }}-
             hcnews-cache-${{ runner.os }}-
 
-      - name: Install dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y xmlstarlet jq curl unzip
+      - name: Cache apt packages
+        uses: awalsh128/cache-apt-pkgs-action@latest
+        with:
+          packages: xmlstarlet jq curl unzip
+          version: 1.0
 
-      - name: Install pup
+      - name: Cache pup binary
+        id: cache-pup
+        uses: actions/cache@v4
+        with:
+          path: /usr/local/bin/pup
+          key: pup-v0.4.0-linux-amd64
+
+      - name: Install pup (if not cached)
+        if: steps.cache-pup.outputs.cache-hit != 'true'
         run: |
           set -e
           PUP_URL="https://github.com/ericchiang/pup/releases/download/v0.4.0/pup_v0.4.0_linux_amd64.zip"
@@ -68,7 +77,9 @@ jobs:
           unzip -o /tmp/pup.zip -d /tmp
           sudo mv /tmp/pup /usr/local/bin/pup
           sudo chmod +x /usr/local/bin/pup
-          pup --version
+
+      - name: Verify pup installation
+        run: pup --version
 
       - name: Run HC News
         env:

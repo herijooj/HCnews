@@ -144,9 +144,10 @@ get_rss_data() {
     local use_links="$2"
     local use_full_url="$3"
 
-    # Generate portal identifier for cache
-    local portal_id
-    portal_id=$(echo "$feed_url" | sed -e 's|https*://||g' -e 's|/|__|g' -e 's|[^a-zA-Z0-9_.-]||g')
+    # Generate portal identifier for cache using pure bash
+    local portal_id="${feed_url#http*://}"
+    portal_id="${portal_id//\//__}"
+    portal_id="${portal_id//[^a-zA-Z0-9_.-]/}"
 
     local date_str; date_str=$(hcnews_get_date_format)
     local rss_cache_dir="${_rss_cache_base}/rss_feeds/${portal_id}"

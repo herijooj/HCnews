@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Source common library if not already loaded
-[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # URL shortening function using is.gd service with timeout and retries
 shorten_url_isgd() {
@@ -38,6 +38,37 @@ shorten_url_isgd() {
     else
         echo "$url"
     fi
+}
+
+# Batch URL shortening - parallelizes multiple URL shortenings
+shorten_urls_batch() {
+    local urls=("$@")
+    local tmp_dir="/tmp/hcnews_shorten_$$"
+    mkdir -p "$tmp_dir"
+
+    # Fire all requests in parallel
+    for i in "${!urls[@]}"; do
+        (
+            local url="${urls[$i]}"
+            local result
+            result=$(shorten_url_isgd "$url")
+            echo "$i|$result" > "$tmp_dir/result_$i.txt"
+        ) &
+    done
+    wait
+
+    # Collect results in order
+    local results=()
+    for i in "${!urls[@]}"; do
+        if [[ -f "$tmp_dir/result_$i.txt" ]]; then
+            results+=("$(cat "$tmp_dir/result_$i.txt" | cut -d'|' -f2)")
+        else
+            results+=("${urls[$i]}")  # Fallback to original
+        fi
+    done
+
+    rm -rf "$tmp_dir"
+    printf '%s\n' "${results[@]}"
 }
 
 # -------------------------------- Running locally --------------------------------

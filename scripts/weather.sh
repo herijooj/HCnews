@@ -17,7 +17,7 @@ fi
 # -----------------------------------------------------------------------------
 # Source Common Library (ALWAYS FIRST after tokens)
 # -----------------------------------------------------------------------------
-[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
 # Parse Arguments
@@ -295,14 +295,27 @@ write_weather_all() {
         cities=("Curitiba" "São Paulo" "Rio de Janeiro" "Londrina" "Florianópolis")
     fi
 
+    # Fetch all cities in parallel (OpenWeatherMap allows 60 calls/min on free tier)
+    local tmp_dir="/tmp/hcnews_weather_$$"
+    mkdir -p "$tmp_dir"
+
     for city in "${cities[@]}"; do
-        local data; data=$(get_weather_data "$city")
-        if [[ -n "$data" ]]; then
-            echo "$data"
-            echo ""
-        fi
-        sleep 0.5  # Rate limiting between API calls
+        (
+            local data; data=$(get_weather_data "$city")
+            if [[ -n "$data" ]]; then
+                echo "$data"
+                echo ""
+            fi
+        ) > "$tmp_dir/$city.txt" &
     done
+    wait
+
+    # Output in order
+    for city in "${cities[@]}"; do
+        cat "$tmp_dir/$city.txt" 2>/dev/null || true
+    done
+
+    rm -rf "$tmp_dir"
 }
 
 # -----------------------------------------------------------------------------

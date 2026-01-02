@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # Source common library if not already loaded
-[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # Cache configuration - use centralized dir
 if [[ -z "${HCNEWS_CACHE_DIR:-}" ]]; then
@@ -46,19 +46,23 @@ get_saints_of_the_day_verbose () {
     # Get the URL
     local url="https://www.vaticannews.va/pt/santo-do-dia/$month_local/$day_local.html"
 
+    # Fetch once, parse twice (avoid duplicate API call)
+    local html
+    html=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url")
+
     # Only the names
     local names
-    names=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | pup '.section__head h2 text{}' | sed '/^$/d')
-    
+    names=$(echo "$html" | pup '.section__head h2 text{}' | sed '/^$/d')
+
     # Check if we got any names
     if [[ -z "$names" ]]; then
         echo "⚠️ Não foi possível encontrar santos para hoje."
         return 1
     fi
 
-    # The description
+    # The description (from same HTML)
     local description
-    description=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" | pup '.section__head h2 text{}, .section__content p text{}' | sed '/^$/d' | sed '1d'| sed '/^[[:space:]]*$/d')
+    description=$(echo "$html" | pup '.section__head h2 text{}, .section__content p text{}' | sed '/^$/d' | sed '1d'| sed '/^[[:space:]]*$/d')
     
     # Decode HTML entities in the description
     description=$(hcnews_decode_html_entities "$description")

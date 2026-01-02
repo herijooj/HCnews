@@ -10,7 +10,7 @@
 # -----------------------------------------------------------------------------
 # Source Common Library (ALWAYS FIRST)
 # -----------------------------------------------------------------------------
-[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
+[[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
 # Parse Arguments
@@ -123,15 +123,32 @@ write_horoscopo() {
         echo "🔮 *Horóscopo do dia*"
         echo ""
         local all_signs=("aries" "touro" "gemeos" "cancer" "leao" "virgem" "libra" "escorpiao" "sagitario" "capricornio" "aquario" "peixes")
+
+        # Create temp directory for parallel outputs
+        local tmp_dir="/tmp/hcnews_horoscopo_$$"
+        mkdir -p "$tmp_dir"
+
+        # Fetch all signs in parallel
         for s in "${all_signs[@]}"; do
-            local text; text=$(get_horoscopo_data "$s")
+            (
+                local text; text=$(get_horoscopo_data "$s")
+                echo "$text" > "$tmp_dir/$s.txt"
+            ) &
+        done
+        wait
+
+        # Read and output results in order
+        for s in "${all_signs[@]}"; do
+            local text; text=$(cat "$tmp_dir/$s.txt" 2>/dev/null || echo "Erro ao obter horóscopo de $s")
             local s_emoji="${SIGN_EMOJIS[$s]:-🔮}"
             local s_name="${SIGN_NAMES[$s]:-}"
             echo "$s_emoji *$s_name*"
             echo "$text"
             echo ""
-            sleep 1
         done
+
+        # Cleanup
+        rm -rf "$tmp_dir"
     else
         local text; text=$(get_horoscopo_data "$sign")
         [[ -z "$text" ]] && return 1
