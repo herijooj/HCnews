@@ -76,7 +76,7 @@ write_onthisday() {
 
 # Standard help
 show_help() {
-  echo "Usage: ./onthisday.sh [--no-cache|--force|--telegram]"
+  echo "Usage: ./onthisday.sh [--no-cache|--force]"
   echo "Fetches historical events for today from Wikipedia."
 }
 

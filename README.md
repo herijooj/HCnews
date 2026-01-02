@@ -21,16 +21,6 @@ HCNEWS requires the following dependencies:
 - `date` you probably already have it, but if you don't you can find it [here](https://www.gnu.org/software/coreutils/manual/html_node/date-invocation.html)
 - `curl` you probably already have it too, but if you don't you can find it [here](https://curl.se/)
 
-If you want to run the Telegram bot (WIP) you can run 
-```sh
-  pip install -r requirements.txt
-``` 
-
-the requirements are:
-- `python-telegram-bot` 
-- `schedule`
-- `httpx`
-
 if i missed something, take a look into the `default.nix` file, i'm using nix to manage my dependencies.
 
 ## Installation

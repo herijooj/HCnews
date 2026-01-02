@@ -275,12 +275,8 @@ write_weather() {
     local data; data=$(get_weather_data "$city")
     [[ -z "$data" ]] && return 1
 
-    if [[ "$_HCNEWS_TELEGRAM" == "true" ]]; then
-        echo "$data"
-    else
-        echo -e "$data"
-        echo ""
-    fi
+    echo -e "$data"
+    echo ""
 }
 
 # -----------------------------------------------------------------------------
@@ -332,7 +328,6 @@ show_help() {
     echo "  --all          Fetch weather for all major cities"
     echo "  --no-cache     Bypass cache for this run"
     echo "  --force        Force refresh cached data"
-    echo "  --telegram     Format output for Telegram"
 }
 
 # -----------------------------------------------------------------------------

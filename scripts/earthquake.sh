@@ -12,7 +12,6 @@ _local_dir="${BASH_SOURCE[0]%/*}"
 
 # Parse shared flags
 hcnews_parse_args "$@"
-FOR_TELEGRAM=$_HCNEWS_TELEGRAM
 _earthquake_USE_CACHE=$_HCNEWS_USE_CACHE
 _earthquake_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 set -- "${_HCNEWS_REMAINING_ARGS[@]}"
@@ -85,15 +84,11 @@ build_block() {
 write_earthquake() {
   local block
   block=$(build_block) || { echo "$block"; return 1; }
-  if [ "$FOR_TELEGRAM" = true ]; then
-    echo "$block"
-  else
-    echo -e "$block\n"
-  fi
+  echo -e "$block\n"
 }
 
 show_help() {
-  echo "Usage: ./earthquake.sh [--no-cache|--force|--telegram]"
+  echo "Usage: ./earthquake.sh [--no-cache|--force]"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then

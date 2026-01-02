@@ -67,7 +67,7 @@ write_did_you_know() {
 
 # Standard help
 show_help() {
-  echo "Usage: ./didyouknow.sh [--no-cache|--force|--telegram]"
+  echo "Usage: ./didyouknow.sh [--no-cache|--force]"
   echo "Fetches a random 'Did You Know' fact from Wikipedia."
 }
 

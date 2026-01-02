@@ -13,7 +13,6 @@ _local_dir="${BASH_SOURCE[0]%/*}"
 
 # Parse common flags
 hcnews_parse_args "$@"
-FOR_TELEGRAM=$_HCNEWS_TELEGRAM
 _githubtrends_USE_CACHE=$_HCNEWS_USE_CACHE
 _githubtrends_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 set -- "${_HCNEWS_REMAINING_ARGS[@]}"
@@ -138,15 +137,11 @@ get_block() {
 
 write_github_trends() {
   local LANGUAGE="${1:-}"; local block; block=$(get_block "$LANGUAGE") || { echo "$block"; return 1; }
-  if [ "$FOR_TELEGRAM" = true ]; then
-    echo "$block"
-  else
-    echo -e "$block\n"
-  fi
+  echo -e "$block\n"
 }
 
 show_help() {
-  echo "Usage: ./github-trends.sh [Language] [--no-cache|--force|--telegram]"
+  echo "Usage: ./github-trends.sh [Language] [--no-cache|--force]"
   echo "Examples:"
   echo "  ./github-trends.sh                    # Show trending repos across all languages"
   echo "  ./github-trends.sh python            # Show trending Python repos"

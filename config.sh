@@ -83,9 +83,6 @@ HCNEWS_CACHE_DIR="${HCNEWS_CACHE_DIR:-${HCNEWS_HOME:-$(dirname "${BASH_SOURCE[0]
 # Full URLs instead of shortened links (for web builds)
 HCNEWS_FULL_URL="${HCNEWS_FULL_URL:-false}"
 
-# Telegram mode (disables -e for echo)
-HCNEWS_TELEGRAM="${HCNEWS_TELEGRAM:-false}"
-
 # -----------------------------------------------------------------------------
 # API Keys (recommended: set via tokens.sh or environment variables)
 # -----------------------------------------------------------------------------

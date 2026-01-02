@@ -63,14 +63,13 @@ declare -A CITY_COORDS=(
 
 # Help function
 show_help() {
-    echo "Usage: ./airquality.sh [City] [--no-cache|--force|--telegram]"
+    echo "Usage: ./airquality.sh [City] [--no-cache|--force]"
     echo ""
     echo "Fetches Air Quality Index (AQI) data for one or more cities."
     echo ""
     echo "Options:"
     echo "  --no-cache    Disable cache use"
     echo "  --force       Force refresh even if cache exists"
-    echo "  --telegram    Format output for Telegram"
     echo ""
     echo "If no city is provided, it fetches a pre-defined list of cities in parallel."
 }
@@ -231,12 +230,8 @@ write_airquality() {
     local SHORT_FORMAT="${2:-false}"
     local block
     block=$(get_airquality "$CITY" "$SHORT_FORMAT") || { echo "$block"; return 1; }
-    
-    if [ "$FOR_TELEGRAM" = true ]; then
-        echo "$block"
-    else
-        echo -e "$block\n"
-    fi
+
+    echo -e "$block\n"
 }
 
 # Parallel multicity fetch
@@ -290,7 +285,6 @@ write_airquality_all() {
 
 # Standard argument parsing
 hcnews_parse_args "$@"
-FOR_TELEGRAM=$_HCNEWS_TELEGRAM
 _airquality_USE_CACHE=$_HCNEWS_USE_CACHE
 _airquality_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 # Shift to remaining arguments for city name
