@@ -70,28 +70,30 @@ reading_time_horoscopo=$(calculate_reading_time "$content_horoscopo")
 reading_time_weather=$(calculate_reading_time "$content_weather")
 
 # Write files
+mkdir -p public
+
 {
     write_header_with_reading_time "$reading_time_tudo"
     echo -e "$content_tudo" | sed '1,4d'
-} > news_tudo.out
+} > public/news_tudo.out
 
 {
     write_header_with_reading_time "$reading_time_noticias"
     echo ""
     echo -e "$content_noticias"
-} > news_noticias.out
+} > public/news_noticias.out
 
 {
     write_header_with_reading_time "$reading_time_horoscopo"
     echo ""
     echo -e "$content_horoscopo"
-} > news_horoscopo.out
+} > public/news_horoscopo.out
 
 {
     write_header_with_reading_time "$reading_time_weather"
     echo ""
     echo -e "$content_weather"
-} > news_weather.out
+} > public/news_weather.out
 
-echo "✅ Build complete. Files: news_tudo.out, news_noticias.out, news_horoscopo.out, news_weather.out" >&2
+echo "✅ Build complete. Files: public/news_tudo.out, public/news_noticias.out, public/news_horoscopo.out, public/news_weather.out" >&2
 
