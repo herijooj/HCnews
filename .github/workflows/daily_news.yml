@@ -122,6 +122,11 @@ jobs:
           sed "s|{{DATE}}|$DATE|g" .github/template.html \
             | sed -e '/{{CONTENT}}/r public/news_weather.out' -e '/{{CONTENT}}/d' > public/weather.html
 
+      - name: Set git config
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
