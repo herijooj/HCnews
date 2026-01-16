@@ -10,28 +10,66 @@
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
     <title>HCNews!</title>
     <style>
+        :root {
+            --bg-primary: #1e1e1e;
+            --bg-secondary: #2d2d2d;
+            --bg-tertiary: #3d3d3d;
+            --text-primary: #d4d4d4;
+            --text-secondary: #aaa;
+            --text-highlight: #fff;
+            --border-color: #333;
+            --accent-color: #3794ff;
+            --accent-hover: #2a75d1;
+            --code-bg: #2d2d2d;
+            --code-color: #e06c75;
+            --em-color: #aaa;
+            --del-color: #888;
+            --shadow-color: rgba(0, 0, 0, 0.5);
+            --scrollbar-track: #2d2d2d;
+            --scrollbar-thumb: #444;
+        }
+
+        [data-theme="light"] {
+            --bg-primary: #f5f5f5;
+            --bg-secondary: #ffffff;
+            --bg-tertiary: #e0e0e0;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --text-highlight: #000000;
+            --border-color: #dddddd;
+            --accent-color: #0066cc;
+            --accent-hover: #0052a3;
+            --code-bg: #f0f0f0;
+            --code-color: #d63384;
+            --em-color: #555555;
+            --del-color: #999999;
+            --shadow-color: rgba(0, 0, 0, 0.15);
+            --scrollbar-track: #e8e8e8;
+            --scrollbar-thumb: #aaaaaa;
+        }
+
         body {
             font-family: 'Courier New', Courier, monospace;
-            background-color: #1e1e1e;
-            color: #d4d4d4;
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
             padding: 20px;
             line-height: 1.5;
             max-width: 800px;
             margin: 0 auto;
             padding-bottom: 100px;
+            transition: background-color 0.3s, color 0.3s;
         }
 
-        /* Navigation Tabs */
         .nav-tabs {
             display: flex;
-            border-bottom: 1px solid #333;
+            border-bottom: 1px solid var(--border-color);
             margin-bottom: 20px;
             gap: 2px;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             flex-wrap: nowrap;
             scrollbar-width: thin;
-            scrollbar-color: #444 #2d2d2d;
+            scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
         }
 
         .nav-tabs::-webkit-scrollbar {
@@ -39,17 +77,17 @@
         }
 
         .nav-tabs::-webkit-scrollbar-track {
-            background: #2d2d2d;
+            background: var(--scrollbar-track);
         }
 
         .nav-tabs::-webkit-scrollbar-thumb {
-            background-color: #444;
+            background-color: var(--scrollbar-thumb);
             border-radius: 4px;
         }
 
         .nav-tab {
-            background-color: #2d2d2d;
-            color: #aaa;
+            background-color: var(--bg-secondary);
+            color: var(--text-secondary);
             padding: 8px 12px;
             text-decoration: none;
             border-radius: 4px 4px 0 0;
@@ -60,35 +98,35 @@
         }
 
         .nav-tab:hover {
-            background-color: #3d3d3d;
-            color: #fff;
+            background-color: var(--bg-tertiary);
+            color: var(--text-highlight);
         }
 
         .nav-tab.active {
-            background-color: #3794ff;
+            background-color: var(--accent-color);
             color: #fff;
         }
 
         .controls {
             margin-top: 20px;
             padding-top: 10px;
-            border-top: 1px solid #333;
+            border-top: 1px solid var(--border-color);
             display: flex;
             gap: 10px;
             position: fixed;
             bottom: 0;
             left: 0;
             right: 0;
-            background-color: #1e1e1e;
+            background-color: var(--bg-primary);
             z-index: 100;
             padding: 10px;
             flex-wrap: wrap;
             justify-content: center;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+            box-shadow: 0 -2px 10px var(--shadow-color);
         }
 
         button {
-            background-color: #3794ff;
+            background-color: var(--accent-color);
             color: white;
             border: none;
             padding: 8px 16px;
@@ -99,26 +137,35 @@
         }
 
         button:hover {
-            background-color: #2a75d1;
+            background-color: var(--accent-hover);
         }
 
         button.secondary {
-            background-color: #333;
-            color: #ccc;
+            background-color: var(--bg-tertiary);
+            color: var(--text-primary);
         }
 
         button.secondary:hover {
-            background-color: #444;
+            background-color: var(--border-color);
         }
 
+        #theme-toggle {
+            background: transparent;
+            border: 1px solid var(--border-color);
+            color: var(--text-primary);
+            padding: 6px 12px;
+        }
 
+        #theme-toggle:hover {
+            background-color: var(--bg-tertiary);
+        }
 
         #raw-content {
             width: 100%;
             height: 80vh;
-            background-color: #2d2d2d;
-            color: #d4d4d4;
-            border: 1px solid #444;
+            background-color: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 1px solid var(--border-color);
             padding: 15px;
             font-family: 'Courier New', Courier, monospace;
             white-space: pre-wrap;
@@ -135,22 +182,22 @@
 
         /* WhatsApp style formatting */
         strong {
-            color: #fff;
+            color: var(--text-highlight);
             font-weight: bold;
         }
 
         em {
             font-style: italic;
-            color: #aaa;
+            color: var(--em-color);
         }
 
         del {
             text-decoration: line-through;
-            color: #888;
+            color: var(--del-color);
         }
 
         a {
-            color: #3794ff;
+            color: var(--accent-color);
             text-decoration: none;
         }
 
@@ -159,11 +206,11 @@
         }
 
         code {
-            background-color: #2d2d2d;
+            background-color: var(--code-bg);
             padding: 2px 4px;
             border-radius: 3px;
             font-family: 'Courier New', monospace;
-            color: #e06c75;
+            color: var(--code-color);
         }
     </style>
 </head>
@@ -188,6 +235,9 @@
                 style="font-size:14px;">Mostrar links</span>
         </label>
         <button onclick="copyRaw()" class="secondary">Copiar texto</button>
+        <button onclick="toggleTheme()" id="theme-toggle" class="secondary">
+            <span id="theme-icon">&#9789;</span> <span id="theme-text">Escuro</span>
+        </button>
     </div>
 
     <!-- Hidden container for the content source -->
@@ -308,8 +358,52 @@
             });
         }
 
+        function toggleTheme() {
+            const html = document.documentElement;
+            const currentTheme = html.getAttribute('data-theme');
+            const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+            html.setAttribute('data-theme', newTheme);
+            localStorage.setItem('theme', newTheme);
+            updateThemeUI(newTheme);
+        }
+
+        function updateThemeUI(theme) {
+            const icon = document.getElementById('theme-icon');
+            const text = document.getElementById('theme-text');
+            if (theme === 'light') {
+                icon.innerHTML = '&#9788;';
+                text.textContent = 'Claro';
+            } else {
+                icon.innerHTML = '&#9789;';
+                text.textContent = 'Escuro';
+            }
+        }
+
+        function initTheme() {
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+                document.documentElement.setAttribute('data-theme', savedTheme);
+                updateThemeUI(savedTheme);
+            } else {
+                const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                const theme = systemDark ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                updateThemeUI(theme);
+            }
+        }
+
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+            if (!localStorage.getItem('theme')) {
+                const theme = e.matches ? 'dark' : 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                updateThemeUI(theme);
+            }
+        });
+
         // Initialize
         window.onload = function () {
+            initTheme();
+
             // Highlight active tab
             const path = window.location.pathname;
             const page = path.split('/').pop() || 'index.html';
