@@ -17,7 +17,7 @@ export HCNEWS_COMMON_PATH="$SCRIPT_DIR/scripts/lib/"
 source "$SCRIPT_DIR/scripts/file.sh"
 source "$SCRIPT_DIR/scripts/header.sh"
 source "$SCRIPT_DIR/scripts/moonphase.sh"
-source "$SCRIPT_DIR/scripts/quote.sh"
+# source "$SCRIPT_DIR/scripts/quote.sh"
 source "$SCRIPT_DIR/scripts/saints.sh"
 source "$SCRIPT_DIR/scripts/rss.sh"
 source "$SCRIPT_DIR/scripts/exchange.sh"
@@ -191,7 +191,7 @@ start_network_jobs() {
     start_timing "network_parallel_start"
 
     # Pre-calculate paths
-    local ru_cache music_cache futuro_cache weather_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache quote_cache
+    local ru_cache music_cache futuro_cache weather_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache
     
     if [[ $weekday -lt 6 ]]; then
         ru_cache="${HCNEWS_CACHE_DIR}/ru/${date_format}_politecnico.ru"
@@ -216,14 +216,14 @@ start_network_jobs() {
     bicho_cache="${HCNEWS_CACHE_DIR}/bicho/${date_format}_bicho.cache"
     moon_cache="${HCNEWS_CACHE_DIR}/moonphase/${date_format}_moon_phase.cache"
     moon_cache="${HCNEWS_CACHE_DIR}/moonphase/${date_format}_moon_phase.cache"
-    quote_cache="${HCNEWS_CACHE_DIR}/quote/${date_format}_quote.cache"
+    # quote_cache="${HCNEWS_CACHE_DIR}/quote/${date_format}_quote.cache"
     onthisday_cache="${HCNEWS_CACHE_DIR}/onthisday/${date_format}_onthisday.cache"
 
     # Batch Stat: Check existence and mod time for ALL caches in one fork
     # Only if cache use is enabled and not force refresh
     local -A CACHE_MOD_TIMES
     if [[ "$_HCNEWS_USE_CACHE" == "true" && "$_HCNEWS_FORCE_REFRESH" != "true" ]]; then
-        local paths_to_check=("$music_cache" "$weather_cache" "$earthquake_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$quote_cache" "$onthisday_cache")
+        local paths_to_check=("$music_cache" "$weather_cache" "$earthquake_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$onthisday_cache")
         [[ -n "$ru_cache" ]] && paths_to_check+=("$ru_cache")
         
         # Stat format: size timestamp filename
@@ -338,11 +338,11 @@ start_network_jobs() {
     fi
 
     # 10. Quote
-    if check_cache_inline "$quote_cache" "${HCNEWS_CACHE_TTL["quote"]:-86400}"; then
-         quote_output=$(_HCNEWS_CACHE_VERIFIED=true; write_quote)
-    else
-        start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_quote)"
-    fi
+    # if check_cache_inline "$quote_cache" "${HCNEWS_CACHE_TTL["quote"]:-86400}"; then
+    #      quote_output=$(_HCNEWS_CACHE_VERIFIED=true; write_quote)
+    # else
+    #     start_background_job "header_quote" "(_quote_USE_CACHE=\$_HCNEWS_USE_CACHE; _quote_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_quote)"
+    # fi
 
     end_timing "network_parallel_start"
 }
@@ -350,7 +350,7 @@ start_network_jobs() {
 # Collect results from network background jobs
 collect_network_data() {
     [[ -z "$moon_phase_output" ]] && { moon_phase_output=$(wait_for_job "header_moon") || moon_phase_output=""; }
-    [[ -z "$quote_output" ]] && { quote_output=$(wait_for_job "header_quote") || quote_output=""; }
+    # [[ -z "$quote_output" ]] && { quote_output=$(wait_for_job "header_quote") || quote_output=""; }
     [[ -z "$saints_output" ]] && { saints_output=$(wait_for_job "saints") || saints_output=""; }
     # [[ -z "$ai_fortune_output" ]] && { ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""; }
     [[ -z "$exchange_output" ]] && { exchange_output=$(wait_for_job "exchange") || exchange_output=""; }
@@ -414,7 +414,7 @@ render_output() {
     # 2. Moon Phase & Quote
     echo "$moon_phase_output"
     echo ""
-    echo "$quote_output"
+    # echo "$quote_output"
     echo ""
     
     # 3. Holidays
