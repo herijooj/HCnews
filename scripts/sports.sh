@@ -34,6 +34,9 @@ done
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["sports"]:-1800}"
 SOFASCORE_BASE_URL="https://api.sofascore.com/api/v1"
 DISPLAY_TZ="${HCNEWS_TZ:-America/Sao_Paulo}"
+SPORTS_USER_AGENT="${HCNEWS_SPORTS_UA:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36}"
+CURL_CONNECT_TIMEOUT="${HCNEWS_SPORTS_CONNECT_TIMEOUT:-6}"
+CURL_MAX_TIME="${HCNEWS_SPORTS_MAX_TIME:-12}"
 
 # Competitions to display (name -> unique tournament id)
 declare -A SOFASCORE_TOURNAMENTS=(
@@ -230,12 +233,14 @@ _sports_fetch_day() {
     local output_lines=()
     local failures=0
 
+    local -a curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" -A "$SPORTS_USER_AGENT")
+
     for comp in "${ACTIVE_TOURNAMENT_ORDER[@]}"; do
         local tournament_id="${SOFASCORE_TOURNAMENTS[$comp]}"
         local url="${SOFASCORE_BASE_URL}/unique-tournament/${tournament_id}/scheduled-events/${iso_date}"
         local json
 
-        json=$(curl -s -4 --compressed --connect-timeout 5 --max-time 12 -H "User-Agent: HCnews/1.0" "$url")
+        json=$(curl "${curl_opts[@]}" "$url")
         if [[ -z "$json" ]]; then
             ((failures++))
             continue
