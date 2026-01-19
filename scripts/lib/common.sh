@@ -60,6 +60,7 @@ declare -gA HCNEWS_CACHE_TTL=(
     ["exchange"]=43200    # 12 hours - BCB updates once/day
     ["saints"]=82800       # 23 hours
     ["musicchart"]=43200   # 12 hours
+    ["sports"]=1800       # 30 minutes - match schedules change fast
     ["rss"]=7200           # 2 hours
     ["quote"]=86400        # 24 hours
     ["moonphase"]=86400    # 24 hours
@@ -421,7 +422,7 @@ hcnews_log() {
 
 # Create all cache directories upfront (called once from main script)
 hcnews_init_cache_dirs() {
-    local dirs=("weather" "exchange" "saints" "rss" "bicho" "didyouknow" "futuro" "header" "musicchart" "quote" "ru" "rss/rss_feeds" "rss/url_cache" "airquality" "earthquake" "onthisday")
+    local dirs=("weather" "exchange" "saints" "rss" "bicho" "didyouknow" "futuro" "header" "musicchart" "quote" "ru" "rss/rss_feeds" "rss/url_cache" "airquality" "earthquake" "onthisday" "sports")
     local full_paths=()
     for dir in "${dirs[@]}"; do
         full_paths+=("${HCNEWS_CACHE_DIR}/$dir")

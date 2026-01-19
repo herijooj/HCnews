@@ -27,6 +27,7 @@ source "$SCRIPT_DIR/scripts/musicchart.sh"
 source "$SCRIPT_DIR/scripts/weather.sh"
 # source "$SCRIPT_DIR/scripts/airquality.sh"  # Now integrated into weather.sh
 source "$SCRIPT_DIR/scripts/earthquake.sh"
+source "$SCRIPT_DIR/scripts/sports.sh"
 source "$SCRIPT_DIR/scripts/didyouknow.sh"
 # source "$SCRIPT_DIR/scripts/desculpa.sh"
 source "$SCRIPT_DIR/scripts/holidays.sh"
@@ -309,6 +310,10 @@ start_network_jobs() {
         start_background_job "exchange" "(_exchange_USE_CACHE=\$_HCNEWS_USE_CACHE; _exchange_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_exchange)"
     fi
 
+    # 6c. Sports (slim on main feed)
+    local sports_filter_main="${HCNEWS_SPORTS_FILTER_MAIN:-Brasileirão Série A,Libertadores,Copa do Brasil,Paranaense}"
+    start_background_job "sports" "(HCNEWS_SPORTS_FILTER='${sports_filter_main}' _sports_USE_CACHE=\$_HCNEWS_USE_CACHE; _sports_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_sports)"
+
     # 6b. On This Day
     if check_cache_inline "$onthisday_cache" "${HCNEWS_CACHE_TTL["onthisday"]:-86400}"; then
         onthisday_output=$(_HCNEWS_CACHE_VERIFIED=true; write_onthisday)
@@ -354,6 +359,7 @@ collect_network_data() {
     [[ -z "$saints_output" ]] && { saints_output=$(wait_for_job "saints") || saints_output=""; }
     # [[ -z "$ai_fortune_output" ]] && { ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""; }
     [[ -z "$exchange_output" ]] && { exchange_output=$(wait_for_job "exchange") || exchange_output=""; }
+    [[ -z "$sports_output" ]] && { sports_output=$(wait_for_job "sports") || sports_output=""; }
     [[ -z "$music_chart_output" ]] && { music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""; }
     [[ -z "$weather_output" ]] && { weather_output=$(wait_for_job "weather") || weather_output=""; }
     # airquality now integrated into weather output
@@ -415,7 +421,6 @@ render_output() {
     echo "$moon_phase_output"
     echo ""
     # echo "$quote_output"
-    echo ""
     
     # 3. Holidays
     echo "$holidays_output"
@@ -444,6 +449,12 @@ render_output() {
     # 7. Exchange
     if [[ -n "$exchange_output" ]]; then
         echo "$exchange_output"
+        echo ""
+    fi
+
+    # 7. Sports
+    if [[ -n "$sports_output" ]]; then
+        echo "$sports_output"
         echo ""
     fi
 

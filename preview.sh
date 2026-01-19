@@ -27,6 +27,11 @@ sed "s|{{DATE}}|$DATE|g" .github/template.html \
   | sed -e '/{{CONTENT}}/r news_horoscopo.out' -e '/{{CONTENT}}/d' > public/horoscopo.html
 echo "   - public/horoscopo.html"
 
+# Generate Futebol (esportes.html)
+sed "s|{{DATE}}|$DATE|g" .github/template.html \
+  | sed -e '/{{CONTENT}}/r news_esportes.out' -e '/{{CONTENT}}/d' > public/esportes.html
+echo "   - public/esportes.html"
+
 # Generate Previsão do Tempo (weather.html)
 sed "s|{{DATE}}|$DATE|g" .github/template.html \
   | sed -e '/{{CONTENT}}/r news_weather.out' -e '/{{CONTENT}}/d' > public/weather.html

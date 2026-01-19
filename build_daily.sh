@@ -38,6 +38,8 @@ content_tudo="${content_tudo_body}\n\n${footer_content}"
 # 5. Assemble 'Notícias' content
 content_noticias="${news_output}\n\n${footer_content}"
 
+# 5b. Assemble 'Futebol' content (sports only, full list)
+content_sports="$(HCNEWS_SPORTS_FILTER=ALL write_sports)\n\n${footer_content}"
 
 # 6. Assemble 'Horóscopo' content
 echo "🔮 Collecting horoscope results..." >&2
@@ -66,6 +68,7 @@ hc_full_url="$_hc_full_url_saved"
 
 reading_time_tudo=$(calculate_reading_time "$content_tudo")
 reading_time_noticias=$(calculate_reading_time "$content_noticias")
+reading_time_esportes=$(calculate_reading_time "$content_sports")
 reading_time_horoscopo=$(calculate_reading_time "$content_horoscopo")
 reading_time_weather=$(calculate_reading_time "$content_weather")
 
@@ -84,6 +87,12 @@ mkdir -p public
 } > public/news_noticias.out
 
 {
+    write_header_with_reading_time "$reading_time_esportes"
+    echo ""
+    echo -e "$content_sports"
+} > public/news_esportes.out
+
+{
     write_header_with_reading_time "$reading_time_horoscopo"
     echo ""
     echo -e "$content_horoscopo"
@@ -95,5 +104,4 @@ mkdir -p public
     echo -e "$content_weather"
 } > public/news_weather.out
 
-echo "✅ Build complete. Files: public/news_tudo.out, public/news_noticias.out, public/news_horoscopo.out, public/news_weather.out" >&2
-
+echo "✅ Build complete. Files: public/news_tudo.out, public/news_noticias.out, public/news_esportes.out, public/news_horoscopo.out, public/news_weather.out" >&2
