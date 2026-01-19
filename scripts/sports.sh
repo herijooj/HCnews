@@ -37,6 +37,7 @@ DISPLAY_TZ="${HCNEWS_TZ:-America/Sao_Paulo}"
 SPORTS_USER_AGENT="${HCNEWS_SPORTS_UA:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36}"
 CURL_CONNECT_TIMEOUT="${HCNEWS_SPORTS_CONNECT_TIMEOUT:-6}"
 CURL_MAX_TIME="${HCNEWS_SPORTS_MAX_TIME:-12}"
+TSDB_API_KEY="${HCNEWS_TSDB_KEY:-3}"  # default public key
 
 # Competitions to display (name -> unique tournament id)
 declare -A SOFASCORE_TOURNAMENTS=(
@@ -282,14 +283,57 @@ _sports_fetch_day() {
     done
 
     if [[ ${#output_lines[@]} -eq 0 ]]; then
-        if (( failures > 0 )); then
-            echo "- ⚠️ Futebol: falha ao buscar jogos"
+        # Fallback to TheSportsDB (public key) if SofaScore blocked
+        local tsdb
+        tsdb=$(_sports_fetch_day_tsdb "$iso_date" "$day_type")
+        if [[ -n "$tsdb" ]]; then
+            printf '%s\n' "$tsdb"
         else
             echo "- Nenhum jogo encontrado"
         fi
     else
         printf '%s\n' "${output_lines[@]}"
     fi
+}
+
+# Fallback using TheSportsDB daily endpoint (public demo key by default)
+_sports_fetch_day_tsdb() {
+    local iso_date="$1"
+    local day_type="$2"
+    local url="https://www.thesportsdb.com/api/v1/json/${TSDB_API_KEY}/eventsday.php?d=${iso_date}&s=Soccer&c=Brazil"
+    local json
+    json=$(curl -s -L -4 --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" -A "$SPORTS_USER_AGENT" "$url")
+    [[ -z "$json" ]] && return 0
+
+    local grouped
+    grouped=$(echo "$json" | jq -r '
+      (.events // [])
+      | map(select((.strCountry // "") == "Brazil"))
+      | group_by(.strLeague)[] |
+      {
+        league: (.[0].strLeague // "Futebol"),
+        games: [
+          .[] |
+          {
+            home: (.strHomeTeam // "Time A"),
+            away: (.strAwayTeam // "Time B"),
+            h: (.intHomeScore // ""),
+            a: (.intAwayScore // ""),
+            time: (.strTime // ""),
+            ts: (.intTimestamp // null)
+          }
+        ]
+      } |
+      "🏆 *\(.league)*\n" +
+      ( .games | map(
+          if (.h|tostring) != "" and (.a|tostring) != "" then
+            "  - \(.home) `\(.h)`x`\(.a)` \(.away)"
+          else
+            "  - \(.home) x \(.away) (\(.time // "--:--"))"
+          end
+      ) | join("\n") ) + "\n"
+    ')
+    printf '%s' "$grouped"
 }
 
 # -----------------------------------------------------------------------------
