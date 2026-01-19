@@ -228,6 +228,7 @@ _sports_fetch_day() {
     local iso_date="$1"
     local day_type="$2" # yesterday|today
     local output_lines=()
+    local failures=0
 
     for comp in "${ACTIVE_TOURNAMENT_ORDER[@]}"; do
         local tournament_id="${SOFASCORE_TOURNAMENTS[$comp]}"
@@ -236,7 +237,7 @@ _sports_fetch_day() {
 
         json=$(curl -s -4 --compressed --connect-timeout 5 --max-time 12 -H "User-Agent: HCnews/1.0" "$url")
         if [[ -z "$json" ]]; then
-            output_lines+=("- ${comp}: ⚠️ falha ao buscar jogos")
+            ((failures++))
             continue
         fi
 
@@ -246,7 +247,7 @@ _sports_fetch_day() {
             if [[ "$error_code" == "404" ]]; then
                 continue
             else
-                output_lines+=("- ${comp}: ⚠️ falha ao buscar jogos")
+                ((failures++))
             fi
             continue
         fi
@@ -276,7 +277,11 @@ _sports_fetch_day() {
     done
 
     if [[ ${#output_lines[@]} -eq 0 ]]; then
-        echo "- Nenhum jogo encontrado"
+        if (( failures > 0 )); then
+            echo "- ⚠️ Futebol: falha ao buscar jogos"
+        else
+            echo "- Nenhum jogo encontrado"
+        fi
     else
         printf '%s\n' "${output_lines[@]}"
     fi
