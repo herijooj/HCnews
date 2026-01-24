@@ -84,7 +84,7 @@ HCNEWS_CACHE_DIR="${HCNEWS_CACHE_DIR:-${HCNEWS_HOME:-$(dirname "${BASH_SOURCE[0]
 HCNEWS_FULL_URL="${HCNEWS_FULL_URL:-false}"
 
 # -----------------------------------------------------------------------------
-# API Keys (recommended: set via tokens.sh or environment variables)
+# API Keys (expected via environment variables, e.g., .envrc)
 # -----------------------------------------------------------------------------
 # OpenWeatherMap - get yours at https://openweathermap.org/api
 : "${openweathermap_API_KEY:=${OPENWEATHERMAP_API_KEY:-}}"

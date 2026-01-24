@@ -6,14 +6,6 @@
 # Displays current AQI level with health recommendations for the city
 # =============================================================================
 
-# Source tokens.sh if it exists, to load API keys locally.
-# Uses the same openweathermap_API_KEY as weather.sh
-if [ -f "tokens.sh" ]; then
-    source tokens.sh
-elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
-fi
-
 # Source common library if not already loaded
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
@@ -247,11 +239,6 @@ write_airquality_all() {
     for i in "${!CITIES[@]}"; do
         (
             local city="${CITIES[$i]}"
-            # Ensure API key is available in subshell
-            if [ -z "${openweathermap_API_KEY:-}" ]; then
-                 local script_dir="$(dirname "$(realpath "${BASH_SOURCE[0]}")")"
-                 if [ -f "$script_dir/../tokens.sh" ]; then source "$script_dir/../tokens.sh"; fi
-            fi
             local result
             if result=$(get_airquality "$city" "true"); then
                 echo "$result" > "$tmp_dir/$i"
@@ -302,4 +289,3 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         write_airquality_all
     fi
 fi
-

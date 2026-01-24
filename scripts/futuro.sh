@@ -1,13 +1,5 @@
 #!/usr/bin/env bash
 
-# Source tokens.sh if it exists, to load API keys locally.
-# In CI/CD, secrets are passed as environment variables.
-if [ -f "tokens.sh" ]; then
-    source tokens.sh
-elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
-    source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
-fi
-
 # Source common library if not already loaded
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
@@ -114,7 +106,7 @@ function get_ai_fortune() {
 
     # Check for API key
     if [[ -z "$GEMINI_API_KEY" ]]; then
-        echo "Error: GEMINI_API_KEY not found (checked environment and tokens.sh)." >&2
+        echo "Error: GEMINI_API_KEY not found in environment." >&2
         return 1
     fi
 
@@ -287,8 +279,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 
     # Check if API key exists
     if [[ -z "$GEMINI_API_KEY" ]]; then
-      echo "Error: GEMINI_API_KEY not found (checked environment and tokens.sh)." >&2
-      echo "Please set GEMINI_API_KEY in environment or tokens.sh" >&2
+      echo "Error: GEMINI_API_KEY not found in environment." >&2
+      echo "Please set GEMINI_API_KEY as an environment variable." >&2
       exit 1
     fi
 

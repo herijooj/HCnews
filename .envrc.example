@@ -1,0 +1,14 @@
+use nix # if you use nix. duh.
+
+# General HCNews API keys
+export openweathermap_API_KEY="change-me"
+export CoinMarketCap_API_KEY="change-me"
+export GEMINI_API_KEY="change-me"
+export HCNEWS_TSDB_KEY="3"  # optional; defaults to public key 3
+
+# WhatsApp / WAHA secrets (fill in locally, keep .envrc untracked)
+export WAHA_API_KEY="change-me"
+export WAHA_DASHBOARD_USERNAME="change-me"
+export WAHA_DASHBOARD_PASSWORD="change-me"
+export WHATSAPP_SWAGGER_USERNAME="change-me"
+export WHATSAPP_SWAGGER_PASSWORD="change-me"

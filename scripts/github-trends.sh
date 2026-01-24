@@ -1,12 +1,5 @@
 #!/usr/bin/env bash
 
-# Optional local secrets
-if [ -f "tokens.sh" ]; then
-  source tokens.sh
-elif [ -f "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh" ]; then
-  source "$(dirname "${BASH_SOURCE[0]}")/../tokens.sh"
-fi
-
 # Shared utilities
 _local_dir="${BASH_SOURCE[0]%/*}"
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
