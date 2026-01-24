@@ -9,6 +9,12 @@
 
 set -euo pipefail
 
+# Load environment from .secrets (if direnv is not active)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -z "${WAHA_API_KEY:-}" ]]; then
+    [[ -f "${SCRIPT_DIR}/../.secrets" ]] && source "${SCRIPT_DIR}/../.secrets"
+fi
+
 # Check if all required dependencies are available
 check_dependencies() {
     local missing=()

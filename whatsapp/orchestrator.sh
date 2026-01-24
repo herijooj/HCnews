@@ -13,6 +13,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Load environment from .secrets (if direnv is not active)
+if [[ -z "${WAHA_API_KEY:-}" ]]; then
+    [[ -f "${SCRIPT_DIR}/../.secrets" ]] && source "${SCRIPT_DIR}/../.secrets"
+fi
+
 # Load configuration
 source "${SCRIPT_DIR}/config.sh"
 [[ -f "${SCRIPT_DIR}/config.local.sh" ]] && source "${SCRIPT_DIR}/config.local.sh"
