@@ -1,0 +1,30 @@
+[Unit]
+Description=HCNews WhatsApp Daily Send
+Documentation=file:///home/hc/Documentos/HCnews/whatsapp/PLAN.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/home/hc/Documentos/HCnews/whatsapp/orchestrator.sh
+User=hc
+Group=hc
+
+# Environment
+Environment="PATH=/usr/local/bin:/usr/bin:/bin"
+WorkingDirectory=/home/hc/Documentos/HCnews
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=hcnews-whatsapp
+
+# Hardening
+NoNewPrivileges=false
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/var/lib/hcnews-whatsapp
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
