@@ -65,8 +65,11 @@ is_sent_today() {
 
 mark_sent() {
     mkdir -p "${STATE_DIR}"
-    get_today > "${STATE_DIR}/last_sent"
-    log_info "Marked as sent for $(get_today)"
+    if get_today > "${STATE_DIR}/last_sent" 2>/dev/null; then
+        log_info "Marked as sent for $(get_today)"
+    else
+        log_warn "Failed to mark sent status (permission issue), but message was sent successfully"
+    fi
 }
 
 # Track if we woke the machine (to know if we should shut it down)
