@@ -199,66 +199,115 @@ shutdown_host() {
 # -----------------------------------------------------------------------------
 # Main Orchestration
 # -----------------------------------------------------------------------------
+shutdown_if_we_woke() {
+    if did_we_wake; then
+        log_info "Shutting down machine (we woke it)"
+        shutdown_host
+    else
+        log_info "Machine was already on, leaving it running"
+    fi
+    clear_woke_flag
+}
+
+run_with_retry() {
+    local max_retries="${MAX_RETRIES:-3}"
+    local retry_count=0
+    local was_already_on=false
+
+    # Check if host is already reachable
+    if is_host_reachable; then
+        log_info "Host ${TARGET_LAN_IP} is already online"
+        was_already_on=true
+    fi
+
+    while (( retry_count < max_retries )); do
+        (( retry_count++ ))
+
+        if (( retry_count > 1 )); then
+            log_info "Retry attempt ${retry_count}/${max_retries}"
+        fi
+
+        # Wake the machine if needed
+        local need_to_wake=false
+        if ! is_host_reachable; then
+            log_info "Host ${TARGET_LAN_IP} is offline, attempting wake"
+
+            if ! wake_host; then
+                log_error "Failed to send Wake-on-LAN packet"
+                if (( retry_count < max_retries )); then
+                    sleep 60
+                    continue
+                else
+                    return 1
+                fi
+            fi
+
+            set_woke_flag
+            need_to_wake=true
+
+            if ! wait_for_host; then
+                log_error "Host did not come online"
+                clear_woke_flag
+                if (( retry_count < max_retries )); then
+                    sleep 60
+                    continue
+                else
+                    return 1
+                fi
+            fi
+        elif ! $was_already_on; then
+            set_woke_flag
+            need_to_wake=true
+        fi
+
+        # Run the worker script
+        if run_worker; then
+            log_info "Message sent successfully!"
+            mark_sent
+            shutdown_if_we_woke
+            return 0
+        else
+            log_error "Worker failed"
+
+            # Always shut down on failure
+            shutdown_if_we_woke
+
+            if (( retry_count < max_retries )); then
+                log_info "Waiting before retry..."
+                sleep 60
+                continue
+            else
+                log_error "All retry attempts exhausted"
+                return 1
+            fi
+        fi
+    done
+
+    return 1
+}
+
 main() {
     log_info "=== HCNews WhatsApp Orchestrator starting ==="
-    
+
     # Clear any stale woke flag from previous runs
     clear_woke_flag
-    
+
     # Check if already sent today
     if is_sent_today; then
         log_info "Already sent today ($(get_today)), skipping"
         exit 0
     fi
-    
+
     # Check if within retry window
     if ! is_within_retry_window; then
         log_info "Outside retry window (${MIN_START_HOUR}:00 - ${MAX_RETRY_HOUR}:00), skipping"
         exit 0
     fi
-    
-    # Check if host is already reachable
-    local was_already_on=false
-    if is_host_reachable; then
-        log_info "Host ${TARGET_LAN_IP} is already online"
-        was_already_on=true
-    else
-        log_info "Host ${TARGET_LAN_IP} is offline, attempting wake"
-        
-        if ! wake_host; then
-            log_error "Failed to send Wake-on-LAN packet"
-            exit 1
-        fi
-        
-        set_woke_flag
-        
-        if ! wait_for_host; then
-            log_error "Host did not come online, will retry next hour"
-            clear_woke_flag
-            exit 1
-        fi
-    fi
-    
-    # Run the worker script
-    if run_worker; then
-        log_info "Message sent successfully!"
-        mark_sent
-        
-        # Shutdown if we woke the machine
-        if did_we_wake; then
-            log_info "We woke the machine, shutting it down"
-            shutdown_host
-        else
-            log_info "Machine was already on, leaving it running"
-        fi
-        
-        clear_woke_flag
+
+    # Run with retry logic
+    if run_with_retry; then
         exit 0
     else
-        log_error "Worker failed, will retry next hour"
-        
-        # Don't shutdown on failure - might need manual intervention
-        clear_woke_flag
         exit 1
     fi
 }
