@@ -37,7 +37,10 @@ if ! check_dependencies; then
     SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     HCNEWS_PATH="${HCNEWS_PATH:-${SCRIPT_DIR}/..}"
     nix_file="${HCNEWS_PATH}/default.nix"
-    
+
+    # Export API key so nix-shell inherits it
+    export WAHA_API_KEY
+
     if [[ -f "${nix_file}" ]]; then
         echo "[INFO] Found nix file at ${nix_file}, re-executing..." >&2
         exec nix-shell "${nix_file}" --run "bash $0 $*"
