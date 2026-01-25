@@ -77,9 +77,6 @@ MAX_RETRY_HOUR="${MAX_RETRY_HOUR:-23}"
 # Minimum hour to start trying (24h format)
 MIN_START_HOUR="${MIN_START_HOUR:-6}"
 
-# Maximum number of retry attempts
-MAX_RETRIES="${MAX_RETRIES:-3}"
-
 # -----------------------------------------------------------------------------
 # Behavior Flags
 # -----------------------------------------------------------------------------
