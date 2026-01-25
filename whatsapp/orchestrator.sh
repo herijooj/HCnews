@@ -162,10 +162,10 @@ run_worker() {
     local remote_host="${TARGET_LAN_IP}"
     
     # Wrap command in nix-shell to ensure dependencies are available
-    # Export API keys so nix-shell inherits them
-    local remote_cmd="export WAHA_API_KEY='${WAHA_API_KEY}' && export openweathermap_API_KEY='${openweathermap_API_KEY:-}' && cd ${REMOTE_HCNEWS_PATH} && nix-shell ${REMOTE_HCNEWS_PATH}/default.nix --run 'bash ${worker_path}'"
+    # Export all secrets so nix-shell inherits them
+    local remote_cmd="set -a && source ${REMOTE_HCNEWS_PATH}/.secrets && set +a && cd ${REMOTE_HCNEWS_PATH} && nix-shell ${REMOTE_HCNEWS_PATH}/default.nix --run 'bash ${worker_path}'"
     if [[ "${DRY_RUN}" == "true" ]]; then
-        remote_cmd="export WAHA_API_KEY='${WAHA_API_KEY}' && export openweathermap_API_KEY='${openweathermap_API_KEY:-}' && cd ${REMOTE_HCNEWS_PATH} && nix-shell ${REMOTE_HCNEWS_PATH}/default.nix --run 'bash ${worker_path} --dry-run'"
+        remote_cmd="set -a && source ${REMOTE_HCNEWS_PATH}/.secrets && set +a && cd ${REMOTE_HCNEWS_PATH} && nix-shell ${REMOTE_HCNEWS_PATH}/default.nix --run 'bash ${worker_path} --dry-run'"
     fi
     
     log_debug "Remote command: ${remote_cmd}"
