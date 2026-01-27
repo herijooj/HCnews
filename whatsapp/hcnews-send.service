@@ -1,8 +1,8 @@
 [Unit]
 Description=HCNews WhatsApp Daily Send
 Documentation=file:///home/hc/Documentos/HCnews/whatsapp/PLAN.md
-After=network-online.target
-Wants=network-online.target
+After=network-online.target systemd-timesyncd.service
+Wants=network-online.target systemd-timesyncd.service
 
 [Service]
 Type=oneshot
