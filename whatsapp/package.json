@@ -11,7 +11,8 @@
   "dependencies": {
     "baileys": "^7.0.0-rc.9",
     "pino": "^9.0.0",
-    "pino-pretty": "^11.0.0"
+    "pino-pretty": "^11.0.0",
+    "qrcode": "^1.5.4"
   },
   "engines": {
     "node": ">=18.0.0"

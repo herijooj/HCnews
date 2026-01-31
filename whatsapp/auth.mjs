@@ -3,6 +3,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import pino from 'pino';
+import QRCode from 'qrcode';
 import makeWASocket, {
   useMultiFileAuthState,
   fetchLatestBaileysVersion,
@@ -20,6 +21,25 @@ const logger = pino({
     options: { colorize: true }
   }
 });
+
+async function displayQR(qrData) {
+  try {
+    const qrAscii = await QRCode.toString(qrData, { type: 'terminal', small: true });
+    console.log('\n');
+    console.log('========================================');
+    console.log('  Scan with WhatsApp:');
+    console.log('========================================');
+    console.log(qrAscii);
+    console.log('========================================\n');
+  } catch (err) {
+    console.log('\n');
+    console.log('========================================');
+    console.log('QR Code (copy to QR generator if needed):');
+    console.log('========================================');
+    console.log(qrData);
+    console.log('========================================\n');
+  }
+}
 
 function log(level, message) {
   console.log(`[${level}] ${message}`);
@@ -60,12 +80,7 @@ async function main() {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('\n');
-      console.log('========================================');
-      console.log('QR Code received! Scan with WhatsApp:');
-      console.log('========================================');
-      console.log(qr);
-      console.log('========================================\n');
+      await displayQR(qr);
     }
 
     if (connection === 'open') {
