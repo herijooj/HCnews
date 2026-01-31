@@ -24,18 +24,21 @@ TARGET_LAN_IP="${TARGET_LAN_IP:-192.168.100.18}"
 WOL_INTERFACE="${WOL_INTERFACE:-end0}"
 
 # -----------------------------------------------------------------------------
-# Baileys Settings (running on hc-m91p)
+# WAHA API Settings (running on hc-m91p)
 # -----------------------------------------------------------------------------
-# Auth state directory for Baileys
-BAILEYS_AUTH_DIR="${BAILEYS_AUTH_DIR:-/home/hc/Documentos/HCnews/whatsapp/baileys_auth}"
+WAHA_URL="${WAHA_URL:-http://localhost:3000}"
+WAHA_API_KEY="${WAHA_API_KEY:-}"
+WAHA_SESSION="${WAHA_SESSION:-default}"
+WAHA_DASHBOARD_USERNAME="${WAHA_DASHBOARD_USERNAME:-}"
+WAHA_DASHBOARD_PASSWORD="${WAHA_DASHBOARD_PASSWORD:-}"
+WHATSAPP_SWAGGER_USERNAME="${WHATSAPP_SWAGGER_USERNAME:-}"
+WHATSAPP_SWAGGER_PASSWORD="${WHATSAPP_SWAGGER_PASSWORD:-}"
 
 # WhatsApp Channel ID for HCNews
 # Channel URL: https://whatsapp.com/channel/0029VaCRDb6FSAszqoID6k2Y
 # Channel Name: "HCNews 2026!"
+# Retrieved via: GET /api/default/channels/0029VaCRDb6FSAszqoID6k2Y
 WHATSAPP_CHANNEL_ID="${WHATSAPP_CHANNEL_ID:-120363206957534786@newsletter}"
-
-# Node.js binary path (for Baileys worker)
-NODE_PATH="${NODE_PATH:-node}"
 
 # -----------------------------------------------------------------------------
 # Paths

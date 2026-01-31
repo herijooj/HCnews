@@ -14,7 +14,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment from .secrets (if direnv is not active)
-if [[ -z "${BAILEYS_AUTH_DIR:-}" ]]; then
+if [[ -z "${WAHA_API_KEY:-}" ]]; then
     [[ -f "${SCRIPT_DIR}/../.secrets" ]] && source "${SCRIPT_DIR}/../.secrets"
 fi
 
