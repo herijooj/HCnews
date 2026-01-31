@@ -280,6 +280,10 @@ EOF
             # Try to extract message ID for confirmation
             local msg_id
             msg_id=$(echo "${body}" | jq -r '.id // .key.id // "unknown"' 2>/dev/null || echo "unknown")
+            # Handle case where key.id is an object
+            if [[ "${msg_id}" == *"fromMe"* ]]; then
+                msg_id=$(echo "${body}" | jq -r '.key.id // "unknown"' 2>/dev/null || echo "unknown")
+            fi
             log_info "Message ID: ${msg_id}"
         else
             log_error "Failed to send message to ${target}: HTTP ${http_code}"
