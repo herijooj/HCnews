@@ -230,62 +230,65 @@ check_waha_session() {
 
 send_to_whatsapp() {
     local content="$1"
-    
-    log_info "Sending message to WhatsApp channel ${WHATSAPP_CHANNEL_ID}..."
-    
-    # Escape content for JSON
-    local escaped_content
-    escaped_content=$(echo "${content}" | jq -Rs '.')
-    
-    # Build the request payload
-    local payload
-    payload=$(cat <<EOF
+    local targets=("${WHATSAPP_CHANNEL_ID}" "${WHATSAPP_GROUP_ID}")
+    local failed=0
+
+    for target in "${targets[@]}"; do
+        log_info "Sending message to ${target}..."
+
+        # Escape content for JSON
+        local escaped_content
+        escaped_content=$(echo "${content}" | jq -Rs '.')
+
+        # Build the request payload
+        local payload
+        payload=$(cat <<EOF
 {
-    "chatId": "${WHATSAPP_CHANNEL_ID}",
+    "chatId": "${target}",
     "text": ${escaped_content},
     "session": "${WAHA_SESSION}"
 }
 EOF
 )
-    
-    log_debug "Payload: ${payload}"
-    
-    if [[ "${DRY_RUN}" == "true" ]]; then
-        log_info "[DRY RUN] Would send message to WAHA API"
-        log_info "[DRY RUN] Payload size: $(echo "${payload}" | wc -c) bytes"
-        return 0
-    fi
-    
-    # Send the message
-    local response
-    response=$(curl -s -w "\n%{http_code}" \
-        -X POST \
-        -H "Content-Type: application/json" \
-        -H "X-Api-Key: ${WAHA_API_KEY}" \
-        -d "${payload}" \
-        "${WAHA_URL}/api/sendText")
-    
-    local http_code
-    http_code=$(echo "${response}" | tail -n1)
-    local body
-    body=$(echo "${response}" | sed '$d')
-    
-    log_debug "Response: ${body}"
-    
-    if [[ "${http_code}" == "200" || "${http_code}" == "201" ]]; then
-        log_info "Message sent successfully!"
-        
-        # Try to extract message ID for confirmation
-        local msg_id
-        msg_id=$(echo "${body}" | jq -r '.id // .key.id // "unknown"' 2>/dev/null || echo "unknown")
-        log_info "Message ID: ${msg_id}"
-        
-        return 0
-    else
-        log_error "Failed to send message: HTTP ${http_code}"
-        log_error "Response: ${body}"
-        return 1
-    fi
+
+        log_debug "Payload: ${payload}"
+
+        if [[ "${DRY_RUN}" == "true" ]]; then
+            log_info "[DRY RUN] Would send message to ${target}"
+            continue
+        fi
+
+        # Send the message
+        local response
+        response=$(curl -s -w "\n%{http_code}" \
+            -X POST \
+            -H "Content-Type: application/json" \
+            -H "X-Api-Key: ${WAHA_API_KEY}" \
+            -d "${payload}" \
+            "${WAHA_URL}/api/sendText")
+
+        local http_code
+        http_code=$(echo "${response}" | tail -n1)
+        local body
+        body=$(echo "${response}" | sed '$d')
+
+        log_debug "Response: ${body}"
+
+        if [[ "${http_code}" == "200" || "${http_code}" == "201" ]]; then
+            log_info "Message sent successfully to ${target}!"
+
+            # Try to extract message ID for confirmation
+            local msg_id
+            msg_id=$(echo "${body}" | jq -r '.id // .key.id // "unknown"' 2>/dev/null || echo "unknown")
+            log_info "Message ID: ${msg_id}"
+        else
+            log_error "Failed to send message to ${target}: HTTP ${http_code}"
+            log_error "Response: ${body}"
+            failed=1
+        fi
+    done
+
+    return ${failed}
 }
 
 # -----------------------------------------------------------------------------

@@ -40,6 +40,11 @@ WHATSAPP_SWAGGER_PASSWORD="${WHATSAPP_SWAGGER_PASSWORD:-}"
 # Retrieved via: GET /api/default/channels/0029VaCRDb6FSAszqoID6k2Y
 WHATSAPP_CHANNEL_ID="${WHATSAPP_CHANNEL_ID:-120363206957534786@newsletter}"
 
+# WhatsApp Group ID for HCNews
+# Group URL: https://chat.whatsapp.com/JmDBS5ACjsQBF37Huh0M9o
+# Group Name: "HCNews"
+WHATSAPP_GROUP_ID="${WHATSAPP_GROUP_ID:-120363425372653280@g.us}"
+
 # -----------------------------------------------------------------------------
 # Paths
 # -----------------------------------------------------------------------------
