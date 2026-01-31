@@ -9,7 +9,7 @@
     "auth": "node auth.mjs"
   },
   "dependencies": {
-    "baileys": "^7.0.0",
+    "baileys": "^7.0.0-rc.9",
     "pino": "^9.0.0"
   },
   "engines": {
