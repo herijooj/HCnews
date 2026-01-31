@@ -9,6 +9,7 @@ import makeWASocket, {
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
   DisconnectReason,
+  isJidNewsletter,
   DEFAULT_CONNECTION_CONFIG
 } from 'baileys';
 
@@ -195,7 +196,7 @@ async function main() {
       getMessage: async () => undefined,
       markOnlineOnConnect: false,
       shouldIgnoreJid: (jid) => {
-        return jid?.endsWith('@newsletter') || false;
+        return false;
       },
     });
 
@@ -206,7 +207,6 @@ async function main() {
 
       if (qr) {
         logInfo('QR Code received - scan with WhatsApp to authenticate');
-        logInfo('QR Code:', qr);
       }
 
       if (connection === 'close') {
@@ -220,11 +220,29 @@ async function main() {
       }
     });
 
+    sock.ev.on('messages.upsert', (update) => {
+      if (update.type === 'append' || update.type === 'notify') {
+        logDebug(`Received ${update.messages.length} message(s)`);
+      }
+    });
+
     await waitForConnection(sock, 60, 5000);
 
   } catch (error) {
     logError(`Failed to initialize Baileys: ${error.message}`);
     process.exit(1);
+  }
+
+  logInfo(`Verifying channel ${WHATSAPP_CHANNEL_ID} exists...`);
+  try {
+    const onWhatsApp = await sock.onWhatsApp(WHATSAPP_CHANNEL_ID);
+    logInfo(`Channel exists: ${onWhatsApp?.exists || false}, jid: ${onWhatsApp?.jid || 'unknown'}`);
+    if (!onWhatsApp?.exists) {
+      logError('Channel does not exist or is not accessible');
+      process.exit(1);
+    }
+  } catch (error) {
+    logWarn(`Could not verify channel: ${error.message}`);
   }
 
   try {
