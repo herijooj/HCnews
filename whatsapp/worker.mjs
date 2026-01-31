@@ -106,13 +106,21 @@ async function sendMessage(sock, jid, text) {
   if (DRY_RUN) {
     logInfo(`[DRY RUN] Would send message to ${jid}`);
     logInfo(`[DRY RUN] Message length: ${text.length} characters`);
-    return { id: 'dry-run-' + Date.now() };
+    return { key: { id: 'dry-run-' + Date.now() } };
   }
 
   try {
     const result = await sock.sendMessage(jid, { text });
-    logInfo(`Message sent successfully to ${jid}`);
-    logInfo(`Message ID: ${result.key?.id || 'unknown'}`);
+
+    if (!result?.key?.id) {
+      throw new Error('No message key returned from sendMessage');
+    }
+
+    logInfo(`Message sent to ${jid}`);
+    logInfo(`Message ID: ${result.key.id}`);
+
+    await new Promise(resolve => setTimeout(resolve, 2000));
+
     return result;
   } catch (error) {
     throw new Error(`Failed to send message: ${error.message}`);
