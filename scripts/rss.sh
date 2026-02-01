@@ -31,6 +31,8 @@ CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["rss"]:-7200}"
 _rss_cache_base="${HCNEWS_CACHE_DIR}/rss"
 _rss_url_cache="${_rss_cache_base}/url_cache"
 URL_CACHE_FILE="${_rss_url_cache}/url_shorten_cache.txt"
+RSS_EMPTY_SENTINEL="__HCNEWS_RSS_EMPTY__"
+RSS_FAIL_TTL_SECONDS="${HCNEWS_RSS_FAIL_TTL_SECONDS:-1800}"
 
 # -----------------------------------------------------------------------------
 # Cache Directory Setup
@@ -152,6 +154,7 @@ get_rss_data() {
     local date_str; date_str=$(hcnews_get_date_format)
     local rss_cache_dir="${_rss_cache_base}/rss_feeds/${portal_id}"
     [[ -d "$rss_cache_dir" ]] || mkdir -p "$rss_cache_dir"
+    local fail_cache_file="${rss_cache_dir}/fail.cache"
 
     local target_cache_file="${rss_cache_dir}/${date_str}.news"
     if [[ "$use_links" == "true" ]]; then
@@ -164,8 +167,20 @@ get_rss_data() {
 
     # Check cache first
     if [[ "$_rss_USE_CACHE" == true ]] && hcnews_check_cache "$target_cache_file" "$CACHE_TTL_SECONDS" "$_rss_FORCE_REFRESH"; then
-        hcnews_read_cache "$target_cache_file"
+        local cached
+        cached=$(hcnews_read_cache "$target_cache_file") || return 0
+        if [[ "$cached" == "$RSS_EMPTY_SENTINEL" ]]; then
+            return 0
+        fi
+        printf '%s' "$cached"
         return 0
+    fi
+
+    # Skip fetch if recent failure backoff is active (unless forced)
+    if [[ "$_rss_USE_CACHE" == true && "$_rss_FORCE_REFRESH" != "true" ]]; then
+        if hcnews_check_cache "$fail_cache_file" "$RSS_FAIL_TTL_SECONDS" "false"; then
+            return 0
+        fi
     fi
 
     # Fetch feed content
@@ -175,6 +190,9 @@ get_rss_data() {
 
     # Exit if invalid content
     if [[ -z "$feed_content" || "$feed_content" != *"<item>"* ]]; then
+        if [[ "$_rss_USE_CACHE" == true ]]; then
+            hcnews_write_cache "$fail_cache_file" "fetch_failed"
+        fi
         return 1
     fi
 
@@ -185,7 +203,13 @@ get_rss_data() {
         -v "concat(pubDate,'|',title,'|',link)" -n \
         <<< "$feed_content" 2>/dev/null)
 
-    [[ -z "$all_data" ]] && return 1
+    if [[ -z "$all_data" ]]; then
+        if [[ "$_rss_USE_CACHE" == true ]]; then
+            hcnews_write_cache "$fail_cache_file" "parse_failed"
+        fi
+        return 1
+    fi
+    [[ -f "$fail_cache_file" ]] && rm -f "$fail_cache_file"
 
     # Get 24h timestamp
     local unix_24h_ago="${unix_24h_ago:-$(date -d "24 hours ago" +%s)}"
@@ -216,17 +240,21 @@ get_rss_data() {
         fi
     done <<< "$all_data"
 
-    local news_output=""
     if [[ ${#result[@]} -gt 0 ]]; then
+        local news_output
         news_output=$(printf "%s\n" "${result[@]}")
+        if [[ "$_rss_USE_CACHE" == true ]]; then
+            hcnews_write_cache "$target_cache_file" "$news_output"
+        fi
+        echo "$news_output"
+        return 0
     fi
 
-    # Save to cache
-    if [[ "$_rss_USE_CACHE" == true && -n "$news_output" ]]; then
-        hcnews_write_cache "$target_cache_file" "$news_output"
+    # Cache empty results to avoid re-fetching feeds with no recent items.
+    if [[ "$_rss_USE_CACHE" == true ]]; then
+        hcnews_write_cache "$target_cache_file" "$RSS_EMPTY_SENTINEL"
     fi
-
-    echo "$news_output"
+    return 0
 }
 
 # -----------------------------------------------------------------------------
@@ -238,36 +266,59 @@ write_rss() {
     local show_header="${3:-true}"      # show header before each feed
     local full_url="${4:-false}"
 
-    # Handle multiple feeds (comma-separated)
+    # Handle multiple feeds (comma-separated) in parallel
+    local feeds=()
     if [[ "$feed_url" == *","* ]]; then
         IFS=',' read -ra feeds <<< "$feed_url"
-        for feed in "${feeds[@]}"; do
-            feed=$(echo "$feed" | xargs)  # Trim whitespace
-            [[ -z "$feed" ]] && continue
+    else
+        feeds=("$feed_url")
+    fi
 
-            local portal
-            portal=$(echo "$feed" | awk -F/ '{print $3}')
+    local tmp_dir=""
+    local cleanup_tmp=false
+    if [[ -n "${_HCNEWS_TEMP_DIR:-}" ]]; then
+        tmp_dir="$_HCNEWS_TEMP_DIR"
+    else
+        tmp_dir="/tmp/hcnews_rss_$$"
+        mkdir -p "$tmp_dir"
+        cleanup_tmp=true
+    fi
+
+    local -a pids
+    local -a out_files
+    local -a portals
+    local idx=0
+
+    for feed in "${feeds[@]}"; do
+        feed=$(echo "$feed" | xargs)  # Trim whitespace
+        [[ -z "$feed" ]] && continue
+
+        local portal="${feed#http*://}"
+        portal="${portal%%/*}"
+
+        local out_file="${tmp_dir}/rss_${idx}.out"
+        portals[$idx]="$portal"
+        out_files[$idx]="$out_file"
+
+        (get_rss_data "$feed" "$show_links" "$full_url" > "$out_file") &
+        pids[$idx]=$!
+        ((idx++))
+    done
+
+    for ((i=0; i<idx; i++)); do
+        [[ -n "${pids[$i]:-}" ]] && wait "${pids[$i]}" 2>/dev/null
+        if [[ -f "${out_files[$i]}" ]]; then
             local content
-            content=$(get_rss_data "$feed" "$show_links" "$full_url")
-
+            content=$(<"${out_files[$i]}")
             if [[ -n "$content" ]]; then
-                [[ "$show_header" == "true" ]] && echo "📰 $portal:"
+                [[ "$show_header" == "true" ]] && echo "📰 ${portals[$i]}:"
                 echo "$content"
                 echo ""
             fi
-        done
-    else
-        local portal
-        portal=$(echo "$feed_url" | awk -F/ '{print $3}')
-        local content
-        content=$(get_rss_data "$feed_url" "$show_links" "$full_url")
-
-        if [[ -n "$content" ]]; then
-            [[ "$show_header" == "true" ]] && echo "📰 $portal:"
-            echo "$content"
-            echo ""
         fi
-    fi
+    done
+
+    [[ "$cleanup_tmp" == true ]] && rm -rf "$tmp_dir"
 }
 
 # -----------------------------------------------------------------------------

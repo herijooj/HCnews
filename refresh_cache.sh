@@ -5,6 +5,10 @@
 
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
+# Source configuration (defaults + local overrides)
+source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
+[[ -f "$SCRIPT_DIR/config.local.sh" ]] && source "$SCRIPT_DIR/config.local.sh"
+
 # Source required scripts
 source "$SCRIPT_DIR/scripts/timing.sh"
 
@@ -45,6 +49,32 @@ trim_log() {
     fi
 }
 
+# Build RSS feed list from config
+build_rss_feed_list() {
+    local feeds=""
+    local have_feeds=false
+    declare -p HCNEWS_FEEDS &>/dev/null && have_feeds=true
+
+    if [[ -n "${HCNEWS_FEEDS_PRIMARY:-}" && "$have_feeds" == true ]]; then
+        IFS=',' read -ra feed_keys <<< "$HCNEWS_FEEDS_PRIMARY"
+        for key in "${feed_keys[@]}"; do
+            key=$(echo "$key" | xargs)
+            # Disabled: xvcuritiba feed failing DNS resolution
+            [[ -z "$key" || "$key" == "xvcuritiba" ]] && continue
+            local url="${HCNEWS_FEEDS[$key]:-}"
+            [[ -z "$url" ]] && continue
+            [[ -n "$feeds" ]] && feeds+=","
+            feeds+="$url"
+        done
+    fi
+
+    if [[ -z "$feeds" ]]; then
+        feeds="https://opopularpr.com.br/feed/,https://plantao190.com.br/feed/"
+    fi
+
+    echo "$feeds"
+}
+
 # Refresh a single component
 refresh_component() {
     local name="$1"
@@ -78,7 +108,8 @@ refresh_component() {
             ;;
         "rss")
             # Refresh main RSS feeds
-            local feeds="https://opopularpr.com.br/feed/,https://plantao190.com.br/feed/,https://g1.globo.com/rss/g1/parana/"
+            local feeds
+            feeds=$(build_rss_feed_list)
             timeout $timeout bash -c "source '$script' && write_rss '$feeds' false true" >/dev/null 2>&1
             ;;
         "saints")

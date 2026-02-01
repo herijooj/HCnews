@@ -357,8 +357,10 @@ hcnews_parse_args() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
-                if declare -f show_help >/dev/null; then show_help; exit 0;
-                elif declare -f help >/dev/null; then help; exit 0; fi
+                if [[ "${_HCNEWS_ALLOW_HELP:-true}" == "true" ]]; then
+                    if declare -f show_help >/dev/null; then show_help; exit 0;
+                    elif declare -f help >/dev/null; then help; exit 0; fi
+                fi
                 # If no help function found, we just keep it in remaining args if we want,
                 # but usually we want to stop if help is requested.
                 _HCNEWS_REMAINING_ARGS+=("$1")

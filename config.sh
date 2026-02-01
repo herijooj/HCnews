@@ -25,14 +25,14 @@ HCNEWS_WEATHER_CITIES=(
 # RSS Feeds Configuration
 # -----------------------------------------------------------------------------
 # Primary news feeds (comma-separated for main news)
-HCNEWS_FEEDS_PRIMARY="${HCNEWS_FEEDS_PRIMARY:-opopular,plantao190,xvcuritiba}"
+HCNEWS_FEEDS_PRIMARY="${HCNEWS_FEEDS_PRIMARY:-opopular,plantao190}"
 
 # All available feeds (associative array - key: feed name, value: URL)
 # Can be used with -n flag or extended news output
 declare -gA HCNEWS_FEEDS=(
     ["opopular"]="https://opopularpr.com.br/feed/"
     ["plantao190"]="https://plantao190.com.br/feed/"
-    ["xvcuritiba"]="https://xvcuritiba.com.br/feed/"
+    # ["xvcuritiba"]="https://xvcuritiba.com.br/feed/"  # Disabled: DNS issues
     ["bandab"]="https://www.bandab.com.br/web-stories/feed/"
     ["g1_parana"]="https://g1.globo.com/rss/g1/pr/parana/"
     ["g1_cinema"]="https://g1.globo.com/rss/g1/pop-arte/cinema/"

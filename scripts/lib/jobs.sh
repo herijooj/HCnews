@@ -7,12 +7,19 @@ declare -A background_jobs
 init_jobs() {
     # Temp directory for background job files (created once, cleaned up at exit)
     # Use /dev/shm (RAM) if available for performance
-    if [[ -d "/dev/shm" && -w "/dev/shm" ]]; then
-        _HCNEWS_TEMP_DIR="/dev/shm/hcnews_$$"
+    local shm_dir="/dev/shm/hcnews_$$"
+    local tmp_dir="/tmp/hcnews_$$"
+    if [[ -d "/dev/shm" ]]; then
+        if mkdir -p "$shm_dir" 2>/dev/null; then
+            _HCNEWS_TEMP_DIR="$shm_dir"
+        else
+            _HCNEWS_TEMP_DIR="$tmp_dir"
+            mkdir -p "$_HCNEWS_TEMP_DIR"
+        fi
     else
-        _HCNEWS_TEMP_DIR="/tmp/hcnews_$$"
+        _HCNEWS_TEMP_DIR="$tmp_dir"
+        mkdir -p "$_HCNEWS_TEMP_DIR"
     fi
-    mkdir -p "$_HCNEWS_TEMP_DIR"
     
     # Export it so subshells can see it (though they get their own via copy, the path string is what matters)
     export _HCNEWS_TEMP_DIR

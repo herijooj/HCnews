@@ -4,6 +4,7 @@
 # Includes ========================================================================
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 export HCNEWS_HOME="$SCRIPT_DIR"
+_HCNEWS_ALLOW_HELP=false
 
 # Source configuration (defaults)
 # config.local.sh will override these settings if it exists
@@ -75,7 +76,7 @@ init_jobs
 #   -t, --timing: show function execution timing information"
 #   --no-cache: disable caching for this run
 #   --force: force refresh cache for this run
-show_help() {
+hcnews_show_help() {
     echo "Usage: ./hcnews.sh [options]"
     echo "Options:"
     echo "  -h, --help: show the help"
@@ -85,7 +86,6 @@ show_help() {
     echo "  -t, --timing: show function execution timing information"
     echo "  --no-cache: disable caching for this run"
     echo "  --force: force refresh cache for this run"
-    echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
     echo "  --full-url: use full URLs in output instead of shortened links (used for web builds)"
 }
 
@@ -104,7 +104,7 @@ parse_main_arguments() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
             -h|--help)
-                show_help
+                hcnews_show_help
                 exit 0
                 ;;
             -s|--silent)
@@ -138,7 +138,7 @@ parse_main_arguments() {
 
             *)
                 echo "Invalid argument: $1"
-                show_help
+                hcnews_show_help
                 exit 1
                 ;;
         esac
@@ -584,6 +584,11 @@ function write_header_with_reading_time() {
 # Get the arguments
 parse_main_arguments "$@"
 
+# Ensure cache flags are always initialized for internal function calls
+: "${_HCNEWS_USE_CACHE:=true}"
+: "${_HCNEWS_FORCE_REFRESH:=false}"
+export _HCNEWS_USE_CACHE _HCNEWS_FORCE_REFRESH
+
 # Cache all date operations at once to avoid multiple subprocess calls
 # Use nanosecond precision for F1-style timing
 # Format: seconds nanoseconds month day weekday time year day_of_year YYYYMMDD
@@ -623,9 +628,11 @@ fi
 # RSS feed globals (can be overridden via config.sh)
 # Define individual variables from HCNEWS_FEEDS array if available
 if [[ -v HCNEWS_FEEDS[@] ]]; then
+    # Disabled: xvcuritiba feed failing DNS resolution
+    unset 'HCNEWS_FEEDS[xvcuritiba]'
     o_popular="${HCNEWS_FEEDS[opopular]:-https://opopularpr.com.br/feed/}"
     plantao190="${HCNEWS_FEEDS[plantao190]:-https://plantao190.com.br/feed/}"
-    xvcuritiba="${HCNEWS_FEEDS[xvcuritiba]:-https://xvcuritiba.com.br/feed/}"
+    # xvcuritiba="${HCNEWS_FEEDS[xvcuritiba]:-https://xvcuritiba.com.br/feed/}"
     bandab="${HCNEWS_FEEDS[bandab]:-https://www.bandab.com.br/web-stories/feed/}"
     g1="${HCNEWS_FEEDS[g1_parana]:-https://g1.globo.com/rss/g1/pr/parana/}"
     g1cinema="${HCNEWS_FEEDS[g1_cinema]:-https://g1.globo.com/rss/g1/pop-arte/cinema/}"
@@ -636,7 +643,7 @@ if [[ -v HCNEWS_FEEDS[@] ]]; then
 else
     o_popular="https://opopularpr.com.br/feed/"
     plantao190="https://plantao190.com.br/feed/"
-    xvcuritiba="https://xvcuritiba.com.br/feed/"
+    # xvcuritiba="https://xvcuritiba.com.br/feed/"
     bandab="https://www.bandab.com.br/web-stories/feed/"
     g1="https://g1.globo.com/rss/g1/pr/parana/"
     g1cinema="https://g1.globo.com/rss/g1/pop-arte/cinema/"
@@ -651,11 +658,16 @@ if [[ -n "${HCNEWS_FEEDS_PRIMARY:-}" ]]; then
     all_feeds=""
     IFS=',' read -ra feed_keys <<< "$HCNEWS_FEEDS_PRIMARY"
     for key in "${feed_keys[@]}"; do
+        key=$(echo "$key" | xargs)
+        # Disabled: xvcuritiba feed failing DNS resolution
+        [[ -z "$key" || "$key" == "xvcuritiba" ]] && continue
+        local_feed_url="${HCNEWS_FEEDS[$key]:-}"
+        [[ -z "$local_feed_url" ]] && continue
         [[ -n "$all_feeds" ]] && all_feeds+=","
-        all_feeds+="${HCNEWS_FEEDS[$key]:-}"
+        all_feeds+="$local_feed_url"
     done
 else
-    all_feeds="${o_popular},${plantao190},${xvcuritiba}"
+    all_feeds="${o_popular},${plantao190}"
 fi
 
 # If running directly, execute the output generation
