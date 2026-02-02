@@ -202,14 +202,14 @@ _sports_format_line() {
     local line time_str
     case "$status" in
         finished|afterextratime|penalties)
-            line="${home} \`${hscore:-0}\`x\`${ascore:-0}\` ${away}"
+            line="${home} \`${hscore:-0}x${ascore:-0}\` ${away}"
             ;;
         notstarted)
             time_str=$(_sports_format_time "$ts")
             line="${home} x ${away} (${time_str})"
             ;;
         inprogress|halftime|paused)
-            line="${home} \`${hscore:-0}\`x\`${ascore:-0}\` ${away} (${status_desc:-Ao vivo})"
+            line="${home} \`${hscore:-0}x${ascore:-0}\` ${away} (${status_desc:-Ao vivo})"
             ;;
         postponed|canceled|delayed|suspended)
             time_str=$(_sports_format_time "$ts")
@@ -218,7 +218,7 @@ _sports_format_line() {
         *)
             # For same-day finished games (today) still show the score
             if [[ "$day_type" == "today" && -n "$hscore" && -n "$ascore" ]]; then
-                line="${home} \`${hscore}\`x\`${ascore}\` ${away}"
+                line="${home} \`${hscore}x${ascore}\` ${away}"
             else
                 time_str=$(_sports_format_time "$ts")
                 line="${home} x ${away} (${time_str})"
@@ -273,12 +273,11 @@ _sports_fetch_day() {
         done < <(_sports_collect_events "$json")
 
         if [[ "$has_event" == true ]]; then
-            output_lines+=("🏆 *${comp}*")
+            output_lines+=("*${comp}*")
             local m
             for m in "${matches[@]}"; do
-                output_lines+=("  - ${m}")
+                output_lines+=("- ${m}")
             done
-            output_lines+=("") # blank line between tournaments
         fi
     done
 
@@ -324,14 +323,14 @@ _sports_fetch_day_tsdb() {
           }
         ]
       } |
-      "🏆 *\(.league)*\n" +
+      "*\(.league)*\n" +
       ( .games | map(
           if (.h|tostring) != "" and (.a|tostring) != "" then
-            "  - \(.home) `\(.h)`x`\(.a)` \(.away)"
+            "- \(.home) `\(.h)x\(.a)` \(.away)"
           else
-            "  - \(.home) x \(.away) (\(.time // "--:--"))"
+            "- \(.home) x \(.away) (\(.time // "--:--"))"
           end
-      ) | join("\n") ) + "\n"
+      ) | join("\n") )
     ')
     printf '%s' "$grouped"
 }
@@ -366,11 +365,10 @@ get_sports_block() {
     today_iso="$base_date"
 
     local block
-    block="⚽ *Futebol*"
-    block+=$'\n\n'"📅 Ontem ($(_sports_human_date "$yesterday_iso"))"
-    block+=$'\n\n'"$(_sports_fetch_day "$yesterday_iso" "yesterday")"
-    block+=$'\n\n'"📅 Hoje ($(_sports_human_date "$today_iso"))"
-    block+=$'\n\n'"$(_sports_fetch_day "$today_iso" "today")"
+    block="⚽ *Futebol - Hoje*"
+    block+=$'\n'"$(_sports_fetch_day "$today_iso" "today")"
+    block+=$'\n'"🥅 *Ontem*"
+    block+=$'\n'"$(_sports_fetch_day "$yesterday_iso" "yesterday")"
 
     [[ "$_sports_USE_CACHE" == true ]] && hcnews_write_cache "$cache_file" "$block"
     printf '%s' "$block"

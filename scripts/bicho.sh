@@ -136,7 +136,6 @@ write_bicho() {
     fi
 
     echo ""
-    echo "🍀 *Boa sorte!*"
     echo ""
 }
 

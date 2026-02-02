@@ -110,7 +110,7 @@ get_saints_of_the_day () {
       if hcnews_check_cache "$verbose_cache_file" "$CACHE_TTL_SECONDS" "$_saints_FORCE_REFRESH"; then
         # Extract names from verbose cache (lines starting with 😇)
         local from_verbose
-        from_verbose=$(hcnews_read_cache "$verbose_cache_file" | grep "^😇" | sed 's/😇 /😇/')
+        from_verbose=$(hcnews_read_cache "$verbose_cache_file" | grep "^😇" | sed -E 's/^😇 ?/- 😇 /')
         
         if [[ -n "$from_verbose" ]]; then
            # Write to regular cache for future fast access
@@ -143,7 +143,7 @@ get_saints_of_the_day () {
     local output=""
     local name
     while read -r name; do
-        output+="😇${name}"$'\n'
+        output+="- 😇 ${name}"$'\n'
     done <<< "$names"
     
     # Write to cache if cache is enabled
