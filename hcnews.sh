@@ -428,23 +428,17 @@ render_output() {
     # 4. States & Birthdays
     echo "$states_output"
 
-    # 5. Saints
-    if [[ -n "$saints_output" ]]; then
-        echo "$saints_output"
+    # 5. Weather
+    if [[ -n "$weather_output" ]]; then
+        echo "$weather_output"
         echo ""
     fi
 
-    # 5b. On This Day
-    if [[ -n "$onthisday_output" ]]; then
-        echo "$onthisday_output"
+    # 6. News
+    if [[ -n "$news_output" ]]; then
+        echo "$news_output"
         echo ""
     fi
-
-    # 6. AI Fortune
-    # if [[ -n "$ai_fortune_output" ]]; then
-    #     echo "$ai_fortune_output"
-    #     echo ""
-    # fi
 
     # 7. Exchange
     if [[ -n "$exchange_output" ]]; then
@@ -452,71 +446,63 @@ render_output() {
         echo ""
     fi
 
-    # 7. Sports
+    # 8. Sports
     if [[ -n "$sports_output" ]]; then
         echo "$sports_output"
         echo ""
     fi
 
-    # 8. Help HCNEWS interlude
-    help_hcnews
-
-    # 9. Music Chart
-    if [[ -n "$music_chart_output" ]]; then
-        echo "$music_chart_output"
+    # 9. On This Day
+    if [[ -n "$onthisday_output" ]]; then
+        echo "$onthisday_output"
         echo ""
     fi
 
-    # 10. Weather
-    if [[ -n "$weather_output" ]]; then
-        echo "$weather_output"
-        echo ""
-    fi
-
-    # 10b. Air Quality - now integrated into weather output above
-
-    # 10c. Earthquakes
-    if [[ -n "$earthquake_output" ]]; then
-        echo "$earthquake_output"
-        echo ""
-    fi
-
-    # 11. Did You Know?
+    # 10. Did You Know?
     if [[ -n "$didyouknow_output" ]]; then
         echo "$didyouknow_output"
         echo ""
     fi
 
-    # 12. Bicho
+    # 11. Bicho
     if [[ -n "$bicho_output" ]]; then
         echo "$bicho_output"
         echo ""
     fi
     
-    # 13. HC Follower interlude
-    hcseguidor
+    # 12. Saints
+    if [[ -n "$saints_output" ]]; then
+        echo "$saints_output"
+        echo ""
+    fi
 
-    # # 14. Menu
+    # # 13. Menu
     # if [[ $weekday -lt 6 ]] && [[ -n "$menu_output" ]]; then
     #     echo "$menu_output"
     #     echo ""
     # fi
 
-    # 15. Emoji
+    # 14. Emoji
     echo "$emoji_output"
     echo ""
 
-    # 16. News
-    if [[ -n "$news_output" ]]; then
-        echo "$news_output"
-        echo ""
-    fi
-
-    # 17. Desculpa
+    # 15. Desculpa
     # if [[ -n "$desculpa_output" ]]; then
     #     echo "$desculpa_output"
     #     echo ""
     # fi
+
+    # Commented out sections (requested)
+    # help_hcnews
+    # if [[ -n "$music_chart_output" ]]; then
+    #     echo "$music_chart_output"
+    #     echo ""
+    # fi
+    # if [[ -n "$earthquake_output" ]]; then
+    #     echo "$earthquake_output"
+    #     echo ""
+    # fi
+    # hcseguidor
 }
 
 function output {
