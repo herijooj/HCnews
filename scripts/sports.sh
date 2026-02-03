@@ -364,11 +364,21 @@ get_sports_block() {
     yesterday_iso=$(TZ="$DISPLAY_TZ" date -d "$base_date -1 day" +%F)
     today_iso="$base_date"
 
+    local today_games yesterday_games
+    today_games=$(_sports_fetch_day "$today_iso" "today")
+    yesterday_games=$(_sports_fetch_day "$yesterday_iso" "yesterday")
+
     local block
-    block="⚽ *Futebol - Hoje*"
-    block+=$'\n'"$(_sports_fetch_day "$today_iso" "today")"
-    block+=$'\n'"🥅 *Ontem*"
-    block+=$'\n'"$(_sports_fetch_day "$yesterday_iso" "yesterday")"
+    if [[ "$today_games" == *"- Nenhum jogo encontrado"* ]]; then
+        block="⚽ *Futebol*"
+        block+=$'\n'"🥅 *Ontem*"
+        block+=$'\n'"$yesterday_games"
+    else
+        block="⚽ *Futebol - Hoje*"
+        block+=$'\n'"$today_games"
+        block+=$'\n'"🥅 *Ontem*"
+        block+=$'\n'"$yesterday_games"
+    fi
 
     [[ "$_sports_USE_CACHE" == true ]] && hcnews_write_cache "$cache_file" "$block"
     printf '%s' "$block"
