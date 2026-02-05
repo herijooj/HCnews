@@ -6,6 +6,9 @@
 # Values here are the defaults - config.local.sh will override them.
 # =============================================================================
 
+# Load secrets if available (fallback if direnv/.envrc not active)
+[[ -f "${HCNEWS_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/.secrets" ]] && source "${HCNEWS_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/.secrets"
+
 # -----------------------------------------------------------------------------
 # Location Settings
 # -----------------------------------------------------------------------------

@@ -22,6 +22,11 @@ fi
 export HCNEWS_ROOT
 export HCNEWS_COMMON_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/"
 
+# =============================================================================
+# Load Secrets (fallback if direnv/.envrc not active)
+# =============================================================================
+[[ -f "${HCNEWS_ROOT}/.secrets" ]] && source "${HCNEWS_ROOT}/.secrets" 2>/dev/null
+
 if [[ -z "${HCNEWS_DATA_DIR:-}" ]]; then
     HCNEWS_DATA_DIR="${HCNEWS_ROOT}/data"
 fi
