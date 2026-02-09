@@ -50,6 +50,7 @@ hcnews_init_cache_dirs
 start_time_precise=$(date +%s.%N)
 start_time=${start_time_precise%.*} # Integer epoch
 current_time=$(date '+%d/%m/%Y %H:%M:%S')
+HOSTNAME=$(hostname)
 weekday=$(date +%u)  # 1=Monday, 7=Sunday
 month=$(date +%m)
 day=$(date +%d)
@@ -167,7 +168,7 @@ function footer {
     echo "- 🔗 https://github.com/herijooj/HCnews"
     echo "🙌 *Que Deus abençoe a todos!*"
     echo ""
-    echo "🤖 ${current_time} (BRT) ⏱️ ${elapsed_f1_time}" 
+    echo "🤖 ${current_time} (BRT) ⏱️ ${elapsed_f1_time} on ${HOSTNAME}"
     
     # Add timing summary if enabled
     if [[ $timing == true ]]; then
