@@ -1,0 +1,11 @@
+repos:
+  - repo: https://github.com/koalaman/shellcheck-precommit
+    rev: v0.9.0
+    hooks:
+      - id: shellcheck
+        args: ["--severity=warning"]  # Optional: only fail on warnings or errors
+  - repo: https://github.com/mvdan/sh
+    rev: v3.8.0
+    hooks:
+      - id: shfmt
+        args: ["-w", "-s"]  # -w: write to file, -s: simplify code

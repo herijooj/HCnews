@@ -1,0 +1,31 @@
+name: Lint
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+          # Install shfmt
+          SHFMT_VERSION="v3.8.0"
+          sudo curl -sSL "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64" -o /usr/local/bin/shfmt
+          sudo chmod +x /usr/local/bin/shfmt
+
+      - name: Run shfmt check
+        run: shfmt -d .
+
+      - name: Run shellcheck
+        run: |
+          find . -type f -name "*.sh" -print0 | xargs -0 shellcheck
