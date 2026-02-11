@@ -103,7 +103,10 @@ get_block() {
     fi
 
     # Escape special characters in description for safe output
-    description=$(echo "$description" | sed 's/\\/\\\\/g; s/|/\\|/g; s/*/\\*/g; s/`/\\`/g')
+    description="${description//\\/\\\\}"
+    description="${description//|/\\|}"
+    description="${description//\*/\\*}"
+    description="${description//\`/\\\`}"
 
     # Use printf to append properly to output, using -- to prevent option interpretation
     local repo_line
