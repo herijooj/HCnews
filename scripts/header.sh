@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Optimized directory resolution
+# shellcheck disable=SC2034
 HEADER_DIR="${BASH_SOURCE[0]%/*}"
 HEADER_DIR="${BASH_SOURCE[0]%/*}"
 
 # Source common library if not already loaded
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # Returns the current date in a pretty format.
@@ -61,6 +61,7 @@ function pretty_date_var {
 	fi
 
 	# Return result via variable
+	# shellcheck disable=SC2034
 	ret_var="${pretty_weekday}, ${day_arg} de ${pretty_month} de ${year_arg}"
 }
 
@@ -85,6 +86,7 @@ function heripoch_date_var() {
 
 	local difference
 	difference=$((current_date - _HERIPOCH_START_TIMESTAMP))
+	# shellcheck disable=SC2034
 	ret_var_h=$((difference / 86400))
 }
 

@@ -7,6 +7,7 @@ SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 
 # Source configuration (defaults + local overrides)
 source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
+# shellcheck disable=SC1091
 [[ -f "$SCRIPT_DIR/config.local.sh" ]] && source "$SCRIPT_DIR/config.local.sh"
 
 # Source required scripts
@@ -178,7 +179,8 @@ refresh_all() {
 	# Wait for all background jobs and collect results
 	for name in "${!pids[@]}"; do
 		wait "${pids[$name]}"
-		if [[ $? -eq 0 ]]; then
+		# shellcheck disable=SC2181
+		if [[ $? -eq 0 ]]; then # shellcheck disable=SC2181
 			((success_count++))
 		fi
 	done

@@ -2,8 +2,10 @@
 
 # This function is used to generate the news file.
 new_file() {
+	# shellcheck disable=SC2034
 	local news_file_name=$1
 	local news_file_path=$2
+	# shellcheck disable=SC2034
 	local silent=$3
 
 	# If the directory doesn't exist, create it.

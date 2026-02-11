@@ -10,7 +10,6 @@
 # -----------------------------------------------------------------------------
 # Source Common Library (ALWAYS FIRST after tokens)
 # -----------------------------------------------------------------------------
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # -----------------------------------------------------------------------------
@@ -174,6 +173,7 @@ get_exchange_data() {
 			IFS=':' read -r symbol id name <<<"$crypto"
 			[[ -n "$crypto_ids" ]] && crypto_ids+=","
 			crypto_ids+="$id"
+			# shellcheck disable=SC2034
 			crypto_map["$id"]="$symbol:$name"
 		done
 

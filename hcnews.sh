@@ -10,6 +10,7 @@ _HCNEWS_ALLOW_HELP=false
 # config.local.sh will override these settings if it exists
 source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
 # Source local overrides if they exist
+# shellcheck disable=SC1091
 [[ -f "$SCRIPT_DIR/config.local.sh" ]] && source "$SCRIPT_DIR/config.local.sh"
 
 # Source all the required scripts
@@ -109,6 +110,7 @@ parse_main_arguments() {
 			exit 0
 			;;
 		-s | --silent)
+			# shellcheck disable=SC2034
 			silent=true
 			shift
 			;;
@@ -158,6 +160,7 @@ function footer {
 	# Get end time in nanoseconds using the same format as start
 	local end_date
 	end_date=$(date +"%s %N")
+	# shellcheck disable=SC2162
 	read end_time_seconds end_time_nanos <<<"$end_date"
 	local end_time_precise
 	end_time_precise=$((end_time_seconds * 1000000000 + 10#$end_time_nanos))
@@ -195,6 +198,7 @@ start_network_jobs() {
 	start_timing "network_parallel_start"
 
 	# Pre-calculate paths
+	# shellcheck disable=SC2034
 	local ru_cache music_cache futuro_cache weather_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache
 
 	if [[ $weekday -lt 6 ]]; then
@@ -614,6 +618,7 @@ export _HCNEWS_USE_CACHE _HCNEWS_FORCE_REFRESH
 # Use nanosecond precision for F1-style timing
 # Format: seconds nanoseconds month day weekday time year day_of_year YYYYMMDD
 current_date=$(date +"%s %N %m %d %u %H:%M:%S %Y %-j %Y%m%d")
+# shellcheck disable=SC2162
 read start_time_seconds start_time_nanos month day weekday current_time year days_since date_format <<<"$current_date"
 
 # Combine seconds and nanoseconds into a single nanosecond timestamp for F1 timing
@@ -655,22 +660,28 @@ if [[ -v HCNEWS_FEEDS[@] ]]; then
 	plantao190="${HCNEWS_FEEDS[plantao190]:-https://plantao190.com.br/feed/}"
 	# xvcuritiba="${HCNEWS_FEEDS[xvcuritiba]:-https://xvcuritiba.com.br/feed/}"
 	bandab="${HCNEWS_FEEDS[bandab]:-https://www.bandab.com.br/web-stories/feed/}"
+	# shellcheck disable=SC2034
 	g1="${HCNEWS_FEEDS[g1_parana]:-https://g1.globo.com/rss/g1/pr/parana/}"
+	# shellcheck disable=SC2034
 	g1cinema="${HCNEWS_FEEDS[g1_cinema]:-https://g1.globo.com/rss/g1/pop-arte/cinema/}"
 	newyorker="${HCNEWS_FEEDS[newyorker]:-https://www.newyorker.com/feed/magazine/rss}"
 	folha="${HCNEWS_FEEDS[folha]:-https://feeds.folha.uol.com.br/mundo/rss091.xml}"
 	formula1="${HCNEWS_FEEDS[formula1]:-https://www.formula1.com/content/fom-website/en/latest/all.xml}"
+	# shellcheck disable=SC2034
 	bcc="${HCNEWS_FEEDS[bbc]:-http://feeds.bbci.co.uk/news/world/latin_america/rss.xml}"
 else
 	o_popular="https://opopularpr.com.br/feed/"
 	plantao190="https://plantao190.com.br/feed/"
 	# xvcuritiba="https://xvcuritiba.com.br/feed/"
 	bandab="https://www.bandab.com.br/web-stories/feed/"
+	# shellcheck disable=SC2034
 	g1="https://g1.globo.com/rss/g1/pr/parana/"
+	# shellcheck disable=SC2034
 	g1cinema="https://g1.globo.com/rss/g1/pop-arte/cinema/"
 	newyorker="https://www.newyorker.com/feed/magazine/rss"
 	folha="https://feeds.folha.uol.com.br/mundo/rss091.xml"
 	formula1="https://www.formula1.com/content/fom-website/en/latest/all.xml"
+	# shellcheck disable=SC2034
 	bcc="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
 fi
 

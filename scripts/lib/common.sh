@@ -7,7 +7,6 @@
 # =============================================================================
 
 # Prevent multiple sourcing
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] && return 0
 _HCNEWS_COMMON_LOADED=1
 
@@ -21,13 +20,11 @@ if [[ -z "${HCNEWS_ROOT:-}" ]]; then
 	HCNEWS_ROOT="$(dirname "$(dirname "$(dirname "$(realpath "${BASH_SOURCE[0]}")")")")"
 fi
 export HCNEWS_ROOT
-HCNEWS_COMMON_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/"
-export HCNEWS_COMMON_PATH
+export HCNEWS_COMMON_PATH="$(dirname "$(realpath "${BASH_SOURCE[0]}")")/"
 
 # =============================================================================
 # Load Secrets (fallback if direnv/.envrc not active)
 # =============================================================================
-# shellcheck source=/dev/null
 [[ -f "${HCNEWS_ROOT}/.secrets" ]] && source "${HCNEWS_ROOT}/.secrets" 2>/dev/null
 
 if [[ -z "${HCNEWS_DATA_DIR:-}" ]]; then
@@ -62,7 +59,6 @@ export _HERIPOCH_START_TIMESTAMP
 # =============================================================================
 # Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
 # Scripts can use: CACHE_TTL_SECONDS=${HCNEWS_CACHE_TTL["weather"]:-10800}
-# shellcheck disable=SC2034
 declare -gA HCNEWS_CACHE_TTL=(
 	["header"]=86400     # 24 hours
 	["weather"]=21600    # 6 hours - matches run schedule

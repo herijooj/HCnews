@@ -7,6 +7,7 @@
 # =============================================================================
 
 # Load secrets if available (fallback if direnv/.envrc not active)
+# shellcheck disable=SC1091
 [[ -f "${HCNEWS_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/.secrets" ]] && source "${HCNEWS_ROOT:-$(dirname "${BASH_SOURCE[0]}")}/.secrets"
 
 # -----------------------------------------------------------------------------
@@ -16,6 +17,7 @@
 HCNEWS_CITY="${HCNEWS_CITY:-Curitiba}"
 
 # Multi-city weather (for --all flag)
+# shellcheck disable=SC2034
 HCNEWS_WEATHER_CITIES=(
 	"Curitiba"
 	"São Paulo"
@@ -32,6 +34,7 @@ HCNEWS_FEEDS_PRIMARY="${HCNEWS_FEEDS_PRIMARY:-opopular,plantao190}"
 
 # All available feeds (associative array - key: feed name, value: URL)
 # Can be used with -n flag or extended news output
+# shellcheck disable=SC2034
 declare -gA HCNEWS_FEEDS=(
 	["opopular"]="https://opopularpr.com.br/feed/"
 	["plantao190"]="https://plantao190.com.br/feed/"
@@ -56,6 +59,7 @@ HCNEWS_MUSIC_LIMIT="${HCNEWS_MUSIC_LIMIT:-10}"
 # Horoscope Settings
 # -----------------------------------------------------------------------------
 # Available signs (in Portuguese)
+# shellcheck disable=SC2034
 HCNEWS_HOROSCOPE_SIGNS=(
 	"aries"
 	"touro"

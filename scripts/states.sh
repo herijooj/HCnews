@@ -50,7 +50,7 @@ function write_states_birthdays() {
 
 	# Process each state and format as markdown list with emoji
 	echo "$states" | while IFS= read -r state; do
-		if [[ -n "$state" ]]; then
+		if [[ ! -z "$state" ]]; then
 			echo "- 🏛️  $state"
 		fi
 	done
@@ -72,8 +72,16 @@ show_help() {
 # this function will receive the arguments
 get_arguments() {
 	# Use cached values if available, otherwise fall back to date commands
-	local month="${month:-$(date +%m)}"
-	local day="${day:-$(date +%d)}"
+	local month day
+	if [[ -n "$month" && -n "$day" ]]; then
+		# shellcheck disable=SC2269
+		month="$month"
+		# shellcheck disable=SC2269
+		day="$day"
+	else
+		month=$(date +%m)
+		day=$(date +%d)
+	fi
 
 	# get the arguments
 	while [[ $# -gt 0 ]]; do
@@ -99,6 +107,7 @@ get_arguments() {
 # run the script
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	# get the arguments
-	read -r month day < <(get_arguments "$@")
+	# shellcheck disable=SC2162
+	read month day < <(get_arguments "$@")
 	write_states_birthdays "$month" "$day"
 fi

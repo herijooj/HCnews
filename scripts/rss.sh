@@ -11,10 +11,7 @@
 # Source Shortening Library
 # -----------------------------------------------------------------------------
 _rss_script_dir="${BASH_SOURCE%/*}"
-# shellcheck source=/dev/null
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_rss_script_dir}/lib/common.sh}" 2>/dev/null || source "${_rss_script_dir}/scripts/lib/common.sh"
-# shellcheck source=/dev/null
 [[ -z "$(type -t shorten_url_isgd)" ]] && source "${_rss_script_dir}/shortening.sh"
 
 # -----------------------------------------------------------------------------
@@ -105,8 +102,8 @@ _rss_date_to_unix() {
 
 	# Parse RFC 2822 date
 	local temp_date="${date_str#*, }"
-	local day mon_name year hms _tz
-	read -r day mon_name year hms _tz <<<"$temp_date"
+	local day mon_name year hms tz
+	read -r day mon_name year hms tz <<<"$temp_date"
 
 	local hour min sec
 	IFS=':' read -r hour min sec <<<"$hms"
@@ -313,11 +310,11 @@ write_rss() {
 		portal="${portal%%/*}"
 
 		local out_file="${tmp_dir}/rss_${idx}.out"
-		portals[idx]="$portal"
-		out_files[idx]="$out_file"
+		portals[$idx]="$portal"
+		out_files[$idx]="$out_file"
 
 		(get_rss_data "$feed" "$show_links" "$full_url" >"$out_file") &
-		pids[idx]=$!
+		pids[$idx]=$!
 		((idx++))
 	done
 

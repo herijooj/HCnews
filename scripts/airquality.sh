@@ -7,7 +7,6 @@
 # =============================================================================
 
 # Source common library if not already loaded
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # AQI Level descriptions and emojis
@@ -83,6 +82,7 @@ get_city_coords() {
 	local city_query="${city// /%20}"
 
 	# Use OpenWeatherMap Geocoding API
+	# shellcheck disable=SC2154
 	local geo_url="https://api.openweathermap.org/geo/1.0/direct?q=${city_query},BR&limit=1&appid=${openweathermap_API_KEY}"
 	local geo_response
 	geo_response=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$geo_url")
@@ -102,6 +102,7 @@ get_city_coords() {
 
 # Format pollutant value with unit
 format_pollutant() {
+	# shellcheck disable=SC2034
 	local name="$1"
 	local value="$2"
 	local unit="${3:-μg/m³}"
@@ -174,7 +175,9 @@ get_airquality() {
 	pm10=$(echo "$components" | jq -r '.pm10 // empty' 2>/dev/null)
 	o3=$(echo "$components" | jq -r '.o3 // empty' 2>/dev/null)
 	no2=$(echo "$components" | jq -r '.no2 // empty' 2>/dev/null)
+	# shellcheck disable=SC2034
 	so2=$(echo "$components" | jq -r '.so2 // empty' 2>/dev/null)
+	# shellcheck disable=SC2034
 	co=$(echo "$components" | jq -r '.co // empty' 2>/dev/null)
 
 	# Get level description and tips
@@ -189,14 +192,16 @@ get_airquality() {
 	local OUTPUT
 	if [ "$SHORT_FORMAT" = "true" ]; then
 		# Even shorter format for multicity list
+		# shellcheck disable=SC2016
 		printf -v OUTPUT -- '- %s *%s*: %s (PM2.5: `%s`)' \
 			"$level_emoji" "$CITY" "${level_desc#* }" "$(format_pollutant "PM2.5" "$pm25")"
 	else
-		printf -v OUTPUT '🌬️ *Qualidade do Ar - %s*
-Índice: *%s*
+		# shellcheck disable=SC2016
+		printf -v OUTPUT '🌬️ *Qualidade do Ar - %s*$
+Índice: *%s
 💡 _%s_
 
-📊 *Poluentes:*
+📊 *Poluentes:
 - PM2.5: `%s` | PM10: `%s`
 - O₃: `%s` | NO₂: `%s`
 

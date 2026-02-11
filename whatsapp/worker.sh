@@ -12,6 +12,7 @@ set -euo pipefail
 # Load environment from .secrets (if direnv is not active)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ -z "${WAHA_API_KEY:-}" ]]; then
+	# shellcheck disable=SC1091
 	[[ -f "${SCRIPT_DIR}/../.secrets" ]] && source "${SCRIPT_DIR}/../.secrets"
 fi
 
@@ -55,6 +56,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load configuration
 source "${SCRIPT_DIR}/config.sh"
+# shellcheck disable=SC1091
 [[ -f "${SCRIPT_DIR}/config.local.sh" ]] && source "${SCRIPT_DIR}/config.local.sh"
 
 # -----------------------------------------------------------------------------
@@ -87,7 +89,9 @@ log() {
 log_info() { log "INFO" "$@"; }
 log_warn() { log "WARN" "$@"; }
 log_error() { log "ERROR" "$@"; }
-log_debug() { [[ "${DEBUG}" == "true" ]] && log "DEBUG" "$@" || true; }
+log_debug() { # shellcheck disable=SC2015
+	[[ "${DEBUG}" == "true" ]] && log "DEBUG" "$@" || true
+}
 
 # -----------------------------------------------------------------------------
 # Secrets Validation

@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 # Source common library if not already loaded
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 HOLIDAYS_SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
@@ -23,6 +22,7 @@ function get_holidays() {
 		matches=$(grep "^$month,$day," "$HOLIDAY_FILE")
 
 		if [[ -n "$matches" ]]; then
+			# shellcheck disable=SC2034
 			while IFS=, read -r h_month h_day h_emoji h_name; do
 				if [[ -n "$holidays" ]]; then
 					holidays+=$'\n'
@@ -84,7 +84,9 @@ get_arguments() {
 	# Use cached values if available, otherwise fall back to date commands
 	local month day
 	if [[ -n "$month" && -n "$day" ]]; then
+		# shellcheck disable=SC2269
 		month="$month"
+		# shellcheck disable=SC2269
 		day="$day"
 	else
 		month=$(date +%m)

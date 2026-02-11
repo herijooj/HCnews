@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 _local_dir="${BASH_SOURCE[0]%/*}"
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
 
 # Parse shared flags
@@ -31,6 +30,7 @@ build_block() {
 
 	if ! curl -s --compressed "$feed_url" -o "$tmp_file"; then
 		rm -f "$tmp_file"
+		# shellcheck disable=SC2028
 		echo "🌎 *Sismos 4.5+ (últimas 24h)*\n- Não foi possível obter os dados agora."
 		return 1
 	fi
@@ -48,6 +48,7 @@ build_block() {
 	rm -f "$tmp_file"
 
 	if [[ -z "$lines" ]]; then
+		# shellcheck disable=SC2028
 		echo "🌎 *Sismos 4.5+ (últimas 24h)*\n- Nenhum evento encontrado."
 		return 0
 	fi
@@ -61,6 +62,7 @@ build_block() {
 	done <<<"$lines"
 
 	if [[ ${#entries[@]} -eq 0 ]]; then
+		# shellcheck disable=SC2028
 		echo "🌎 *Sismos 4.5+ (últimas 24h)*\n- Nenhum evento encontrado."
 		return 0
 	fi

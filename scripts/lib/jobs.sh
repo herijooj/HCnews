@@ -39,6 +39,7 @@ start_background_job() {
 
 	# Run command in background - use subshell (inherit env) instead of new process
 	(
+		# shellcheck disable=SC2154
 		if [[ "$timing" == true ]]; then
 			_job_start=$(date +%s%N)
 			eval "$command"
@@ -110,6 +111,7 @@ wait_for_job() {
 			cat "$temp_file"
 		fi
 
+		# shellcheck disable=SC2184
 		unset background_jobs["$job_name"]
 		return 0
 	fi

@@ -10,7 +10,6 @@
 # -----------------------------------------------------------------------------
 # Source Common Library (ALWAYS FIRST)
 # -----------------------------------------------------------------------------
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
@@ -46,6 +45,7 @@ get_moonphase_data() {
 	fetched_moon_phase=$(curl -s "https://www.invertexto.com/fase-lua-hoje" | grep -oP '(?<=<span>).*(?=</span>)')
 
 	# Keep only the text before the first number
+	# shellcheck disable=SC2001
 	fetched_moon_phase=$(echo "$fetched_moon_phase" | sed 's/[0-9].*//')
 
 	local output="🌔 $fetched_moon_phase"

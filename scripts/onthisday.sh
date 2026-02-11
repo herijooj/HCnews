@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # Source common library
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 get_onthisday() {

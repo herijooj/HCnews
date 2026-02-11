@@ -2,7 +2,6 @@
 
 # Shared utilities
 _local_dir="${BASH_SOURCE[0]%/*}"
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
 
 # Parse common flags
@@ -33,6 +32,7 @@ get_block() {
 	local t1="$tmp_dir/.githubtrends_1_$$"
 
 	# Fetch GitHub trending repos
+	# shellcheck disable=SC2155
 	local api_url="https://api.github.com/search/repositories?q=created:>$(date -d "7 days ago" +%Y-%m-%d)&sort=stars&order=desc&per_page=5"
 
 	if [[ -n "$LANGUAGE" ]]; then
@@ -115,6 +115,7 @@ get_block() {
 
 		# Use printf to append properly to output, using -- to prevent option interpretation
 		local repo_line
+		# shellcheck disable=SC2016
 		printf -v repo_line -- '- [%s](<%s>) por *%s* ⭐ `%s`\n- _«%s»_\n\n' "$repo_name" "$url" "$owner" "$stars" "$description"
 		OUTPUT="${OUTPUT}${repo_line}"
 	done

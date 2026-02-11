@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 
 # Source common library if not already loaded
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # URL shortening function using is.gd service with timeout and retries
@@ -62,6 +61,7 @@ shorten_urls_batch() {
 	local results=()
 	for i in "${!urls[@]}"; do
 		if [[ -f "$tmp_dir/result_$i.txt" ]]; then
+			# shellcheck disable=SC2002
 			results+=("$(cat "$tmp_dir/result_$i.txt" | cut -d'|' -f2)")
 		else
 			results+=("${urls[$i]}") # Fallback to original

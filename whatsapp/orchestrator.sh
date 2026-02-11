@@ -15,11 +15,13 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Load environment from .secrets (if direnv is not active)
 if [[ -z "${WAHA_API_KEY:-}" ]]; then
+	# shellcheck disable=SC1091
 	[[ -f "${SCRIPT_DIR}/../.secrets" ]] && source "${SCRIPT_DIR}/../.secrets"
 fi
 
 # Load configuration
 source "${SCRIPT_DIR}/config.sh"
+# shellcheck disable=SC1091
 [[ -f "${SCRIPT_DIR}/config.local.sh" ]] && source "${SCRIPT_DIR}/config.local.sh"
 
 # -----------------------------------------------------------------------------
@@ -43,7 +45,9 @@ log() {
 log_info() { log "INFO" "$@"; }
 log_warn() { log "WARN" "$@"; }
 log_error() { log "ERROR" "$@"; }
-log_debug() { [[ "${DEBUG}" == "true" ]] && log "DEBUG" "$@" || true; }
+log_debug() { # shellcheck disable=SC2015
+	[[ "${DEBUG}" == "true" ]] && log "DEBUG" "$@" || true
+}
 
 # -----------------------------------------------------------------------------
 # State Management
@@ -225,6 +229,7 @@ main() {
 	local was_already_on=false
 	if is_host_reachable; then
 		log_info "Host ${TARGET_LAN_IP} is already online"
+		# shellcheck disable=SC2034
 		was_already_on=true
 	else
 		log_info "Host ${TARGET_LAN_IP} is offline, attempting wake"

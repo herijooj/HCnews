@@ -10,7 +10,6 @@
 # -----------------------------------------------------------------------------
 # Source Common Library (ALWAYS FIRST after tokens)
 # -----------------------------------------------------------------------------
-# shellcheck source=/dev/null
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
@@ -115,6 +114,7 @@ get_weather_data() {
 
 	# Build URLs
 	local city_encoded
+	# shellcheck disable=SC2001
 	city_encoded=$(printf '%s' "$city" | jq -sRr @uri 2>/dev/null || echo "$city" | sed 's/ /%20/g')
 	local current_url="https://api.openweathermap.org/data/2.5/weather?q=${city_encoded}&appid=${openweathermap_API_KEY}&lang=pt_br&units=metric"
 	local forecast_url="https://api.openweathermap.org/data/2.5/forecast?q=${city_encoded}&appid=${openweathermap_API_KEY}&lang=pt_br&units=metric"
@@ -234,7 +234,8 @@ get_weather_data() {
 	# Build output
 	local current_time="${current_time:-$(date +"%H:%M:%S")}"
 	local output
-	printf -v output '🌦️ *Clima em %s:*
+	# shellcheck disable=SC2016
+	printf -v output '🌦️ *Clima em %s:*$
 - %s %s
 - 🌡️ `%s` °C
 - ↗️ Máx: `%s` °C  ↘️ Mín: `%s` °C

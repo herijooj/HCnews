@@ -9,7 +9,6 @@ _TIMING_DATA_FILE=""
 
 # Initialize timing data file for cross-subshell persistence
 init_timing_file() {
-	# shellcheck disable=SC2154
 	if [[ "$timing" == true && -n "$_HCNEWS_TEMP_DIR" ]]; then
 		_TIMING_DATA_FILE="${_HCNEWS_TEMP_DIR}/timing_data.txt"
 		: >"$_TIMING_DATA_FILE" # Create/truncate file
@@ -127,7 +126,8 @@ print_timing_summary() {
 	# Print async jobs first (these run in parallel)
 	if [[ ${#async_jobs[@]} -gt 0 ]]; then
 		echo "🔀 Background Jobs (parallel):"
-		mapfile -t sorted < <(sort -rn -t: -k1 <<<"${async_jobs[*]}")
+		IFS=$'\n' sorted=($(sort -rn -t: -k1 <<<"${async_jobs[*]}"))
+		unset IFS
 		for entry in "${sorted[@]}"; do
 			IFS=':' read -r time func <<<"$entry"
 			printf "   ⏱️ %-26s %8d ms\n" "$func" "$time"
@@ -138,7 +138,8 @@ print_timing_summary() {
 	# Print sync operations
 	if [[ ${#sync_ops[@]} -gt 0 ]]; then
 		echo "🔁 Synchronous Operations:"
-		mapfile -t sorted < <(sort -rn -t: -k1 <<<"${sync_ops[*]}")
+		IFS=$'\n' sorted=($(sort -rn -t: -k1 <<<"${sync_ops[*]}"))
+		unset IFS
 		for entry in "${sorted[@]}"; do
 			IFS=':' read -r time func <<<"$entry"
 			printf "   ⏱️ %-26s %8d ms\n" "$func" "$time"
