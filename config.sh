@@ -42,7 +42,7 @@ declare -gA HCNEWS_FEEDS=(
     ["newyorker"]="https://www.newyorker.com/feed/magazine/rss"
     ["folha"]="https://feeds.folha.uol.com.br/mundo/rss091.xml"
     ["formula1"]="https://www.formula1.com/content/fom-website/en/latest/all.xml"
-    ["bbc"]="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
+    ["bbc"]="https://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
 )
 
 # -----------------------------------------------------------------------------

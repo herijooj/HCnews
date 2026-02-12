@@ -626,7 +626,7 @@ if [[ -v HCNEWS_FEEDS[@] ]]; then
     newyorker="${HCNEWS_FEEDS[newyorker]:-https://www.newyorker.com/feed/magazine/rss}"
     folha="${HCNEWS_FEEDS[folha]:-https://feeds.folha.uol.com.br/mundo/rss091.xml}"
     formula1="${HCNEWS_FEEDS[formula1]:-https://www.formula1.com/content/fom-website/en/latest/all.xml}"
-    bcc="${HCNEWS_FEEDS[bbc]:-http://feeds.bbci.co.uk/news/world/latin_america/rss.xml}"
+    bcc="${HCNEWS_FEEDS[bbc]:-https://feeds.bbci.co.uk/news/world/latin_america/rss.xml}"
 else
     o_popular="https://opopularpr.com.br/feed/"
     plantao190="https://plantao190.com.br/feed/"
@@ -637,7 +637,7 @@ else
     newyorker="https://www.newyorker.com/feed/magazine/rss"
     folha="https://feeds.folha.uol.com.br/mundo/rss091.xml"
     formula1="https://www.formula1.com/content/fom-website/en/latest/all.xml"
-    bcc="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
+    bcc="https://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
 fi
 
 # Build all_feeds from comma-separated feed keys
