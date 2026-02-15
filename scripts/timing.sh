@@ -4,12 +4,17 @@
 # Global array to store timing data
 declare -A TIMING_DATA
 
+# Cached timing flag (avoid repeated checks on every call)
+_HCNEWS_TIMING_ENABLED=false
+
 # File to persist timing data across subshells
 _TIMING_DATA_FILE=""
 
 # Initialize timing data file for cross-subshell persistence
 init_timing_file() {
+	_HCNEWS_TIMING_ENABLED=false
 	if [[ "${timing:-false}" == true && -n "$_HCNEWS_TEMP_DIR" ]]; then
+		_HCNEWS_TIMING_ENABLED=true
 		_TIMING_DATA_FILE="${_HCNEWS_TEMP_DIR}/timing_data.txt"
 		: >"$_TIMING_DATA_FILE" # Create/truncate file
 	fi
@@ -43,7 +48,7 @@ load_timing_entries() {
 # Usage: start_timing "function_name"
 start_timing() {
 	# Only do timing work if timing is enabled
-	if [[ "$timing" != true ]]; then
+	if [[ "$_HCNEWS_TIMING_ENABLED" != true ]]; then
 		return 0
 	fi
 
@@ -55,7 +60,7 @@ start_timing() {
 # Usage: end_timing "function_name"
 end_timing() {
 	# Only do timing work if timing is enabled
-	if [[ "$timing" != true ]]; then
+	if [[ "$_HCNEWS_TIMING_ENABLED" != true ]]; then
 		return 0
 	fi
 
@@ -126,7 +131,7 @@ print_timing_summary() {
 	if [[ ${#async_jobs[@]} -gt 0 ]]; then
 		echo "🔀 Background Jobs (parallel):"
 		local -a sorted
-		mapfile -t sorted < <(sort -rn -t: -k1 <<<"${async_jobs[*]}")
+		mapfile -t sorted < <(printf '%s\n' "${async_jobs[@]}" | sort -rn -t: -k1)
 		for entry in "${sorted[@]}"; do
 			IFS=':' read -r time func <<<"$entry"
 			printf "   ⏱️ %-26s %8d ms\n" "$func" "$time"
@@ -138,7 +143,7 @@ print_timing_summary() {
 	if [[ ${#sync_ops[@]} -gt 0 ]]; then
 		echo "🔁 Synchronous Operations:"
 		local -a sorted
-		mapfile -t sorted < <(sort -rn -t: -k1 <<<"${sync_ops[*]}")
+		mapfile -t sorted < <(printf '%s\n' "${sync_ops[@]}" | sort -rn -t: -k1)
 		for entry in "${sorted[@]}"; do
 			IFS=':' read -r time func <<<"$entry"
 			printf "   ⏱️ %-26s %8d ms\n" "$func" "$time"

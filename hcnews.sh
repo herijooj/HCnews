@@ -62,6 +62,14 @@ city="${HCNEWS_CITY:-Curitiba}"
 
 _HCNEWS_RUNTIME_INITIALIZED=false
 
+hc_trim_var() {
+	local -n s_ref="$1"
+	# shellcheck disable=SC2034
+	s_ref="${s_ref#"${s_ref%%[![:space:]]*}"}"
+	# shellcheck disable=SC2034
+	s_ref="${s_ref%"${s_ref##*[![:space:]]}"}"
+}
+
 # Functions ========================================================================
 
 # Background job management
@@ -346,16 +354,19 @@ hcnews_init_runtime() {
 
 	# Build all_feeds from comma-separated feed keys
 	if [[ -n "${HCNEWS_FEEDS_PRIMARY:-}" ]]; then
+		local -a feed_keys
+		local key local_feed_url
 		all_feeds=""
 		IFS=',' read -ra feed_keys <<<"$HCNEWS_FEEDS_PRIMARY"
 		for key in "${feed_keys[@]}"; do
-			key=$(echo "$key" | xargs)
+			hc_trim_var key
 			[[ -z "$key" || "$key" == "xvcuritiba" ]] && continue
 			local_feed_url="${HCNEWS_FEEDS[$key]:-}"
 			[[ -z "$local_feed_url" ]] && continue
 			[[ -n "$all_feeds" ]] && all_feeds+=","
 			all_feeds+="$local_feed_url"
 		done
+		[[ -z "$all_feeds" ]] && all_feeds="${o_popular},${plantao190}"
 	else
 		all_feeds="${o_popular},${plantao190}"
 	fi
