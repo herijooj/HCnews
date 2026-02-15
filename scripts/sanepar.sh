@@ -94,11 +94,10 @@ get_sanepar_data() {
 # Output Function
 # -----------------------------------------------------------------------------
 hc_component_sanepar() {
-	local data
-	data=$(get_sanepar_data)
-	[[ -z "$data" ]] && return 1
-	echo "$data"
-	echo ""
+	if ! get_sanepar_data; then
+		return 1
+	fi
+	echo
 }
 
 # -----------------------------------------------------------------------------

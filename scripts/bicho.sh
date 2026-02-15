@@ -39,12 +39,74 @@ declare -A BICHO_NAMES=(
 # -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
-_number_to_bicho() {
-	local number="$1"
+
+_number_to_bicho_var() {
+	local -n out_ref="$1"
+	local number="$2"
 	local stripped="${number#0}"
 	[[ -z "$stripped" ]] && stripped="100"
 	local group=$(((stripped - 1) / 4 + 1))
-	echo "${BICHO_EMOJIS[$group]:-🎲} ${stripped} ${BICHO_NAMES[$group]:-}"
+	# shellcheck disable=SC2034
+	out_ref="${BICHO_EMOJIS[$group]:-🎲} ${stripped} ${BICHO_NAMES[$group]:-}"
+}
+
+_format_bicho_output() {
+	local raw_data="$1"
+	local output="🎲 *Palpites do Jogo do Bicho:*"
+
+	# Parse each group (space-separated numbers): Grupo, Dezena, Centena, Milhar
+	local -a groups=()
+	while IFS= read -r group; do
+		[[ -n "$group" ]] && groups+=("$group")
+	done <<<"$raw_data"
+
+	# Format Grupo (animals) - convert numbers to bicho format
+	if [[ -n "${groups[0]}" ]]; then
+		local line="- "
+		local line_length=2
+		local first=true
+		for item in ${groups[0]}; do
+			[[ -z "$item" ]] && continue
+			local formatted
+			_number_to_bicho_var formatted "$item"
+			local new_length=$((line_length + ${#formatted} + 1))
+			if [[ $new_length -gt 38 && $line_length -gt 2 ]]; then
+				output+=$'\n'
+				output+="$line"
+				line="- $formatted"
+				line_length=$((2 + ${#formatted}))
+			else
+				if [[ "$first" == "true" ]]; then
+					line+="$formatted"
+					first=false
+				else
+					line+=" | $formatted"
+				fi
+				line_length=$((line_length + ${#formatted} + 3))
+			fi
+		done
+		if [[ $line_length -gt 2 ]]; then
+			output+=$'\n'
+			output+="$line"
+		fi
+	fi
+
+	# Format Dezena, Centena, Milhar (just show the numbers)
+	if [[ -n "${groups[1]}" ]]; then
+		output+=$'\n'
+		output+="🔟 Dezena: ${groups[1]}"
+	fi
+	if [[ -n "${groups[2]}" ]]; then
+		output+=$'\n'
+		output+="💯 Centena: ${groups[2]}"
+	fi
+	if [[ -n "${groups[3]}" ]]; then
+		output+=$'\n'
+		output+="🏆 Milhar: ${groups[3]}"
+	fi
+
+	output+=$'\n\n'
+	printf '%s' "$output"
 }
 
 # -----------------------------------------------------------------------------
@@ -61,7 +123,17 @@ get_bicho_data() {
 
 	# Check cache first
 	if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
-		hcnews_read_cache "$cache_file"
+		local cached_data
+		cached_data=$(hcnews_read_cache "$cache_file")
+		# Cache migration path: old format stored raw data only.
+		if [[ "$cached_data" == "🎲 *Palpites do Jogo do Bicho:*"* ]]; then
+			echo "$cached_data"
+		else
+			local formatted_cached
+			formatted_cached=$(_format_bicho_output "$cached_data")
+			[[ -n "$formatted_cached" ]] && hcnews_write_cache "$cache_file" "$formatted_cached"
+			echo "$formatted_cached"
+		fi
 		return 0
 	fi
 
@@ -71,70 +143,24 @@ get_bicho_data() {
 		pup 'div.content ul.inline-list json{}' |
 		jq -r '.[] | .children | map(.text) | join(" ")')
 
-	# Save to cache if enabled
-	if [[ "$use_cache" == true && -n "$raw_data" ]]; then
-		hcnews_write_cache "$cache_file" "$raw_data"
+	# Format output once and cache final rendered block
+	local formatted_output
+	formatted_output=$(_format_bicho_output "$raw_data")
+	if [[ "$use_cache" == true && -n "$formatted_output" ]]; then
+		hcnews_write_cache "$cache_file" "$formatted_output"
 	fi
 
-	echo "$raw_data"
+	echo "$formatted_output"
 }
 
 # -----------------------------------------------------------------------------
 # Output Function
 # -----------------------------------------------------------------------------
 hc_component_bicho() {
-	local raw_data
-	raw_data=$(get_bicho_data)
-	[[ -z "$raw_data" ]] && return 1
-
-	echo "🎲 *Palpites do Jogo do Bicho:*"
-
-	# Parse each group (space-separated numbers): Grupo, Dezena, Centena, Milhar
-	local -a groups=()
-	while IFS= read -r group; do
-		[[ -n "$group" ]] && groups+=("$group")
-	done <<<"$raw_data"
-
-	# Format Grupo (animals) - convert numbers to bicho format
-	if [[ -n "${groups[0]}" ]]; then
-		local line="- "
-		local line_length=2
-		local first=true
-		for item in ${groups[0]}; do
-			[[ -z "$item" ]] && continue
-			local formatted
-			formatted=$(_number_to_bicho "$item")
-			local new_length=$((line_length + ${#formatted} + 1))
-			if [[ $new_length -gt 38 && $line_length -gt 2 ]]; then
-				echo "$line"
-				line="- $formatted"
-				line_length=$((2 + ${#formatted}))
-			else
-				if [[ "$first" == "true" ]]; then
-					line+="$formatted"
-					first=false
-				else
-					line+=" | $formatted"
-				fi
-				line_length=$((line_length + ${#formatted} + 3))
-			fi
-		done
-		[[ $line_length -gt 2 ]] && echo "$line"
-	fi
-
-	# Format Dezena, Centena, Milhar (just show the numbers)
-	if [[ -n "${groups[1]}" ]]; then
-		echo "🔟 Dezena: ${groups[1]}"
-	fi
-	if [[ -n "${groups[2]}" ]]; then
-		echo "💯 Centena: ${groups[2]}"
-	fi
-	if [[ -n "${groups[3]}" ]]; then
-		echo "🏆 Milhar: ${groups[3]}"
-	fi
-
-	echo ""
-	echo ""
+	local output
+	output=$(get_bicho_data)
+	[[ -z "$output" ]] && return 1
+	echo "$output"
 }
 
 # -----------------------------------------------------------------------------

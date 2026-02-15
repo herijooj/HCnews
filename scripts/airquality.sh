@@ -230,13 +230,10 @@ _Fonte: OpenWeatherMap · %s_' \
 hc_component_airquality() {
 	local CITY="${1:-Curitiba}"
 	local SHORT_FORMAT="${2:-false}"
-	local block
-	block=$(get_airquality "$CITY" "$SHORT_FORMAT") || {
-		echo "$block"
+	if ! get_airquality "$CITY" "$SHORT_FORMAT"; then
 		return 1
-	}
-
-	echo -e "$block\n"
+	fi
+	echo
 }
 
 # Parallel multicity fetch

@@ -138,12 +138,10 @@ get_block() {
 
 hc_component_github_trends() {
 	local LANGUAGE="${1:-}"
-	local block
-	block=$(get_block "$LANGUAGE") || {
-		echo "$block"
+	if ! get_block "$LANGUAGE"; then
 		return 1
-	}
-	echo -e "$block\n"
+	fi
+	echo
 }
 
 show_help() {

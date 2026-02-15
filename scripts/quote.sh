@@ -67,10 +67,7 @@ get_quote_data() {
 # Output Function
 # -----------------------------------------------------------------------------
 hc_component_quote() {
-	local data
-	data=$(get_quote_data)
-	[[ -z "$data" ]] && return 1
-	echo "$data"
+	get_quote_data
 }
 
 # -----------------------------------------------------------------------------

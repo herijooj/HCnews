@@ -59,11 +59,7 @@ get_didyouknow() {
 }
 
 hc_component_didyouknow() {
-	local block
-	block=$(get_didyouknow)
-	if [[ -n "$block" ]]; then
-		echo "$block"
-	fi
+	get_didyouknow
 }
 
 # -------------------------------- Running locally --------------------------------

@@ -56,6 +56,14 @@ _rss_ensure_cache_setup() {
 	_rss_cache_ready=true
 }
 
+_rss_trim_var() {
+	local -n s_ref="$1"
+	# shellcheck disable=SC2034
+	s_ref="${s_ref#"${s_ref%%[![:space:]]*}"}"
+	# shellcheck disable=SC2034
+	s_ref="${s_ref%"${s_ref##*[![:space:]]}"}"
+}
+
 # -----------------------------------------------------------------------------
 # Helper Functions
 # -----------------------------------------------------------------------------
@@ -276,6 +284,8 @@ hc_component_rss() {
 	local show_links="${2:-false}" # news_shortened
 	local show_header="${3:-true}" # show header before each feed
 	local full_url="${4:-false}"
+	local use_cache="${_rss_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_rss_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 
 	# Handle multiple feeds (comma-separated) in parallel
 	local feeds=()
@@ -283,6 +293,26 @@ hc_component_rss() {
 		IFS=',' read -ra feeds <<<"$feed_url"
 	else
 		feeds=("$feed_url")
+	fi
+
+	# Fast path: for cache-driven runs, avoid subshells/background jobs/temp files.
+	if [[ "$use_cache" == "true" && "$force_refresh" != "true" && ${#feeds[@]} -eq 1 ]]; then
+		local feed portal content
+		for feed in "${feeds[@]}"; do
+			_rss_trim_var feed
+			[[ -z "$feed" ]] && continue
+
+			portal="${feed#http*://}"
+			portal="${portal%%/*}"
+
+			content=$(get_rss_data "$feed" "$show_links" "$full_url")
+			if [[ -n "$content" ]]; then
+				[[ "$show_header" == "true" ]] && echo "📰 ${portal}:"
+				echo "$content"
+				echo ""
+			fi
+		done
+		return 0
 	fi
 
 	local tmp_dir=""
@@ -301,7 +331,7 @@ hc_component_rss() {
 	local idx=0
 
 	for feed in "${feeds[@]}"; do
-		feed=$(echo "$feed" | xargs) # Trim whitespace
+		_rss_trim_var feed # Trim whitespace
 		[[ -z "$feed" ]] && continue
 
 		local portal="${feed#http*://}"

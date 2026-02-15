@@ -75,12 +75,10 @@ build_block() {
 }
 
 hc_component_earthquake() {
-	local block
-	block=$(build_block) || {
-		echo "$block"
+	if ! build_block; then
 		return 1
-	}
-	echo -e "$block\n"
+	fi
+	echo
 }
 
 show_help() {

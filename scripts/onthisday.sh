@@ -34,7 +34,7 @@ get_onthisday() {
 		# We shuffle and take 3
 		# We sort by year numerically
 		local items
-		items=$(jq -r '.events[]? | "\(.year)|\(.text)"' "$tmp_file" 2>/dev/null | sed 's/\\n/ /g' | shuf -n 3 | sort -n -t '|' -k 1)
+		items=$(jq -r '.events[]? | "\(.year)|\(.text | gsub("\\n"; " ") | gsub("[[:space:]]+"; " ") | gsub("^[[:space:]]+|[[:space:]]+$"; ""))"' "$tmp_file" 2>/dev/null | shuf -n 3 | sort -n -t '|' -k 1)
 
 		# Fallback if empty (e.g. jq failed or no events)
 		if [[ -z "$items" ]]; then
@@ -48,8 +48,6 @@ get_onthisday() {
 		local output="📅 *Hoje na História* ($day/$month)"
 		local year text
 		while IFS='|' read -r year text; do
-			# Clean text: reduce multiple spaces, trim
-			text=$(echo "$text" | tr -s ' ' | sed 's/^ *//;s/ *$//')
 			# Decode HTML entities just in case (e.g. &nbsp;), though common.sh has a function
 			if type hcnews_decode_html_entities &>/dev/null; then
 				text=$(hcnews_decode_html_entities "$text")
@@ -71,11 +69,7 @@ get_onthisday() {
 }
 
 hc_component_onthisday() {
-	local block
-	block=$(get_onthisday)
-	if [[ -n "$block" ]]; then
-		echo "$block"
-	fi
+	get_onthisday
 }
 
 # Standard help

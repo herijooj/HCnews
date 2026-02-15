@@ -121,6 +121,19 @@ _sports_apply_filter() {
 	fi
 }
 
+_sports_cache_variant() {
+	local filter="${HCNEWS_SPORTS_FILTER:-all}"
+	local variant="${filter,,}"
+	variant="${variant//[^a-z0-9]/_}"
+	while [[ "$variant" == *"__"* ]]; do
+		variant="${variant//__/_}"
+	done
+	variant="${variant#_}"
+	variant="${variant%_}"
+	[[ -z "$variant" ]] && variant="all"
+	echo "$variant"
+}
+
 # -----------------------------------------------------------------------------
 # Helpers
 # -----------------------------------------------------------------------------
@@ -329,18 +342,20 @@ get_sports_block() {
 	local use_cache="${_sports_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
 	local force_refresh="${_sports_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 
-	_sports_merge_custom_tournaments
-	_sports_apply_filter
-
-	local base_date cache_key cache_variant
-	base_date="${_sports_base_date:-$(TZ="$DISPLAY_TZ" date +%F)}"
-	if ! TZ="$DISPLAY_TZ" date -d "$base_date" >/dev/null 2>&1; then
-		base_date="$(TZ="$DISPLAY_TZ" date +%F)"
+	local base_date cache_key cache_variant today_iso
+	if [[ -n "${_sports_base_date:-}" ]]; then
+		base_date="$_sports_base_date"
+		if ! TZ="$DISPLAY_TZ" date -d "$base_date" >/dev/null 2>&1; then
+			base_date="$(TZ="$DISPLAY_TZ" date +%F)"
+		fi
+		cache_key="${base_date//-/}"
+		today_iso="$base_date"
+	else
+		cache_key="$(hcnews_get_date_format)"
+		today_iso="${cache_key:0:4}-${cache_key:4:2}-${cache_key:6:2}"
 	fi
-	cache_key="${base_date//-/}"
 
-	cache_variant=$(echo "${HCNEWS_SPORTS_FILTER:-all}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9' '_')
-	[[ -z "$cache_variant" ]] && cache_variant="all"
+	cache_variant=$(_sports_cache_variant)
 
 	local cache_file
 	hcnews_set_cache_path cache_file "sports" "$cache_key" "$cache_variant"
@@ -350,9 +365,11 @@ get_sports_block() {
 		return 0
 	fi
 
-	local yesterday_iso today_iso
-	yesterday_iso=$(TZ="$DISPLAY_TZ" date -d "$base_date -1 day" +%F)
-	today_iso="$base_date"
+	_sports_merge_custom_tournaments
+	_sports_apply_filter
+
+	local yesterday_iso
+	yesterday_iso=$(TZ="$DISPLAY_TZ" date -d "$today_iso -1 day" +%F)
 
 	local today_games yesterday_games
 	today_games=$(_sports_fetch_day "$today_iso" "today")
@@ -375,9 +392,7 @@ get_sports_block() {
 }
 
 hc_component_sports() {
-	local out
-	out=$(get_sports_block)
-	[[ -n "$out" ]] && echo "$out"
+	get_sports_block
 }
 
 # Standalone execution

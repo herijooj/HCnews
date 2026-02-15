@@ -56,10 +56,7 @@ get_moonphase_data() {
 # Output Function
 # -----------------------------------------------------------------------------
 hc_component_moonphase() {
-	local data
-	data=$(get_moonphase_data)
-	[[ -z "$data" ]] && return 1
-	echo "$data"
+	get_moonphase_data
 }
 
 # -----------------------------------------------------------------------------

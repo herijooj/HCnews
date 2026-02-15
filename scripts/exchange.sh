@@ -197,11 +197,10 @@ get_exchange_data() {
 # Output Function
 # -----------------------------------------------------------------------------
 hc_component_exchange() {
-	local data
-	data=$(get_exchange_data)
-	[[ -z "$data" ]] && return 1
-	echo "$data"
-	echo ""
+	if ! get_exchange_data; then
+		return 1
+	fi
+	echo
 }
 
 # -----------------------------------------------------------------------------

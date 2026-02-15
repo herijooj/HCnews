@@ -260,12 +260,10 @@ _Fonte: OpenWeatherMap · Atualizado: %s_' \
 # -----------------------------------------------------------------------------
 hc_component_weather() {
 	local city="${1:-Curitiba}"
-	local data
-	data=$(get_weather_data "$city")
-	[[ -z "$data" ]] && return 1
-
-	echo -e "$data"
-	echo ""
+	if ! get_weather_data "$city"; then
+		return 1
+	fi
+	echo
 }
 
 # -----------------------------------------------------------------------------
