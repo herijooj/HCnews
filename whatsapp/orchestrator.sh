@@ -46,6 +46,46 @@ log_error() { log "ERROR" "$@"; }
 log_debug() { [[ "${DEBUG}" == "true" ]] && log "DEBUG" "$@" || true; }
 
 # -----------------------------------------------------------------------------
+# CLI
+# -----------------------------------------------------------------------------
+show_help() {
+	cat <<'EOF'
+HCNews WhatsApp Orchestrator
+
+Usage:
+  orchestrator.sh [options]
+
+Options:
+  -h, --help     Show this help and exit
+  --dry-run      Do not send real message on worker
+  --debug        Enable debug logs for this run
+EOF
+}
+
+parse_args() {
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-h | --help)
+			show_help
+			exit 0
+			;;
+		--dry-run)
+			DRY_RUN=true
+			;;
+		--debug)
+			DEBUG=true
+			;;
+		*)
+			echo "Unknown argument: $1" >&2
+			show_help
+			exit 1
+			;;
+		esac
+		shift
+	done
+}
+
+# -----------------------------------------------------------------------------
 # State Management
 # -----------------------------------------------------------------------------
 get_today() {
@@ -271,4 +311,5 @@ main() {
 }
 
 # Run main
+parse_args "$@"
 main "$@"
