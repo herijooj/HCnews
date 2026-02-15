@@ -45,6 +45,10 @@ content_noticias="${news_output}\n\n${footer_content}"
 # 5b. Assemble 'Futebol' content (sports only, full list)
 content_sports="$(HCNEWS_SPORTS_FILTER=ALL hc_component_sports)\n\n${footer_content}"
 
+# 5c. Assemble 'Hacker News' content (latest 10 stories)
+content_hackernews_body=$("$SCRIPT_DIR/scripts/hackernews.sh")
+content_hackernews="${content_hackernews_body}\n\n${footer_content}"
+
 # 6. Assemble 'Horóscopo' content
 echo "🔮 Collecting horoscope results..." >&2
 wait "$HOROSCOPO_PID"
@@ -73,6 +77,7 @@ hc_full_url="$_hc_full_url_saved"
 reading_time_tudo=$(calculate_reading_time "$content_tudo")
 reading_time_noticias=$(calculate_reading_time "$content_noticias")
 reading_time_esportes=$(calculate_reading_time "$content_sports")
+reading_time_hackernews=$(calculate_reading_time "$content_hackernews")
 reading_time_horoscopo=$(calculate_reading_time "$content_horoscopo")
 reading_time_weather=$(calculate_reading_time "$content_weather")
 
@@ -97,6 +102,12 @@ mkdir -p public
 } >public/news_esportes.out
 
 {
+	hc_render_header_with_reading_time "$reading_time_hackernews"
+	echo ""
+	echo -e "$content_hackernews"
+} >public/news_hackernews.out
+
+{
 	hc_render_header_with_reading_time "$reading_time_horoscopo"
 	echo ""
 	echo -e "$content_horoscopo"
@@ -108,4 +119,4 @@ mkdir -p public
 	echo -e "$content_weather"
 } >public/news_weather.out
 
-echo "✅ Build complete. Files: public/news_tudo.out, public/news_noticias.out, public/news_esportes.out, public/news_horoscopo.out, public/news_weather.out" >&2
+echo "✅ Build complete. Files: public/news_tudo.out, public/news_noticias.out, public/news_esportes.out, public/news_hackernews.out, public/news_horoscopo.out, public/news_weather.out" >&2

@@ -81,6 +81,7 @@ declare -gA HCNEWS_CACHE_TTL=(
 	["airquality"]=10800 # 3 hours (same as weather)
 	["earthquake"]=7200  # 2 hours
 	["onthisday"]=86400  # 24 hours
+	["hackernews"]=1800  # 30 minutes
 )
 
 # Helper to get script directory with fallback (avoids realpath if possible)
@@ -435,7 +436,7 @@ hcnews_log() {
 
 # Create all cache directories upfront (called once from main script)
 hcnews_init_cache_dirs() {
-	local dirs=("weather" "exchange" "saints" "rss" "bicho" "didyouknow" "futuro" "header" "musicchart" "quote" "ru" "rss/rss_feeds" "rss/url_cache" "airquality" "earthquake" "onthisday" "sports")
+	local dirs=("weather" "exchange" "saints" "rss" "bicho" "didyouknow" "futuro" "header" "musicchart" "quote" "ru" "rss/rss_feeds" "rss/url_cache" "airquality" "earthquake" "onthisday" "sports" "hackernews")
 	local full_paths=()
 	for dir in "${dirs[@]}"; do
 		full_paths+=("${HCNEWS_CACHE_DIR}/$dir")
