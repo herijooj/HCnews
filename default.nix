@@ -7,5 +7,8 @@ pkgs.mkShell {
     pkgs.jq
     pkgs.bc
     pkgs.python3
+    pkgs.shellcheck
+    pkgs.shfmt
+    pkgs.pre-commit
   ];
 }

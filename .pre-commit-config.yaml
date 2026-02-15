@@ -1,0 +1,14 @@
+repos:
+  - repo: local
+    hooks:
+      - id: shellcheck
+        name: shellcheck
+        entry: shellcheck -S warning -e SC1090,SC1091
+        language: system
+        files: \.sh$
+
+      - id: shfmt
+        name: shfmt
+        entry: shfmt -w
+        language: system
+        files: \.sh$

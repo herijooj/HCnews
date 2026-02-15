@@ -14,136 +14,149 @@ set -- "${_HCNEWS_REMAINING_ARGS[@]}"
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["github-trends"]:-10800}"
 
 get_block() {
-  local LANGUAGE="${1:-}"
-  local date_str; date_str=$(hcnews_get_date_format)
-  local cache_file; hcnews_set_cache_path cache_file "github-trends" "$date_str" "$LANGUAGE"
+	local LANGUAGE="${1:-}"
+	local date_str
+	date_str=$(hcnews_get_date_format)
+	local cache_file
+	hcnews_set_cache_path cache_file "github-trends" "$date_str" "$LANGUAGE"
 
-  if [ "$_githubtrends_USE_CACHE" = true ] && \
-     hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_githubtrends_FORCE_REFRESH"; then
-    hcnews_read_cache "$cache_file"
-    return
-  fi
+	if [ "$_githubtrends_USE_CACHE" = true ] &&
+		hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_githubtrends_FORCE_REFRESH"; then
+		hcnews_read_cache "$cache_file"
+		return
+	fi
 
-  # Optional: parallel network calls using curl
-  local tmp_dir="/dev/shm"; [[ -d "$tmp_dir" && -w "$tmp_dir" ]] || tmp_dir="/tmp"
-  local t1="$tmp_dir/.githubtrends_1_$$"
+	# Optional: parallel network calls using curl
+	local tmp_dir="/dev/shm"
+	[[ -d "$tmp_dir" && -w "$tmp_dir" ]] || tmp_dir="/tmp"
+	local t1="$tmp_dir/.githubtrends_1_$$"
 
-  # Fetch GitHub trending repos
-  local api_url="https://api.github.com/search/repositories?q=created:>$(date -d "7 days ago" +%Y-%m-%d)&sort=stars&order=desc&per_page=5"
-  
-  if [[ -n "$LANGUAGE" ]]; then
-    api_url="https://api.github.com/search/repositories?q=language:$LANGUAGE+created:>$(date -d "7 days ago" +%Y-%m-%d)&sort=stars&order=desc&per_page=5"
-  fi
+	# Fetch GitHub trending repos
+	local api_url
+	api_url="https://api.github.com/search/repositories?q=created:>$(date -d "7 days ago" +%Y-%m-%d)&sort=stars&order=desc&per_page=5"
 
-  # Add GitHub token to headers if available to avoid rate limiting
-  if [[ -n "$GITHUB_TOKEN" ]]; then
-    curl -s -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/json" --compressed "$api_url" > "$t1"
-  else
-    curl -s -H "Accept: application/json" --compressed "$api_url" > "$t1"
-  fi
+	if [[ -n "$LANGUAGE" ]]; then
+		api_url="https://api.github.com/search/repositories?q=language:$LANGUAGE+created:>$(date -d "7 days ago" +%Y-%m-%d)&sort=stars&order=desc&per_page=5"
+	fi
 
-  # Parse JSON responses with jq (adjust to your payloads)
-  local repo_data
-  repo_data=$(cat "$t1")
+	# Add GitHub token to headers if available to avoid rate limiting
+	if [[ -n "$GITHUB_TOKEN" ]]; then
+		curl -s -H "Authorization: token $GITHUB_TOKEN" -H "Accept: application/json" --compressed "$api_url" >"$t1"
+	else
+		curl -s -H "Accept: application/json" --compressed "$api_url" >"$t1"
+	fi
 
-  # Check if response is valid
-  if [[ $(echo "$repo_data" | jq -r 'has("items")' 2>/dev/null) == "false" || -z "$repo_data" ]]; then
-    rm -f "$t1"
-    local now="${current_time:-$(date +"%H:%M:%S")}"; local OUTPUT
-    printf -v OUTPUT '🐙 *GitHub Trending (Erro):*\n- Falha ao obter dados\n_Fonte: GitHub API · Atualizado: %s_' \
-      "$now"
+	# Parse JSON responses with jq (adjust to your payloads)
+	local repo_data
+	repo_data=$(cat "$t1")
 
-    [ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
-    echo "$OUTPUT"
-    rm -f "$t1"
-    return 1
-  fi
+	# Check if response is valid
+	if [[ $(echo "$repo_data" | jq -r 'has("items")' 2>/dev/null) == "false" || -z "$repo_data" ]]; then
+		rm -f "$t1"
+		local now="${current_time:-$(date +"%H:%M:%S")}"
+		local OUTPUT
+		printf -v OUTPUT '🐙 *GitHub Trending (Erro):*\n- Falha ao obter dados\n_Fonte: GitHub API · Atualizado: %s_' \
+			"$now"
 
-  # Count the number of items
-  local item_count; item_count=$(echo "$repo_data" | jq -r '.items | length' 2>/dev/null)
+		[ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
+		echo "$OUTPUT"
+		rm -f "$t1"
+		return 1
+	fi
 
-  if [[ "$item_count" -eq 0 ]]; then
-    rm -f "$t1"
-    local now="${current_time:-$(date +"%H:%M:%S")}"; local OUTPUT
-    printf -v OUTPUT '🐙 *GitHub Trending (Última Semana):*\n- Nenhum repositório encontrado\n_Fonte: GitHub API · Atualizado: %s_' \
-      "$now"
+	# Count the number of items
+	local item_count
+	item_count=$(echo "$repo_data" | jq -r '.items | length' 2>/dev/null)
 
-    [ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
-    echo "$OUTPUT"
-    return 1
-  fi
+	if [[ "$item_count" -eq 0 ]]; then
+		rm -f "$t1"
+		local now="${current_time:-$(date +"%H:%M:%S")}"
+		local OUTPUT
+		printf -v OUTPUT '🐙 *GitHub Trending (Última Semana):*\n- Nenhum repositório encontrado\n_Fonte: GitHub API · Atualizado: %s_' \
+			"$now"
 
-  local now="${current_time:-$(date +"%H:%M:%S")}"; local OUTPUT
+		[ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
+		echo "$OUTPUT"
+		return 1
+	fi
 
-  if [[ -n "$LANGUAGE" ]]; then
-    printf -v OUTPUT '🐙 *Trending em %s:*\n' "$LANGUAGE"
-  else
-    printf -v OUTPUT '🐙 *GitHub Trending (Última Semana):*\n'
-  fi
+	local now="${current_time:-$(date +"%H:%M:%S")}"
+	local OUTPUT
 
-  # Process each repo using a single jq operation
-  local repos_formatted
-  repos_formatted=$(echo "$repo_data" | jq -r '.items[0:5] | .[] | "\(.name)|\(.owner.login)|\(.description // "N/A")|\(.stargazers_count)|\(.html_url)"' 2>/dev/null)
+	if [[ -n "$LANGUAGE" ]]; then
+		printf -v OUTPUT '🐙 *Trending em %s:*\n' "$LANGUAGE"
+	else
+		printf -v OUTPUT '🐙 *GitHub Trending (Última Semana):*\n'
+	fi
 
-  # Process each repo - using a temporary array to avoid command execution issues
-  local temp_repos=()
-  while IFS='|' read -r repo_name owner description stars url; do
-    if [[ -n "$repo_name" && "$repo_name" != "null" ]]; then
-      temp_repos+=("$repo_name|$owner|$description|$stars|$url")
-    fi
-  done <<< "$repos_formatted"
+	# Process each repo using a single jq operation
+	local repos_formatted
+	repos_formatted=$(echo "$repo_data" | jq -r '.items[0:5] | .[] | "\(.name)|\(.owner.login)|\(.description // "N/A")|\(.stargazers_count)|\(.html_url)"' 2>/dev/null)
 
-  # Now process each repo and build output
-  for repo_data in "${temp_repos[@]}"; do
-    IFS='|' read -r repo_name owner description stars url <<< "$repo_data"
+	# Process each repo - using a temporary array to avoid command execution issues
+	local temp_repos=()
+	while IFS='|' read -r repo_name owner description stars url; do
+		if [[ -n "$repo_name" && "$repo_name" != "null" ]]; then
+			temp_repos+=("$repo_name|$owner|$description|$stars|$url")
+		fi
+	done <<<"$repos_formatted"
 
-    # Truncate description if too long
-    if [[ ${#description} -gt 60 ]]; then
-      description="${description:0:57}..."
-    fi
+	# Now process each repo and build output
+	for repo_data in "${temp_repos[@]}"; do
+		IFS='|' read -r repo_name owner description stars url <<<"$repo_data"
 
-    # Escape special characters in description for safe output
-    description="${description//\\/\\\\}"
-    description="${description//|/\\|}"
-    description="${description//\*/\\*}"
-    description="${description//\`/\\\`}"
+		# Truncate description if too long
+		if [[ ${#description} -gt 60 ]]; then
+			description="${description:0:57}..."
+		fi
 
-    # Use printf to append properly to output, using -- to prevent option interpretation
-    local repo_line
-    printf -v repo_line -- '- [%s](<%s>) por *%s* ⭐ `%s`\n- _«%s»_\n\n' "$repo_name" "$url" "$owner" "$stars" "$description"
-    OUTPUT="${OUTPUT}${repo_line}"
-  done
+		# Escape special characters in description for safe output
+		description="${description//\\/\\\\}"
+		description="${description//|/\\|}"
+		description="${description//\*/\\*}"
+		description="${description//\`/\\\`}"
 
-  # Use cached time if available, otherwise get current time
-  local update_time
-  if [[ -n "${current_time:-}" ]]; then
-    update_time="$current_time"
-  else
-    update_time=$(date +"%H:%M:%S")
-  fi
-  local final_time="$update_time"
-  # Properly format the footer with time
-  OUTPUT="${OUTPUT}_Fonte: GitHub API · Atualizado: ${final_time}_"
+		# Use printf to append properly to output, using -- to prevent option interpretation
+		local repo_line
+		printf -v repo_line -- '- [%s](<%s>) por *%s* ⭐ `%s`\n- _«%s»_\n\n' "$repo_name" "$url" "$owner" "$stars" "$description"
+		OUTPUT="${OUTPUT}${repo_line}"
+	done
 
-  rm -f "$t1"
+	# Use cached time if available, otherwise get current time
+	local update_time
+	if [[ -n "${current_time:-}" ]]; then
+		update_time="$current_time"
+	else
+		update_time=$(date +"%H:%M:%S")
+	fi
+	local final_time="$update_time"
+	# Properly format the footer with time
+	OUTPUT="${OUTPUT}_Fonte: GitHub API · Atualizado: ${final_time}_"
 
-  [ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
-  echo "$OUTPUT"
+	rm -f "$t1"
+
+	[ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
+	echo "$OUTPUT"
 }
 
 write_github_trends() {
-  local LANGUAGE="${1:-}"; local block; block=$(get_block "$LANGUAGE") || { echo "$block"; return 1; }
-  echo -e "$block\n"
+	local LANGUAGE="${1:-}"
+	local block
+	block=$(get_block "$LANGUAGE") || {
+		echo "$block"
+		return 1
+	}
+	echo -e "$block\n"
 }
 
 show_help() {
-  echo "Usage: ./github-trends.sh [Language] [--no-cache|--force]"
-  echo "Examples:"
-  echo "  ./github-trends.sh                    # Show trending repos across all languages"
-  echo "  ./github-trends.sh python            # Show trending Python repos"
-  echo "  ./github-trends.sh javascript        # Show trending JavaScript repos"
+	echo "Usage: ./github-trends.sh [Language] [--no-cache|--force]"
+	echo "Examples:"
+	echo "  ./github-trends.sh                    # Show trending repos across all languages"
+	echo "  ./github-trends.sh python            # Show trending Python repos"
+	echo "  ./github-trends.sh javascript        # Show trending JavaScript repos"
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-  write_github_trends "${1:-}"
+	write_github_trends "${1:-}"
 fi

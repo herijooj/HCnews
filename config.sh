@@ -16,12 +16,13 @@
 HCNEWS_CITY="${HCNEWS_CITY:-Curitiba}"
 
 # Multi-city weather (for --all flag)
+# shellcheck disable=SC2034
 HCNEWS_WEATHER_CITIES=(
-    "Curitiba"
-    "São Paulo"
-    "Rio de Janeiro"
-    "Londrina"
-    "Florianópolis"
+	"Curitiba"
+	"São Paulo"
+	"Rio de Janeiro"
+	"Londrina"
+	"Florianópolis"
 )
 
 # -----------------------------------------------------------------------------
@@ -32,17 +33,18 @@ HCNEWS_FEEDS_PRIMARY="${HCNEWS_FEEDS_PRIMARY:-opopular,plantao190}"
 
 # All available feeds (associative array - key: feed name, value: URL)
 # Can be used with -n flag or extended news output
+# shellcheck disable=SC2034
 declare -gA HCNEWS_FEEDS=(
-    ["opopular"]="https://opopularpr.com.br/feed/"
-    ["plantao190"]="https://plantao190.com.br/feed/"
-    # ["xvcuritiba"]="https://xvcuritiba.com.br/feed/"  # Disabled: DNS issues
-    ["bandab"]="https://www.bandab.com.br/web-stories/feed/"
-    ["g1_parana"]="https://g1.globo.com/rss/g1/pr/parana/"
-    ["g1_cinema"]="https://g1.globo.com/rss/g1/pop-arte/cinema/"
-    ["newyorker"]="https://www.newyorker.com/feed/magazine/rss"
-    ["folha"]="https://feeds.folha.uol.com.br/mundo/rss091.xml"
-    ["formula1"]="https://www.formula1.com/content/fom-website/en/latest/all.xml"
-    ["bbc"]="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
+	["opopular"]="https://opopularpr.com.br/feed/"
+	["plantao190"]="https://plantao190.com.br/feed/"
+	# ["xvcuritiba"]="https://xvcuritiba.com.br/feed/"  # Disabled: DNS issues
+	["bandab"]="https://www.bandab.com.br/web-stories/feed/"
+	["g1_parana"]="https://g1.globo.com/rss/g1/pr/parana/"
+	["g1_cinema"]="https://g1.globo.com/rss/g1/pop-arte/cinema/"
+	["newyorker"]="https://www.newyorker.com/feed/magazine/rss"
+	["folha"]="https://feeds.folha.uol.com.br/mundo/rss091.xml"
+	["formula1"]="https://www.formula1.com/content/fom-website/en/latest/all.xml"
+	["bbc"]="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
 )
 
 # -----------------------------------------------------------------------------
@@ -56,19 +58,20 @@ HCNEWS_MUSIC_LIMIT="${HCNEWS_MUSIC_LIMIT:-10}"
 # Horoscope Settings
 # -----------------------------------------------------------------------------
 # Available signs (in Portuguese)
+# shellcheck disable=SC2034
 HCNEWS_HOROSCOPE_SIGNS=(
-    "aries"
-    "touro"
-    "gemeos"
-    "cancer"
-    "leao"
-    "virgem"
-    "libra"
-    "escorpiao"
-    "sagitario"
-    "capricornio"
-    "aquario"
-    "peixes"
+	"aries"
+	"touro"
+	"gemeos"
+	"cancer"
+	"leao"
+	"virgem"
+	"libra"
+	"escorpiao"
+	"sagitario"
+	"capricornio"
+	"aquario"
+	"peixes"
 )
 
 # -----------------------------------------------------------------------------

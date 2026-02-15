@@ -1,0 +1,45 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  shell-lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install shell tools
+        run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
+
+      - name: Run lint
+        run: bash scripts/lint.sh
+
+      - name: Check formatting on changed shell files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            base_ref="origin/${{ github.base_ref }}"
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            changed_files="$(git diff --name-only "$base_ref"...HEAD | grep -E '\.sh$' || true)"
+          else
+            changed_files="$(git diff --name-only HEAD~1 HEAD | grep -E '\.sh$' || true)"
+          fi
+
+          if [[ -z "$changed_files" ]]; then
+            echo "No changed shell files to format-check."
+            exit 0
+          fi
+
+          echo "Checking shfmt on:"
+          echo "$changed_files"
+          shfmt -d $changed_files
