@@ -381,7 +381,12 @@ calculate_reading_time() {
 
 	# Count words (remove emojis and special characters for more accurate count)
 	local word_count
-	word_count=$(echo "$content" | sed 's/[🔗📰⏳🇧🇷📅🌙💭🎵☀️🌧️❄️🌈⚡🔥💧🌪️🌡️📊💰📈📉🙏✨🎯📢💬🤖🔔🙌🤝📡💎🎭🎨🎪🎊🎉]//' | wc -w)
+	# Optimization: Use pure bash word counting to avoid spawning sed and wc
+	# Note: This counts emojis as words if they are space-separated, but the performance gain is worth the negligible accuracy difference
+	set -f
+	set -- $content
+	word_count=$#
+	set +f
 
 	# Calculate reading time in minutes
 	local reading_time_minutes=$((word_count / words_per_minute))
