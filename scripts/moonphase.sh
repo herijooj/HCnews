@@ -13,13 +13,6 @@
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
-# Parse Arguments
-# -----------------------------------------------------------------------------
-hcnews_parse_args "$@"
-_moonphase_USE_CACHE=$_HCNEWS_USE_CACHE
-_moonphase_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-
-# -----------------------------------------------------------------------------
 # Configuration Constants
 # -----------------------------------------------------------------------------
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["moonphase"]:-86400}"
@@ -29,13 +22,15 @@ CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["moonphase"]:-86400}"
 # -----------------------------------------------------------------------------
 get_moonphase_data() {
 	local ttl="$CACHE_TTL_SECONDS"
+	local use_cache="${_moonphase_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_moonphase_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "moonphase" "$date_str"
 
 	# Check cache first
-	if [[ "$_moonphase_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_moonphase_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return 0
 	fi
@@ -50,7 +45,7 @@ get_moonphase_data() {
 	local output="🌔 $fetched_moon_phase"
 
 	# Save to cache if enabled
-	if [[ "$_moonphase_USE_CACHE" == true && -n "$output" ]]; then
+	if [[ "$use_cache" == true && -n "$output" ]]; then
 		hcnews_write_cache "$cache_file" "$output"
 	fi
 
@@ -60,7 +55,7 @@ get_moonphase_data() {
 # -----------------------------------------------------------------------------
 # Output Function
 # -----------------------------------------------------------------------------
-write_moon_phase() {
+hc_component_moonphase() {
 	local data
 	data=$(get_moonphase_data)
 	[[ -z "$data" ]] && return 1
@@ -85,5 +80,12 @@ show_help() {
 # -----------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	hcnews_parse_args "$@"
-	write_moon_phase
+	if [[ ${#_HCNEWS_REMAINING_ARGS[@]} -gt 0 ]]; then
+		echo "Invalid argument: ${_HCNEWS_REMAINING_ARGS[0]}" >&2
+		show_help
+		exit 1
+	fi
+	_moonphase_USE_CACHE=$_HCNEWS_USE_CACHE
+	_moonphase_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	hc_component_moonphase
 fi

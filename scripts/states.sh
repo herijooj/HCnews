@@ -33,7 +33,7 @@ function get_states() {
 }
 
 # write the states
-function write_states_birthdays() {
+hc_component_states() {
 	# get the states
 	local states
 	states=$(get_states "$1" "$2")
@@ -100,5 +100,5 @@ get_arguments() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	# get the arguments
 	read -r month day < <(get_arguments "$@")
-	write_states_birthdays "$month" "$day"
+	hc_component_states "$month" "$day"
 fi

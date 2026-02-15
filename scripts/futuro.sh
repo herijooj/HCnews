@@ -20,11 +20,6 @@ fi
 # Use centralized TTL
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["futuro"]:-86400}"
 
-# Parse cache args
-hcnews_parse_args "$@"
-_futuro_USE_CACHE=$_HCNEWS_USE_CACHE
-_futuro_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-
 # --- Dependencies Check ---
 # Ensure curl and jq are installed
 _futuro_DEPENDENCIES_MET=true
@@ -39,19 +34,19 @@ fi
 
 # Function: get_ai_fortune
 function get_ai_fortune() {
+	local use_cache="${_futuro_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_futuro_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	if [[ "$_futuro_DEPENDENCIES_MET" == false ]]; then
 		echo "Error: Missing dependencies (curl or jq)." >&2
 		return 1
 	fi
 
 	local date_format_local
-	# Use cached date_format if available, otherwise fall back to date command
-	local date_format_local
 	date_format_local=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "futuro" "$date_format_local"
 
-	if [[ "${_HCNEWS_USE_CACHE:-true}" == true ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "${_HCNEWS_FORCE_REFRESH:-false}"; then
+	if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return 0
 	fi
@@ -190,17 +185,16 @@ function get_ai_fortune() {
 	fi
 
 	# Output raw fortune text if successful
-	if [[ "${_HCNEWS_USE_CACHE:-true}" == true ]]; then
+	if [[ "$use_cache" == true ]]; then
 		hcnews_write_cache "$cache_file" "$fortune_raw"
 	fi
 	echo "$fortune_raw"
 	return 0
 }
 
-# Function: write_ai_fortune
 # Calls get_ai_fortune, checks for success, cleans the result,
 # and prints it in the final formatted way.
-function write_ai_fortune() {
+hc_component_futuro() {
 	local fortune_raw fortune_clean
 
 	# Get the fortune text; capture stdout, check return status
@@ -273,6 +267,11 @@ function get_arguments() {
 
 # If the script is run directly (not sourced)
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	hcnews_parse_args "$@"
+	_futuro_USE_CACHE=${_HCNEWS_USE_CACHE:-true}
+	_futuro_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
+	set -- "${_HCNEWS_REMAINING_ARGS[@]}"
+
 	# Parse command-line arguments
 	get_arguments "$@"
 
@@ -284,9 +283,9 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	fi
 
 	# Call the main function to generate and print the section
-	write_ai_fortune
-	# The exit status of the script will depend on write_ai_fortune
+	hc_component_futuro
+	# The exit status of the script will depend on hc_component_futuro
 fi
 
-# Optional: If sourced, the functions get_ai_fortune and write_ai_fortune
+# Optional: If sourced, the functions get_ai_fortune and hc_component_futuro
 # are now available to the sourcing script.

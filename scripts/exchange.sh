@@ -13,13 +13,6 @@
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${BASH_SOURCE%/*}/lib/common.sh}" 2>/dev/null || source "${BASH_SOURCE%/*}/scripts/lib/common.sh"
 
 # -----------------------------------------------------------------------------
-# Parse Arguments
-# -----------------------------------------------------------------------------
-hcnews_parse_args "$@"
-_exchange_USE_CACHE=$_HCNEWS_USE_CACHE
-_exchange_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-
-# -----------------------------------------------------------------------------
 # Configuration Constants
 # -----------------------------------------------------------------------------
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["exchange"]:-14400}"
@@ -139,13 +132,15 @@ fetch_cmc_batch() {
 # -----------------------------------------------------------------------------
 get_exchange_data() {
 	local ttl="$CACHE_TTL_SECONDS"
+	local use_cache="${_exchange_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_exchange_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "exchange" "$date_str"
 
 	# Check cache first
-	if [[ "$_exchange_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_exchange_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return 0
 	fi
@@ -191,7 +186,7 @@ get_exchange_data() {
 	output+=$'\n'"_Fonte: Banco Central do Brasil · Atualizado: ${update_time}_"
 
 	# Save to cache if enabled
-	if [[ "$_exchange_USE_CACHE" == true && -n "$output" ]]; then
+	if [[ "$use_cache" == true && -n "$output" ]]; then
 		hcnews_write_cache "$cache_file" "$output"
 	fi
 
@@ -201,7 +196,7 @@ get_exchange_data() {
 # -----------------------------------------------------------------------------
 # Output Function
 # -----------------------------------------------------------------------------
-write_exchange() {
+hc_component_exchange() {
 	local data
 	data=$(get_exchange_data)
 	[[ -z "$data" ]] && return 1
@@ -227,5 +222,12 @@ show_help() {
 # -----------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	hcnews_parse_args "$@"
-	write_exchange
+	if [[ ${#_HCNEWS_REMAINING_ARGS[@]} -gt 0 ]]; then
+		echo "Invalid argument: ${_HCNEWS_REMAINING_ARGS[0]}" >&2
+		show_help
+		exit 1
+	fi
+	_exchange_USE_CACHE=$_HCNEWS_USE_CACHE
+	_exchange_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	hc_component_exchange
 fi

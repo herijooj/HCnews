@@ -50,7 +50,7 @@ function get_desculpa() {
 	echo "$EXCUSE"
 }
 
-function write_excuse() {
+hc_component_desculpa() {
 	# get the excuse
 	EXCUSE=$(get_desculpa)
 
@@ -95,5 +95,5 @@ get_arguments() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	get_arguments "$@"
 	echo
-	write_excuse
+	hc_component_desculpa
 fi

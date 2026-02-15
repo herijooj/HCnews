@@ -38,7 +38,7 @@ function get_holidays() {
 }
 
 # write the holidays
-function write_holidays() {
+hc_component_holidays() {
 	# Check if file exists
 	if [[ ! -f "$HOLIDAY_FILE" ]]; then
 		echo "Error: Holiday file not found at $HOLIDAY_FILE"
@@ -104,5 +104,5 @@ get_arguments() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	# run the script
 	get_arguments "$@"
-	write_holidays "$month" "$day"
+	hc_component_holidays "$month" "$day"
 fi

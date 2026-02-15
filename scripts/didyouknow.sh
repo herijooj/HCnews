@@ -4,7 +4,8 @@
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 get_didyouknow() {
-	hcnews_parse_args "$@"
+	local use_cache="${_didyouknow_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_didyouknow_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
@@ -12,7 +13,7 @@ get_didyouknow() {
 	local ttl=${HCNEWS_CACHE_TTL["didyouknow"]:-86400}
 
 	# Cache check
-	if [[ "$_HCNEWS_USE_CACHE" = true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_HCNEWS_FORCE_REFRESH"; then
+	if [[ "$use_cache" = true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return 0
 	fi
@@ -47,7 +48,7 @@ get_didyouknow() {
 		output+="- ${items}"
 		output+=$'\n_Fonte: Wikipedia_'
 
-		if [[ "$_HCNEWS_USE_CACHE" == true ]]; then
+		if [[ "$use_cache" == true ]]; then
 			hcnews_write_cache "$cache_file" "$output"
 		fi
 		echo "$output"
@@ -57,9 +58,9 @@ get_didyouknow() {
 	fi
 }
 
-write_did_you_know() {
+hc_component_didyouknow() {
 	local block
-	block=$(get_didyouknow "$@")
+	block=$(get_didyouknow)
 	if [[ -n "$block" ]]; then
 		echo "$block"
 	fi
@@ -74,5 +75,13 @@ show_help() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-	write_did_you_know "$@"
+	hcnews_parse_args "$@"
+	if [[ ${#_HCNEWS_REMAINING_ARGS[@]} -gt 0 ]]; then
+		echo "Invalid argument: ${_HCNEWS_REMAINING_ARGS[0]}" >&2
+		show_help
+		exit 1
+	fi
+	_didyouknow_USE_CACHE=$_HCNEWS_USE_CACHE
+	_didyouknow_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	hc_component_didyouknow
 fi

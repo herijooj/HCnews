@@ -13,16 +13,6 @@
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
-# Parse Arguments
-# -----------------------------------------------------------------------------
-hcnews_parse_args "$@"
-_weather_USE_CACHE=$_HCNEWS_USE_CACHE
-_weather_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-
-# Shift to remaining arguments for city name
-set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-
-# -----------------------------------------------------------------------------
 # Configuration Constants
 # -----------------------------------------------------------------------------
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["weather"]:-10800}"
@@ -80,13 +70,15 @@ _round_up() {
 get_weather_data() {
 	local city="$1"
 	local ttl="$CACHE_TTL_SECONDS"
+	local use_cache="${_weather_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_weather_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "weather" "$date_str" "$city"
 
 	# Check cache first
-	if [[ "$_weather_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_weather_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return 0
 	fi
@@ -256,7 +248,7 @@ _Fonte: OpenWeatherMap · Atualizado: %s_' \
 		"$current_time"
 
 	# Save to cache if enabled
-	if [[ "$_weather_USE_CACHE" == true && -n "$output" ]]; then
+	if [[ "$use_cache" == true && -n "$output" ]]; then
 		hcnews_write_cache "$cache_file" "$output"
 	fi
 
@@ -266,7 +258,7 @@ _Fonte: OpenWeatherMap · Atualizado: %s_' \
 # -----------------------------------------------------------------------------
 # Output Function
 # -----------------------------------------------------------------------------
-write_weather() {
+hc_component_weather() {
 	local city="${1:-Curitiba}"
 	local data
 	data=$(get_weather_data "$city")
@@ -279,7 +271,7 @@ write_weather() {
 # -----------------------------------------------------------------------------
 # Multi-City Weather Output
 # -----------------------------------------------------------------------------
-write_weather_all() {
+hc_standalone_weather_all() {
 	# Use configured cities or fallback to defaults
 	local -a cities=()
 	local weather_cities_decl
@@ -339,10 +331,18 @@ show_help() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	hcnews_parse_args "$@"
 	set -- "${_HCNEWS_REMAINING_ARGS[@]}"
+	_weather_USE_CACHE=$_HCNEWS_USE_CACHE
+	_weather_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
 
-	if [[ "$1" == "--all" ]]; then
-		write_weather_all
+	if [[ $# -gt 1 ]]; then
+		echo "Invalid arguments: $*" >&2
+		show_help
+		exit 1
+	fi
+
+	if [[ "${1:-}" == "--all" ]]; then
+		hc_standalone_weather_all
 	else
-		write_weather "${1:-Curitiba}"
+		hc_component_weather "${1:-Curitiba}"
 	fi
 fi

@@ -3,23 +3,19 @@
 _local_dir="${BASH_SOURCE[0]%/*}"
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
 
-# Parse shared flags
-hcnews_parse_args "$@"
-_earthquake_USE_CACHE=$_HCNEWS_USE_CACHE
-_earthquake_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["earthquake"]:-7200}"
 
 build_block() {
+	local use_cache="${_earthquake_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_earthquake_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local feed_url="https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "earthquake" "$date_str"
 
-	if [ "$_earthquake_USE_CACHE" = true ] &&
-		hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_earthquake_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] &&
+		hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return
 	fi
@@ -74,11 +70,11 @@ build_block() {
 	output+=$'\n'
 	output+="_Fonte: USGS · Atualizado: ${now}_"
 
-	[ "$_earthquake_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$output"
+	[[ "$use_cache" == true ]] && hcnews_write_cache "$cache_file" "$output"
 	echo "$output"
 }
 
-write_earthquake() {
+hc_component_earthquake() {
 	local block
 	block=$(build_block) || {
 		echo "$block"
@@ -110,6 +106,10 @@ parse_args() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	hcnews_parse_args "$@"
+	_earthquake_USE_CACHE=$_HCNEWS_USE_CACHE
+	_earthquake_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	set -- "${_HCNEWS_REMAINING_ARGS[@]}"
 	parse_args "$@"
-	write_earthquake "$@"
+	hc_component_earthquake
 fi

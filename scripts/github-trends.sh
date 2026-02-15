@@ -4,24 +4,20 @@
 _local_dir="${BASH_SOURCE[0]%/*}"
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH:-${_local_dir}/lib/common.sh}" 2>/dev/null || source "${_local_dir}/scripts/lib/common.sh"
 
-# Parse common flags
-hcnews_parse_args "$@"
-_githubtrends_USE_CACHE=$_HCNEWS_USE_CACHE
-_githubtrends_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-
 # TTL (add your key to HCNEWS_CACHE_TTL in common.sh)
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["github-trends"]:-10800}"
 
 get_block() {
 	local LANGUAGE="${1:-}"
+	local use_cache="${_githubtrends_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_githubtrends_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "github-trends" "$date_str" "$LANGUAGE"
 
-	if [ "$_githubtrends_USE_CACHE" = true ] &&
-		hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$_githubtrends_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] &&
+		hcnews_check_cache "$cache_file" "$CACHE_TTL_SECONDS" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return
 	fi
@@ -58,7 +54,7 @@ get_block() {
 		printf -v OUTPUT '🐙 *GitHub Trending (Erro):*\n- Falha ao obter dados\n_Fonte: GitHub API · Atualizado: %s_' \
 			"$now"
 
-		[ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
+		[[ "$use_cache" == true ]] && hcnews_write_cache "$cache_file" "$OUTPUT"
 		echo "$OUTPUT"
 		rm -f "$t1"
 		return 1
@@ -75,7 +71,7 @@ get_block() {
 		printf -v OUTPUT '🐙 *GitHub Trending (Última Semana):*\n- Nenhum repositório encontrado\n_Fonte: GitHub API · Atualizado: %s_' \
 			"$now"
 
-		[ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
+		[[ "$use_cache" == true ]] && hcnews_write_cache "$cache_file" "$OUTPUT"
 		echo "$OUTPUT"
 		return 1
 	fi
@@ -136,11 +132,11 @@ get_block() {
 
 	rm -f "$t1"
 
-	[ "$_githubtrends_USE_CACHE" = true ] && hcnews_write_cache "$cache_file" "$OUTPUT"
+	[[ "$use_cache" == true ]] && hcnews_write_cache "$cache_file" "$OUTPUT"
 	echo "$OUTPUT"
 }
 
-write_github_trends() {
+hc_component_github_trends() {
 	local LANGUAGE="${1:-}"
 	local block
 	block=$(get_block "$LANGUAGE") || {
@@ -187,6 +183,10 @@ parse_args() {
 }
 
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	hcnews_parse_args "$@"
+	_githubtrends_USE_CACHE=$_HCNEWS_USE_CACHE
+	_githubtrends_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	set -- "${_HCNEWS_REMAINING_ARGS[@]}"
 	parse_args "$@"
-	write_github_trends "$LANGUAGE_ARG"
+	hc_component_github_trends "$LANGUAGE_ARG"
 fi

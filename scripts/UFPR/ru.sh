@@ -40,12 +40,6 @@ _ru_USE_CACHE=${_HCNEWS_USE_CACHE:-true}
 _ru_FORCE_REFRESH=${_HCNEWS_FORCE_REFRESH:-false}
 _ru_CACHE_TTL=${HCNEWS_CACHE_TTL["ru"]:-43200} # 12 hours
 
-# Parse local arguments if sourced/executed with args
-hcnews_parse_args "$@"
-# Update local variables based on global/parsed values
-[[ "${_HCNEWS_USE_CACHE}" == "false" ]] && _ru_USE_CACHE=false
-[[ "${_HCNEWS_FORCE_REFRESH}" == "true" ]] && _ru_FORCE_REFRESH=true
-
 # Resolve cache directory relative to common logic - handled by get_cache_path
 
 function list_locations() {
@@ -79,13 +73,15 @@ function get_today_weekday() {
 # Function to retrieve the menu from the website
 function get_menu() {
 	local location="$1"
+	local use_cache="${_ru_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_ru_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_string
 	date_string=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "ru" "$date_string" "$location"
 
 	# Check cache
-	if [[ "${_HCNEWS_USE_CACHE:-true}" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "${_HCNEWS_FORCE_REFRESH:-false}"; then
+	if [[ "$use_cache" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return
 	fi
@@ -203,7 +199,7 @@ function get_menu() {
 }
 
 # Function to display the menu
-function write_menu() {
+hc_component_ru() {
 	local menu_content
 	menu_content=$(get_menu "$SELECTED_LOCATION")
 
@@ -323,5 +319,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 		shift
 	done
 
-	write_menu
+	hc_component_ru
 fi

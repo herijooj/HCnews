@@ -94,43 +94,43 @@ refresh_component() {
 	# Run component with timeout
 	case "$name" in
 	"ru")
-		timeout $timeout bash -c "source '$script' && SELECTED_LOCATION='politecnico' && SHOW_ONLY_TODAY=true && write_menu" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && SELECTED_LOCATION='politecnico' && SHOW_ONLY_TODAY=true && hc_component_ru" >/dev/null 2>&1
 		;;
 	"weather")
-		timeout $timeout bash -c "source '$script' && write_weather 'Curitiba'" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_weather 'Curitiba'" >/dev/null 2>&1
 		;;
 	"musicchart")
-		timeout $timeout bash -c "source '$script' && write_music_chart" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_musicchart" >/dev/null 2>&1
 		;;
 	"sanepar")
-		timeout $timeout bash -c "source '$script' && write_sanepar" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_sanepar" >/dev/null 2>&1
 		;;
 	"exchange")
-		timeout $timeout bash -c "source '$script' && write_exchange" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_exchange" >/dev/null 2>&1
 		;;
 	"rss")
 		# Refresh main RSS feeds
 		local feeds
 		feeds=$(build_rss_feed_list)
-		timeout $timeout bash -c "source '$script' && write_rss '$feeds' false true" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_rss '$feeds' false true" >/dev/null 2>&1
 		;;
 	"saints")
-		timeout $timeout bash -c "source '$script' && write_saints true" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_saints true" >/dev/null 2>&1
 		;;
 	"bicho")
-		timeout $timeout bash -c "source '$script' && write_bicho" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_bicho" >/dev/null 2>&1
 		;;
 	"moonphase")
-		timeout $timeout bash -c "source '$script' && write_moon_phase" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_moonphase" >/dev/null 2>&1
 		;;
 	"quote")
-		timeout $timeout bash -c "source '$script' && quote" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_quote" >/dev/null 2>&1
 		;;
 	"didyouknow")
-		timeout $timeout bash -c "source '$script' && write_did_you_know" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_didyouknow" >/dev/null 2>&1
 		;;
 	"futuro")
-		timeout $timeout bash -c "source '$script' && write_ai_fortune" >/dev/null 2>&1
+		timeout $timeout bash -c "source '$script' && hc_component_futuro" >/dev/null 2>&1
 		;;
 	*)
 		log_message "ERROR" "$name" "Unknown component"

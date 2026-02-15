@@ -15,16 +15,6 @@ _rss_script_dir="${BASH_SOURCE%/*}"
 [[ -z "$(type -t shorten_url_isgd)" ]] && source "${_rss_script_dir}/shortening.sh"
 
 # -----------------------------------------------------------------------------
-# Parse Arguments
-# -----------------------------------------------------------------------------
-hcnews_parse_args "$@"
-_rss_USE_CACHE=$_HCNEWS_USE_CACHE
-_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-
-# Shift to remaining arguments
-set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-
-# -----------------------------------------------------------------------------
 # Configuration Constants
 # -----------------------------------------------------------------------------
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["rss"]:-7200}"
@@ -37,9 +27,7 @@ RSS_FAIL_TTL_SECONDS="${HCNEWS_RSS_FAIL_TTL_SECONDS:-1800}"
 # -----------------------------------------------------------------------------
 # Cache Directory Setup
 # -----------------------------------------------------------------------------
-[[ -d "$_rss_cache_base" ]] || mkdir -p "$_rss_cache_base"
-[[ -d "$_rss_url_cache" ]] || mkdir -p "$_rss_url_cache"
-touch "$URL_CACHE_FILE"
+_rss_cache_ready=false
 
 # -----------------------------------------------------------------------------
 # Cache Management
@@ -55,7 +43,18 @@ _trim_url_cache() {
 		fi
 	fi
 }
-(_trim_url_cache &) >/dev/null 2>&1
+
+_rss_ensure_cache_setup() {
+	if [[ "$_rss_cache_ready" == "true" ]]; then
+		return 0
+	fi
+
+	[[ -d "$_rss_cache_base" ]] || mkdir -p "$_rss_cache_base"
+	[[ -d "$_rss_url_cache" ]] || mkdir -p "$_rss_url_cache"
+	touch "$URL_CACHE_FILE"
+	(_trim_url_cache &) >/dev/null 2>&1
+	_rss_cache_ready=true
+}
 
 # -----------------------------------------------------------------------------
 # Helper Functions
@@ -64,6 +63,7 @@ _trim_url_cache() {
 _rss_shorten_url() {
 	local url="$1"
 	local short_url
+	_rss_ensure_cache_setup
 
 	# Check cache first
 	if [[ -s "$URL_CACHE_FILE" ]]; then
@@ -152,6 +152,9 @@ get_rss_data() {
 	local feed_url="$1"
 	local use_links="$2"
 	local use_full_url="$3"
+	_rss_ensure_cache_setup
+	local use_cache="${_rss_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_rss_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 
 	# Generate portal identifier for cache using pure bash
 	local portal_id="${feed_url#http*://}"
@@ -174,7 +177,7 @@ get_rss_data() {
 	fi
 
 	# Check cache first
-	if [[ "$_rss_USE_CACHE" == true ]] && hcnews_check_cache "$target_cache_file" "$CACHE_TTL_SECONDS" "$_rss_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] && hcnews_check_cache "$target_cache_file" "$CACHE_TTL_SECONDS" "$force_refresh"; then
 		local cached
 		cached=$(hcnews_read_cache "$target_cache_file") || return 0
 		if [[ "$cached" == "$RSS_EMPTY_SENTINEL" ]]; then
@@ -185,7 +188,7 @@ get_rss_data() {
 	fi
 
 	# Skip fetch if recent failure backoff is active (unless forced)
-	if [[ "$_rss_USE_CACHE" == true && "$_rss_FORCE_REFRESH" != "true" ]]; then
+	if [[ "$use_cache" == true && "$force_refresh" != "true" ]]; then
 		if hcnews_check_cache "$fail_cache_file" "$RSS_FAIL_TTL_SECONDS" "false"; then
 			return 0
 		fi
@@ -198,7 +201,7 @@ get_rss_data() {
 
 	# Exit if invalid content
 	if [[ -z "$feed_content" || "$feed_content" != *"<item>"* ]]; then
-		if [[ "$_rss_USE_CACHE" == true ]]; then
+		if [[ "$use_cache" == true ]]; then
 			hcnews_write_cache "$fail_cache_file" "fetch_failed"
 		fi
 		return 1
@@ -212,7 +215,7 @@ get_rss_data() {
 		<<<"$feed_content" 2>/dev/null)
 
 	if [[ -z "$all_data" ]]; then
-		if [[ "$_rss_USE_CACHE" == true ]]; then
+		if [[ "$use_cache" == true ]]; then
 			hcnews_write_cache "$fail_cache_file" "parse_failed"
 		fi
 		return 1
@@ -251,7 +254,7 @@ get_rss_data() {
 	if [[ ${#result[@]} -gt 0 ]]; then
 		local news_output
 		news_output=$(printf "%s\n" "${result[@]}")
-		if [[ "$_rss_USE_CACHE" == true ]]; then
+		if [[ "$use_cache" == true ]]; then
 			hcnews_write_cache "$target_cache_file" "$news_output"
 		fi
 		echo "$news_output"
@@ -259,7 +262,7 @@ get_rss_data() {
 	fi
 
 	# Cache empty results to avoid re-fetching feeds with no recent items.
-	if [[ "$_rss_USE_CACHE" == true ]]; then
+	if [[ "$use_cache" == true ]]; then
 		hcnews_write_cache "$target_cache_file" "$RSS_EMPTY_SENTINEL"
 	fi
 	return 0
@@ -268,7 +271,7 @@ get_rss_data() {
 # -----------------------------------------------------------------------------
 # Output Function
 # -----------------------------------------------------------------------------
-write_rss() {
+hc_component_rss() {
 	local feed_url="$1"
 	local show_links="${2:-false}" # news_shortened
 	local show_header="${3:-true}" # show header before each feed
@@ -354,6 +357,11 @@ show_help() {
 # Main Entry Point
 # -----------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	hcnews_parse_args "$@"
+	_rss_USE_CACHE=$_HCNEWS_USE_CACHE
+	_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	set -- "${_HCNEWS_REMAINING_ARGS[@]}"
+
 	show_header=true
 	full_url=false
 	show_links=false
@@ -398,5 +406,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 		full_url=false
 	fi
 
-	write_rss "$feed_url" "$show_header" "$show_links" "$full_url"
+	hc_component_rss "$feed_url" "$show_links" "$show_header" "$full_url"
 fi

@@ -5,7 +5,7 @@
 
 # this function returns the first title from the RSS feed
 # https://nitter.net/feriasufpr/rss
-function write_ferias() {
+hc_component_ferias() {
 
 	# get the title from the RSS feed
 	local URL="https://nitter.net/feriasufpr/rss"
@@ -65,5 +65,5 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	# run the script
 	get_arguments "$@"
 
-	write_ferias
+	hc_component_ferias
 fi

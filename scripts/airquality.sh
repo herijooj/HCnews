@@ -226,8 +226,8 @@ _Fonte: OpenWeatherMap · %s_' \
 	echo "$OUTPUT"
 }
 
-# Write function called by hcnews.sh or standalone
-write_airquality() {
+# Main component function called by hcnews.sh or standalone
+hc_component_airquality() {
 	local CITY="${1:-Curitiba}"
 	local SHORT_FORMAT="${2:-false}"
 	local block
@@ -240,7 +240,7 @@ write_airquality() {
 }
 
 # Parallel multicity fetch
-write_airquality_all() {
+hc_standalone_airquality_all() {
 	local CITIES=("Curitiba" "Londrina" "Maringá" "Ponta Grossa" "Cascavel" "São José dos Pinhais" "Foz do Iguaçu" "São Paulo" "Rio de Janeiro" "Brasília")
 	local tmp_dir="/tmp/airquality_$$"
 	mkdir -p "$tmp_dir"
@@ -283,22 +283,26 @@ write_airquality_all() {
 	rm -rf "$tmp_dir"
 }
 
-# Standard argument parsing
-hcnews_parse_args "$@"
-_airquality_USE_CACHE=$_HCNEWS_USE_CACHE
-_airquality_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-# Shift to remaining arguments for city name
-set -- "${_HCNEWS_REMAINING_ARGS[@]}"
-
 # Use centralized TTL (added to common.sh)
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["airquality"]:-10800}"
 
 # Run standalone if executed directly
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+	hcnews_parse_args "$@"
+	_airquality_USE_CACHE=$_HCNEWS_USE_CACHE
+	_airquality_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	set -- "${_HCNEWS_REMAINING_ARGS[@]}"
+
+	if [[ $# -gt 1 ]]; then
+		echo "Invalid arguments: $*" >&2
+		show_help
+		exit 1
+	fi
+
 	# If a city is provided (not starting with --), fetch only that city
 	if [[ -n "$1" && "$1" != --* ]]; then
-		write_airquality "$1"
+		hc_component_airquality "$1"
 	else
-		write_airquality_all
+		hc_standalone_airquality_all
 	fi
 fi

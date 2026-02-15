@@ -61,13 +61,6 @@ pretty_date_var() {
 	ret_var="${pretty_weekday}, ${day_arg} de ${pretty_month} de ${year_arg}"
 }
 
-# Wrapper for backward compatibility
-pretty_date() {
-	local res
-	pretty_date_var res "$@"
-	echo "$res"
-}
-
 # Usage: heripoch_date_var <output_var_name> [current_timestamp]
 function heripoch_date_var() {
 	# shellcheck disable=SC2034
@@ -86,15 +79,8 @@ function heripoch_date_var() {
 	ret_var_h=$((difference / 86400))
 }
 
-# Wrapper for backward compatibility
-function heripoch_date {
-	local res
-	heripoch_date_var res "$@"
-	echo "$res"
-}
-
-# this function is used to write the core header of the news file (without moon phase and quote)
-write_header_core() {
+# this function is used to write the core header of the news file
+hc_component_header() {
 	local date_str edition_str
 
 	# Use cached values if available (passed from main script)
@@ -140,11 +126,6 @@ write_header_core() {
 	echo "⏳ Dia $days_since/365 $progress_bar ${year_percentage}%"
 }
 
-# Legacy function for backward compatibility - now just calls core header
-write_header() {
-	write_header_core
-}
-
 # -------------------------------- Running locally --------------------------------
 
 # help function
@@ -180,5 +161,5 @@ get_arguments() {
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	# run the script
 	get_arguments "$@"
-	write_header_core
+	hc_component_header
 fi

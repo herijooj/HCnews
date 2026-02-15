@@ -13,13 +13,6 @@
 [[ -n "${_HCNEWS_COMMON_LOADED:-}" ]] || source "${HCNEWS_COMMON_PATH}common.sh" 2>/dev/null || source "${BASH_SOURCE%/*}/lib/common.sh"
 
 # -----------------------------------------------------------------------------
-# Parse Arguments
-# -----------------------------------------------------------------------------
-hcnews_parse_args "$@"
-_sanepar_USE_CACHE=$_HCNEWS_USE_CACHE
-_sanepar_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-
-# -----------------------------------------------------------------------------
 # Configuration Constants
 # -----------------------------------------------------------------------------
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["sanepar"]:-21600}"
@@ -29,13 +22,15 @@ CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["sanepar"]:-21600}"
 # -----------------------------------------------------------------------------
 get_sanepar_data() {
 	local ttl="$CACHE_TTL_SECONDS"
+	local use_cache="${_sanepar_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
+	local force_refresh="${_sanepar_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
 	local date_str
 	date_str=$(hcnews_get_date_format)
 	local cache_file
 	hcnews_set_cache_path cache_file "sanepar" "$date_str"
 
 	# Check cache first
-	if [[ "$_sanepar_USE_CACHE" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$_sanepar_FORCE_REFRESH"; then
+	if [[ "$use_cache" == true ]] && hcnews_check_cache "$cache_file" "$ttl" "$force_refresh"; then
 		hcnews_read_cache "$cache_file"
 		return 0
 	fi
@@ -88,7 +83,7 @@ get_sanepar_data() {
 	output+="\n_Fonte: Sanepar/InfoHidro${update_time:+ · $update_time}_"
 
 	# Save to cache if enabled
-	if [[ "$_sanepar_USE_CACHE" == true && -n "$output" ]]; then
+	if [[ "$use_cache" == true && -n "$output" ]]; then
 		hcnews_write_cache "$cache_file" "$output"
 	fi
 
@@ -98,7 +93,7 @@ get_sanepar_data() {
 # -----------------------------------------------------------------------------
 # Output Function
 # -----------------------------------------------------------------------------
-write_sanepar() {
+hc_component_sanepar() {
 	local data
 	data=$(get_sanepar_data)
 	[[ -z "$data" ]] && return 1
@@ -124,5 +119,12 @@ show_help() {
 # -----------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	hcnews_parse_args "$@"
-	write_sanepar
+	if [[ ${#_HCNEWS_REMAINING_ARGS[@]} -gt 0 ]]; then
+		echo "Invalid argument: ${_HCNEWS_REMAINING_ARGS[0]}" >&2
+		show_help
+		exit 1
+	fi
+	_sanepar_USE_CACHE=$_HCNEWS_USE_CACHE
+	_sanepar_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	hc_component_sanepar
 fi
