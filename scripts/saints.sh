@@ -32,7 +32,7 @@ _saints_fetch_html() {
 
 _saints_extract_names() {
 	local html="$1"
-	echo "$html" | pup '.section__head h2 text{}' | sed '/^$/d'
+	echo "$html" | pup '.section__head h2 text{}' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]][[:space:]]+/ /g' | sed '/^$/d'
 }
 
 _saints_extract_descriptions() {
@@ -47,6 +47,7 @@ _saints_format_regular_from_names() {
 	local output=""
 	local name
 	while IFS= read -r name; do
+		name=$(echo "$name" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]][[:space:]]+/ /g')
 		[[ -z "$name" ]] && continue
 		output+="- 😇 ${name}"$'\n'
 	done <<<"$names"
@@ -64,6 +65,7 @@ _saints_format_verbose() {
 
 	local i
 	for i in "${!names_arr[@]}"; do
+		names_arr[$i]=$(echo "${names_arr[$i]}" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]][[:space:]]+/ /g')
 		[[ -z "${names_arr[$i]}" ]] && continue
 		output+="😇 ${names_arr[$i]}"$'\n'
 		output+="- ${descriptions_arr[$i]:-}"$'\n'
@@ -135,7 +137,7 @@ get_saints_of_the_day() {
 		if hcnews_check_cache "$verbose_cache_file" "$CACHE_TTL_SECONDS" "$force_refresh"; then
 			# Extract names from verbose cache (lines starting with 😇)
 			local from_verbose
-			from_verbose=$(hcnews_read_cache "$verbose_cache_file" | grep "^😇" | sed -E 's/^😇 ?/- 😇 /')
+			from_verbose=$(hcnews_read_cache "$verbose_cache_file" | grep "^😇" | sed -E 's/^😇[[:space:]]*/- 😇 /; s/[[:space:]]+$//; s/[[:space:]][[:space:]]+/ /g')
 
 			if [[ -n "$from_verbose" ]]; then
 				# Write to regular cache for future fast access
