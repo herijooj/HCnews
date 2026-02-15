@@ -196,9 +196,11 @@ get_airquality() {
 	local OUTPUT
 	if [ "$SHORT_FORMAT" = "true" ]; then
 		# Even shorter format for multicity list
+		# shellcheck disable=SC2016
 		printf -v OUTPUT -- '- %s *%s*: %s (PM2.5: `%s`)' \
 			"$level_emoji" "$CITY" "${level_desc#* }" "$(format_pollutant "$pm25")"
 	else
+		# shellcheck disable=SC2016
 		printf -v OUTPUT '🌬️ *Qualidade do Ar - %s*
 Índice: *%s*
 💡 _%s_

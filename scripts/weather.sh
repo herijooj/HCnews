@@ -114,7 +114,7 @@ get_weather_data() {
 
 	# Build URLs
 	local city_encoded
-	city_encoded=$(printf '%s' "$city" | jq -sRr @uri 2>/dev/null || echo "$city" | sed 's/ /%20/g')
+	city_encoded=$(printf '%s' "$city" | jq -sRr @uri 2>/dev/null || printf '%s' "${city// /%20}")
 	local current_url="https://api.openweathermap.org/data/2.5/weather?q=${city_encoded}&appid=${openweathermap_API_KEY}&lang=pt_br&units=metric"
 	local forecast_url="https://api.openweathermap.org/data/2.5/forecast?q=${city_encoded}&appid=${openweathermap_API_KEY}&lang=pt_br&units=metric"
 	local air_url="https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${openweathermap_API_KEY}"
@@ -233,6 +233,7 @@ get_weather_data() {
 	# Build output
 	local current_time="${current_time:-$(date +"%H:%M:%S")}"
 	local output
+	# shellcheck disable=SC2016
 	printf -v output '🌦️ *Clima em %s:*
 - %s %s
 - 🌡️ `%s` °C

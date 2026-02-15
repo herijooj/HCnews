@@ -305,11 +305,11 @@ write_rss() {
 		portal="${portal%%/*}"
 
 		local out_file="${tmp_dir}/rss_${idx}.out"
-		portals[$idx]="$portal"
-		out_files[$idx]="$out_file"
+		portals[idx]="$portal"
+		out_files[idx]="$out_file"
 
 		(get_rss_data "$feed" "$show_links" "$full_url" >"$out_file") &
-		pids[$idx]=$!
+		pids[idx]=$!
 		((idx++))
 	done
 

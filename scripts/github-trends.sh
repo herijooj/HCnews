@@ -118,6 +118,7 @@ get_block() {
 
 		# Use printf to append properly to output, using -- to prevent option interpretation
 		local repo_line
+		# shellcheck disable=SC2016
 		printf -v repo_line -- '- [%s](<%s>) por *%s* ⭐ `%s`\n- _«%s»_\n\n' "$repo_name" "$url" "$owner" "$stars" "$description"
 		OUTPUT="${OUTPUT}${repo_line}"
 	done
@@ -157,6 +158,35 @@ show_help() {
 	echo "  ./github-trends.sh javascript        # Show trending JavaScript repos"
 }
 
+parse_args() {
+	LANGUAGE_ARG=""
+
+	while [[ $# -gt 0 ]]; do
+		case "$1" in
+		-h | --help)
+			show_help
+			exit 0
+			;;
+		-*)
+			echo "Invalid argument: $1" >&2
+			show_help
+			exit 1
+			;;
+		*)
+			if [[ -z "$LANGUAGE_ARG" ]]; then
+				LANGUAGE_ARG="$1"
+			else
+				echo "Invalid argument: $1" >&2
+				show_help
+				exit 1
+			fi
+			;;
+		esac
+		shift
+	done
+}
+
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
-	write_github_trends "${1:-}"
+	parse_args "$@"
+	write_github_trends "$LANGUAGE_ARG"
 fi
