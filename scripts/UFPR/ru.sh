@@ -32,7 +32,7 @@ declare -A RU_NAMES=(
 )
 
 # Configuration with defaults
-SELECTED_LOCATION="politecnico"
+SELECTED_LOCATION="${SELECTED_LOCATION:-politecnico}"
 SHOW_ONLY_TODAY=${SHOW_ONLY_TODAY:-false}
 
 # Cache settings

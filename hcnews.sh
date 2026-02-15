@@ -32,9 +32,6 @@ source "$SCRIPT_DIR/scripts/emoji.sh"
 source "$SCRIPT_DIR/scripts/timing.sh"
 source "$SCRIPT_DIR/scripts/onthisday.sh"
 
-# Initialize cache directories (from common.sh)
-hcnews_init_cache_dirs
-
 # ==================================================================================
 
 HOSTNAME=$(hostname)
@@ -300,6 +297,9 @@ hcnews_init_runtime() {
 	: "${_HCNEWS_USE_CACHE:=true}"
 	: "${_HCNEWS_FORCE_REFRESH:=false}"
 	export _HCNEWS_USE_CACHE _HCNEWS_FORCE_REFRESH
+
+	# Initialize cache directories once runtime starts
+	hcnews_init_cache_dirs
 
 	# Initialize background jobs once
 	init_jobs

@@ -11,6 +11,8 @@ source "$SCRIPT_DIR/config.sh" 2>/dev/null || true
 
 # Source required scripts
 source "$SCRIPT_DIR/scripts/timing.sh"
+source "$SCRIPT_DIR/scripts/lib/common.sh"
+source "$SCRIPT_DIR/scripts/lib/components.sh"
 
 # Configuration
 REFRESH_LOG="$SCRIPT_DIR/data/cache/refresh.log"
@@ -31,6 +33,15 @@ declare -A COMPONENTS=(
 	["didyouknow"]="$SCRIPT_DIR/scripts/didyouknow.sh"
 	["futuro"]="$SCRIPT_DIR/scripts/futuro.sh"
 )
+
+validate_component_map() {
+	local name
+	for name in "${!COMPONENTS[@]}"; do
+		if ! hc_component_raw "$name" >/dev/null 2>&1; then
+			log_message "WARN" "SYSTEM" "Component '$name' not found in registry"
+		fi
+	done
+}
 
 # Logging function
 log_message() {
@@ -162,6 +173,7 @@ refresh_all() {
 	local total_count=${#COMPONENTS[@]}
 
 	log_message "INFO" "SYSTEM" "Starting background refresh cycle"
+	validate_component_map
 
 	# Ensure cache directories exist
 	mkdir -p "$SCRIPT_DIR/data/cache"
@@ -309,6 +321,7 @@ show_cron_setup() {
 # Parse arguments
 case "${1:-help}" in
 "refresh" | "-r")
+	validate_component_map
 	if [[ "$2" == "--component" && -n "$3" ]]; then
 		component="$3"
 		if [[ -n "${COMPONENTS[$component]}" ]]; then
