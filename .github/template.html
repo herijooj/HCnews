@@ -60,6 +60,57 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+                padding-bottom: 80px;
+            }
+
+            .nav-tabs {
+                margin-bottom: 15px;
+            }
+
+            .controls {
+                justify-content: space-between;
+                padding: 10px 5px;
+                gap: 5px;
+            }
+
+            .controls button {
+                padding: 10px;
+                flex: 1;
+                /* Distribute space evenly */
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 5px;
+            }
+
+            /* Allow the view toggle to take more space and show text */
+            #btn-view-toggle {
+                flex: 2;
+            }
+
+            /* Fixed width for label to prevent jumping */
+            #view-label {
+                min-width: 70px;
+                /* Big enough for 'Texto cru' */
+                display: inline-block;
+                text-align: center;
+            }
+
+            /* Icon-only buttons on mobile */
+            .btn-icon-mobile {
+                flex: 0 0 auto;
+                /* Don't grow, just fit icon */
+                padding: 10px 15px;
+            }
+
+            .btn-icon-mobile .label {
+                display: none;
+            }
+        }
+
         .nav-tabs {
             display: flex;
             border-bottom: 1px solid var(--border-color);
@@ -70,6 +121,19 @@
             flex-wrap: nowrap;
             scrollbar-width: thin;
             scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+            position: sticky;
+            top: 0;
+            background-color: var(--bg-primary);
+            /* Ensure content doesn't show through */
+            z-index: 1000;
+            padding-top: 10px;
+            /* Slight padding from top */
+            padding-bottom: 0;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .nav-hidden {
+            transform: translateY(-100%);
         }
 
         .nav-tabs::-webkit-scrollbar {
@@ -88,13 +152,17 @@
         .nav-tab {
             background-color: var(--bg-secondary);
             color: var(--text-secondary);
-            padding: 8px 12px;
+            padding: 12px 16px;
+            /* Increased padding */
             text-decoration: none;
             border-radius: 4px 4px 0 0;
             font-weight: bold;
             transition: background-color 0.2s, color 0.2s;
             font-size: 14px;
             white-space: nowrap;
+            flex: 1 0 auto;
+            /* Grow to fill space, don't shrink below content */
+            text-align: center;
         }
 
         .nav-tab:hover {
@@ -123,16 +191,23 @@
             flex-wrap: wrap;
             justify-content: center;
             box-shadow: 0 -2px 10px var(--shadow-color);
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .controls-hidden {
+            transform: translateY(100%);
         }
 
         button {
             background-color: var(--accent-color);
             color: white;
             border: none;
-            padding: 8px 16px;
-            border-radius: 4px;
+            padding: 12px 20px;
+            /* Larger touch target */
+            border-radius: 6px;
             cursor: pointer;
-            font-size: 14px;
+            font-size: 16px;
+            /* Larger font */
             font-weight: 600;
         }
 
@@ -153,7 +228,8 @@
             background: transparent;
             border: 1px solid var(--border-color);
             color: var(--text-primary);
-            padding: 6px 12px;
+            color: var(--text-primary);
+            padding: 10px 16px;
         }
 
         #theme-toggle:hover {
@@ -231,15 +307,18 @@
     <textarea id="raw-content" readonly></textarea>
 
     <div class="controls">
-        <button onclick="setView('rich')" id="btn-rich">Visual</button>
-        <button onclick="setView('raw')" id="btn-raw" class="secondary">Texto cru</button>
-        <label style="display:flex;align-items:center;gap:8px;">
-            <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);"> <span
-                style="font-size:14px;">Mostrar links</span>
+        <button onclick="toggleView()" id="btn-view-toggle" title="Ver Texto cru">
+            <span class="icon" id="view-icon">📄</span> <span class="label" id="view-label">Texto cru</span>
+        </button>
+        <label style="display:flex;align-items:center;gap:8px;" title="Mostrar links">
+            <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);">
+            <span class="label" style="font-size:14px;">Links</span>
         </label>
-        <button onclick="copyRaw()" class="secondary">Copiar texto</button>
-        <button onclick="toggleTheme()" id="theme-toggle" class="secondary">
-            <span id="theme-icon">&#9789;</span> <span id="theme-text">Escuro</span>
+        <button onclick="copyRaw()" class="secondary btn-icon-mobile" title="Copiar texto">
+            <span class="icon">📋</span> <span class="label">Copiar</span>
+        </button>
+        <button onclick="toggleTheme()" id="theme-toggle" class="secondary btn-icon-mobile" title="Alternar tema">
+            <span id="theme-icon" class="icon">&#9789;</span> <span id="theme-text" class="label">Escuro</span>
         </button>
     </div>
 
@@ -285,9 +364,9 @@
             let parsed = escapeHtml(text);
             parsed = parsed.replace(/```([^`]+)```/g, '<pre><code>$1</code></pre>');
             parsed = parsed.replace(/`([^`]+)`/g, '<code>$1</code>');
-            parsed = parsed.replace(/\*([^*]+)\*/g, '<strong>$1</strong>');
+            parsed = parsed.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
             parsed = parsed.replace(/_([^_]+)_/g, '<em>$1</em>');
-            parsed = parsed.replace(/~([^~]+)~/g, '<del>$1</del>');
+            parsed = parsed.replace(/~([^~\n]+)~/g, '<del>$1</del>');
             const titleInlineRegex = /-\s+([^\n\r]*?[a-zA-Z0-9][^\n\r]*?)\s+(https?:\/\/[^\s]+)/g;
             parsed = parsed.replace(titleInlineRegex, '- <a href="$2" target="_blank">$1</a>');
             const titlePairRegex = /^-\s+([^\n\r]+)\r?\n\s+(https?:\/\/[^\s]+)/gm;
@@ -308,21 +387,30 @@
         function setView(view) {
             const richDiv = document.getElementById('rich-content');
             const rawArea = document.getElementById('raw-content');
-            const btnRich = document.getElementById('btn-rich');
-            const btnRaw = document.getElementById('btn-raw');
+
+            // Toggle Button Elements
+            const viewIcon = document.getElementById('view-icon');
+            const viewLabel = document.getElementById('view-label');
+            const viewBtn = document.getElementById('btn-view-toggle');
 
             const showLinks = document.getElementById('chk-show-links').checked;
 
             if (view === 'rich') {
                 richDiv.style.display = 'block';
                 rawArea.style.display = 'none';
-                btnRich.classList.remove('secondary');
-                btnRaw.classList.add('secondary');
+
+                // Set button to show option for NEXT state (Raw)
+                viewIcon.textContent = '📄';
+                viewLabel.textContent = 'Texto cru';
+                viewBtn.title = 'Ver Texto cru';
             } else {
                 richDiv.style.display = 'none';
                 rawArea.style.display = 'block';
-                btnRich.classList.add('secondary');
-                btnRaw.classList.remove('secondary');
+
+                // Set button to show option for NEXT state (Visual)
+                viewIcon.textContent = '👁️';
+                viewLabel.textContent = 'Visual';
+                viewBtn.title = 'Ver Visual';
             }
 
             // Render content
@@ -331,6 +419,13 @@
 
             document.getElementById('raw-content').value = showLinks ? sourceText : stripLinks(sourceText);
             document.getElementById('rich-content').innerHTML = renderContent(sourceText, showLinks);
+        }
+
+        function toggleView() {
+            const richDiv = document.getElementById('rich-content');
+            const currentView = richDiv.style.display !== 'none' ? 'rich' : 'raw';
+            const newView = currentView === 'rich' ? 'raw' : 'rich';
+            setView(newView);
         }
 
         function copyRaw() {
@@ -347,9 +442,10 @@
 
             navigator.clipboard.writeText(textToCopy).then(() => {
                 const btn = document.querySelector('button[onclick="copyRaw()"]');
-                const originalText = btn.innerText;
-                btn.innerText = "Copiado!";
-                setTimeout(() => btn.innerText = originalText, 2000);
+                const label = btn.querySelector('.label');
+                const originalText = label.textContent;
+                label.textContent = "Copiado!";
+                setTimeout(() => label.textContent = originalText, 2000);
             }).catch(err => {
                 console.error('Failed to copy: ', err);
             }).finally(() => {
@@ -432,10 +528,40 @@
 
             // Listeners
             document.getElementById('chk-show-links').addEventListener('change', (e) => {
-                // Rerender view
                 const currentView = document.getElementById('rich-content').style.display !== 'none' ? 'rich' : 'raw';
                 setView(currentView);
             });
+
+            // Scroll Logic for Bottom Bar and Navbar
+            let lastScrollTop = 0;
+            const controls = document.querySelector('.controls');
+            const navTabs = document.querySelector('.nav-tabs');
+
+            window.addEventListener('scroll', function () {
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+
+                if (scrollTop > lastScrollTop && scrollTop > 100) {
+                    // Scroll Down
+                    controls.classList.add('controls-hidden');
+                    navTabs.classList.add('nav-hidden');
+                } else {
+                    // Scroll Up
+                    controls.classList.remove('controls-hidden');
+                    navTabs.classList.remove('nav-hidden');
+                }
+                lastScrollTop = scrollTop <= 0 ? 0 : scrollTop; // For Mobile or negative scrolling
+            }, { passive: true });
+
+            // Restore Navbar Scroll Position
+            const savedScroll = sessionStorage.getItem('navScrollLeft');
+            if (savedScroll) {
+                navTabs.scrollLeft = savedScroll;
+            }
+
+            // Save Navbar Scroll Position
+            navTabs.addEventListener('scroll', () => {
+                sessionStorage.setItem('navScrollLeft', navTabs.scrollLeft);
+            }, { passive: true });
         };
     </script>
 </body>
