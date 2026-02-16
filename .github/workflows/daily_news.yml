@@ -19,7 +19,9 @@ on:
         default: 'false'
 
 permissions:
-  contents: write
+  contents: read
+  pages: write
+  id-token: write
 
 jobs:
   generate-and-deploy:
@@ -130,15 +132,14 @@ jobs:
           sed "s|{{DATE}}|$DATE|g" .github/template.html \
             | sed -e '/{{CONTENT}}/r public/news_hackernews.out' -e '/{{CONTENT}}/d' > public/hackernews.html
 
-      - name: Set git config
-        run: |
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git config user.name "github-actions[bot]"
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./public
 
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./public
-          keep_files: false
-          publish_branch: gh-pages
+        id: deployment
+        uses: actions/deploy-pages@v4
