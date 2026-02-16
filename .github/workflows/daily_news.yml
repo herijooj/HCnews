@@ -98,39 +98,14 @@ jobs:
             ./build_daily.sh
           fi
           # Ensure generated news files are not empty before producing HTML
-          if [ ! -s public/news_tudo.out ] || [ ! -s public/news_noticias.out ] || [ ! -s public/news_esportes.out ] || [ ! -s public/news_hackernews.out ] || [ ! -s public/news_horoscopo.out ] || [ ! -s public/news_weather.out ]; then
-            echo "Error: one or more generated news files are empty (public/news_tudo.out, public/news_noticias.out, public/news_esportes.out, public/news_hackernews.out, public/news_horoscopo.out, or public/news_weather.out)" >&2
+          if [ ! -s public/news_tudo.out ] || [ ! -s public/news_noticias.out ] || [ ! -s public/news_esportes.out ] || [ ! -s public/news_hackernews.out ] || [ ! -s public/news_ru.out ] || [ ! -s public/news_horoscopo.out ] || [ ! -s public/news_weather.out ]; then
+            echo "Error: one or more generated news files are empty (public/news_tudo.out, public/news_noticias.out, public/news_esportes.out, public/news_hackernews.out, public/news_ru.out, public/news_horoscopo.out, or public/news_weather.out)" >&2
             ls -al public/news_*.out || true
             exit 1
           fi
 
       - name: Generate HTML
-        run: |
-          mkdir -p public
-          DATE=$(date +'%d/%m/%Y')
-          # Generate Tudo (index.html)
-          sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT}}/r public/news_tudo.out' -e '/{{CONTENT}}/d' > public/index.html
-
-          # Generate Notícias (noticias.html)
-          sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT}}/r public/news_noticias.out' -e '/{{CONTENT}}/d' > public/noticias.html
-
-          # Generate Horóscopo (horoscopo.html)
-          sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT}}/r public/news_horoscopo.out' -e '/{{CONTENT}}/d' > public/horoscopo.html
-
-          # Generate Futebol (esportes.html)
-          sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT}}/r public/news_esportes.out' -e '/{{CONTENT}}/d' > public/esportes.html
-
-          # Generate Previsão do Tempo (weather.html)
-          sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT}}/r public/news_weather.out' -e '/{{CONTENT}}/d' > public/weather.html
-
-          # Generate Hacker News (hackernews.html)
-          sed "s|{{DATE}}|$DATE|g" .github/template.html \
-            | sed -e '/{{CONTENT}}/r public/news_hackernews.out' -e '/{{CONTENT}}/d' > public/hackernews.html
+        run: bash scripts/generate_html.sh
 
       - name: Setup GitHub Pages
         uses: actions/configure-pages@v5

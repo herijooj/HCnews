@@ -94,15 +94,24 @@ function get_menu() {
 
 	# Process content using pup and awk
 	local content
-	content=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url" |
-		perl -0777 -pe 's/<style[^>]*>.*?<\/style>//gis; s/<script[^>]*>.*?<\/script>//gis; s/<!--.*?-->//gs' |
-		LC_ALL=C sed -e 's/<[^>]*>//g' |
-		awk '
+	content=$(
+		set -o pipefail
+		curl -fsS -4 --compressed --connect-timeout 5 --max-time 10 "$url" |
+			perl -0777 -pe 's/<style[^>]*>.*?<\/style>//gis; s/<script[^>]*>.*?<\/script>//gis; s/<!--.*?-->//gs' |
+			LC_ALL=C sed -e 's/<[^>]*>//g' |
+			awk '
+        function emit_pending_meal() {
+            if (pending_meal != "") {
+                print "\n" pending_meal
+                pending_meal = ""
+            }
+        }
         BEGIN { 
             print "🍽️  *Cardápio RU '"$pretty_name"'*" 
             skip = 0
             current_line = ""
             menu_started = 0
+            pending_meal = ""
         }
         /SENHOR USUÁRIO/ { skip = 1; next }
         /LEGENDA/ { skip = 1; next }
@@ -116,9 +125,10 @@ function get_menu() {
         /\.wp-block/ { next }
         
         # Detect day headers first - this starts the menu
-        /(Segunda|Terça|Quarta|Quinta|Sexta|Sábado|Domingo)[-]?[Ff]eira.*[0-9]/ {
+        /((Segunda|Ter[cç]a|Quarta|Quinta|Sexta)[-]?[Ff]eira|(S[áa]bado|Domingo)).*[0-9]/ {
             menu_started = 1
             if (current_line != "") { print current_line; current_line = "" }
+            pending_meal = ""
             gsub(/^[[:space:]]+|[[:space:]]+$/, "")
             pos = match($0, /[0-9]/)
             if (pos > 0) {
@@ -136,17 +146,17 @@ function get_menu() {
         
         /Café da manhã/ { 
             if (current_line != "") { print current_line; current_line = "" }
-            print "\n🥪 *CAFÉ DA MANHÃ* 🥪"
+            pending_meal = "🥪 *CAFÉ DA MANHÃ* 🥪"
             next 
         }
         /Almoço/ { 
             if (current_line != "") { print current_line; current_line = "" }
-            print "\n🍝 *ALMOÇO* 🍝"
+            pending_meal = "🍝 *ALMOÇO* 🍝"
             next 
         }
         /Jantar/ { 
             if (current_line != "") { print current_line; current_line = "" }
-            print "\n🍛 *JANTAR* 🍛"
+            pending_meal = "🍛 *JANTAR* 🍛"
             next 
         }
         
@@ -160,6 +170,7 @@ function get_menu() {
                 if (current_line != "") {
                     current_line = current_line " " $0
                 } else {
+                    emit_pending_meal()
                     current_line = "- " $0
                 }
                 next
@@ -172,13 +183,15 @@ function get_menu() {
             if (current_line != "") {
                 print current_line
             }
+            emit_pending_meal()
             current_line = "- " $0
         }
         END {
             if (current_line != "") {
                 print current_line
             }
-        }' 2>/dev/null)
+        }' 2>/dev/null
+	)
 
 	# Validate content
 	if [[ -z "$content" || "$content" == "🍽️  *Cardápio RU $pretty_name*" ]]; then

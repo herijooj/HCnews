@@ -16,8 +16,26 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Install shell tools
-        run: sudo apt-get update && sudo apt-get install -y shellcheck shfmt
+      - name: Ensure shell tools are available
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          missing=()
+          for tool in shellcheck shfmt; do
+            if ! command -v "$tool" >/dev/null 2>&1; then
+              missing+=("$tool")
+            fi
+          done
+
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "Missing tools: ${missing[*]}"
+            sudo apt-get update
+            sudo apt-get install -y "${missing[@]}"
+          fi
+
+          shellcheck --version
+          shfmt --version
 
       - name: Run lint
         run: bash scripts/lint.sh

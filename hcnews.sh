@@ -28,6 +28,7 @@ source "$SCRIPT_DIR/scripts/holidays.sh"
 source "$SCRIPT_DIR/scripts/bicho.sh"
 source "$SCRIPT_DIR/scripts/states.sh"
 source "$SCRIPT_DIR/scripts/emoji.sh"
+source "$SCRIPT_DIR/scripts/UFPR/ru.sh"
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
 source "$SCRIPT_DIR/scripts/onthisday.sh"
@@ -49,6 +50,7 @@ onthisday_output=""
 didyouknow_output=""
 bicho_output=""
 saints_output=""
+ru_output=""
 emoji_output=""
 
 # Runtime defaults (safe when sourced)
@@ -59,6 +61,7 @@ hc_no_cache=false
 hc_force_refresh=false
 hc_full_url=false
 city="${HCNEWS_CITY:-Curitiba}"
+ru_location="${HCNEWS_RU_LOCATION:-politecnico}"
 
 _HCNEWS_RUNTIME_INITIALIZED=false
 
@@ -188,7 +191,7 @@ function footer {
 # Populates global variables with content
 fetch_newspaper_data() {
 	hcnews_init_runtime
-	hc_orch_fetch_main_data "$city" "$saints_verbose" "$month" "$day"
+	hc_orch_fetch_main_data "$city" "$saints_verbose" "$ru_location" "$month" "$day"
 }
 
 render_output() {
@@ -257,7 +260,13 @@ render_output() {
 		echo ""
 	fi
 
-	# 13. Emoji
+	# 13. RU (weekdays only)
+	if [[ "$weekday" -ge 1 && "$weekday" -le 5 && -n "$ru_output" ]]; then
+		echo "$ru_output"
+		echo ""
+	fi
+
+	# 14. Emoji
 	echo "$emoji_output"
 	echo ""
 }

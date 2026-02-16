@@ -29,6 +29,7 @@ HCNEWS_COMPONENT_REGISTRY["onthisday"]="hc_component_onthisday|onthisday|onthisd
 HCNEWS_COMPONENT_REGISTRY["didyouknow"]="hc_component_didyouknow|didyouknow|didyouknow|main,refresh,daily_build|true|false|network|20|1|100"
 HCNEWS_COMPONENT_REGISTRY["bicho"]="hc_component_bicho|bicho|bicho|main,refresh,daily_build|true|false|network|20|1|110"
 HCNEWS_COMPONENT_REGISTRY["saints"]="hc_component_saints|saints|saints|main,refresh,daily_build|true|false|network|20|1|120"
+HCNEWS_COMPONENT_REGISTRY["ru"]="hc_component_ru|ru|ru|main,refresh,daily_build|true|false|network|20|1|125"
 HCNEWS_COMPONENT_REGISTRY["emoji"]="hc_component_emoji|emoji|emoji|main,daily_build|true|false|local|5|0|130"
 
 # Currently disabled/optional components
