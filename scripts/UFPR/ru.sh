@@ -75,10 +75,24 @@ function get_menu() {
 	local location="$1"
 	local use_cache="${_ru_USE_CACHE:-${_HCNEWS_USE_CACHE:-true}}"
 	local force_refresh="${_ru_FORCE_REFRESH:-${_HCNEWS_FORCE_REFRESH:-false}}"
+	local show_today="${SHOW_ONLY_TODAY:-false}"
+	local today=""
+	local today_base=""
+
+	if [[ "$show_today" == "true" ]]; then
+		today=$(get_today_weekday)
+		today_base="${today,,}"
+		today_base="${today_base%%-*}"
+	fi
+
 	local date_string
 	date_string=$(hcnews_get_date_format)
+	local cache_variant="$location"
+	if [[ "$show_today" == "true" ]]; then
+		cache_variant="${location}_today"
+	fi
 	local cache_file
-	hcnews_set_cache_path cache_file "ru" "$date_string" "$location"
+	hcnews_set_cache_path cache_file "ru" "$date_string" "$cache_variant"
 
 	# Check cache
 	if [[ "$use_cache" == "true" ]] && hcnews_check_cache "$cache_file" "$_ru_CACHE_TTL" "$force_refresh"; then
@@ -99,10 +113,12 @@ function get_menu() {
 		curl -fsS -4 --compressed --connect-timeout 5 --max-time 10 "$url" |
 			perl -0777 -pe 's/<style[^>]*>.*?<\/style>//gis; s/<script[^>]*>.*?<\/script>//gis; s/<!--.*?-->//gs' |
 			LC_ALL=C sed -e 's/<[^>]*>//g' |
-			awk '
+			awk -v show_today="$show_today" -v today_base="$today_base" -v today_label="$today" '
         function emit_pending_meal() {
             if (pending_meal != "") {
-                print "\n" pending_meal
+                if (include_section == 1) {
+                    print "\n" pending_meal
+                }
                 pending_meal = ""
             }
         }
@@ -112,6 +128,9 @@ function get_menu() {
             current_line = ""
             menu_started = 0
             pending_meal = ""
+            include_section = (show_today == "true") ? 0 : 1
+            matched_day = 0
+            has_content = 0
         }
         /SENHOR USUÁRIO/ { skip = 1; next }
         /LEGENDA/ { skip = 1; next }
@@ -127,7 +146,13 @@ function get_menu() {
         # Detect day headers first - this starts the menu
         /((Segunda|Ter[cç]a|Quarta|Quinta|Sexta)[-]?[Ff]eira|(S[áa]bado|Domingo)).*[0-9]/ {
             menu_started = 1
-            if (current_line != "") { print current_line; current_line = "" }
+            if (current_line != "") {
+                if (include_section == 1) {
+                    print current_line
+                    has_content = 1
+                }
+                current_line = ""
+            }
             pending_meal = ""
             gsub(/^[[:space:]]+|[[:space:]]+$/, "")
             pos = match($0, /[0-9]/)
@@ -136,7 +161,26 @@ function get_menu() {
                 date = substr($0, pos)
                 gsub(/^[[:space:]]+|[[:space:]]+$/, "", day)
                 gsub(/^[[:space:]]+|[[:space:]]+$/, "", date)
-                print "\n📅 *" day "* " date
+
+                if (show_today == "true") {
+                    day_l = tolower(day)
+                    day_b = day_l
+                    sub(/-.*/, "", day_b)
+
+                    if (day_b == today_base) {
+                        include_section = 1
+                        matched_day = 1
+                        print "\n📅 *" day "* " date
+                    } else {
+                        if (matched_day == 1) {
+                            exit
+                        }
+                        include_section = 0
+                    }
+                } else {
+                    include_section = 1
+                    print "\n📅 *" day "* " date
+                }
             }
             next
         }
@@ -145,24 +189,56 @@ function get_menu() {
         !menu_started { next }
         
         /Café da manhã/ { 
-            if (current_line != "") { print current_line; current_line = "" }
-            pending_meal = "🥪 *CAFÉ DA MANHÃ* 🥪"
+            if (current_line != "") {
+                if (include_section == 1) {
+                    print current_line
+                    has_content = 1
+                }
+                current_line = ""
+            }
+            if (include_section == 1) {
+                pending_meal = "🥪 *CAFÉ DA MANHÃ* 🥪"
+            } else {
+                pending_meal = ""
+            }
             next 
         }
         /Almoço/ { 
-            if (current_line != "") { print current_line; current_line = "" }
-            pending_meal = "🍝 *ALMOÇO* 🍝"
+            if (current_line != "") {
+                if (include_section == 1) {
+                    print current_line
+                    has_content = 1
+                }
+                current_line = ""
+            }
+            if (include_section == 1) {
+                pending_meal = "🍝 *ALMOÇO* 🍝"
+            } else {
+                pending_meal = ""
+            }
             next 
         }
         /Jantar/ { 
-            if (current_line != "") { print current_line; current_line = "" }
-            pending_meal = "🍛 *JANTAR* 🍛"
+            if (current_line != "") {
+                if (include_section == 1) {
+                    print current_line
+                    has_content = 1
+                }
+                current_line = ""
+            }
+            if (include_section == 1) {
+                pending_meal = "🍛 *JANTAR* 🍛"
+            } else {
+                pending_meal = ""
+            }
             next 
         }
         
         /^(Contêm|Contém|Indicado)/ { next }
         
         {
+            if (include_section != 1) next
+
             # Check for connectives
             if (/^[[:space:]]*e / || /^[[:space:]]*\+/ || /^[[:space:]]*Molho para salada:/) {
                 gsub(/^[[:space:]]+|[[:space:]]+$/, "")
@@ -182,13 +258,20 @@ function get_menu() {
             
             if (current_line != "") {
                 print current_line
+                has_content = 1
             }
             emit_pending_meal()
             current_line = "- " $0
         }
         END {
             if (current_line != "") {
-                print current_line
+                if (include_section == 1) {
+                    print current_line
+                    has_content = 1
+                }
+            }
+            if (show_today == "true" && has_content == 0) {
+                print "Não há cardápio disponível para hoje (" today_label ")."
             }
         }' 2>/dev/null
 	)
@@ -204,7 +287,7 @@ function get_menu() {
 	fi
 
 	# Write to cache
-	if [[ "$_ru_USE_CACHE" == "true" ]]; then
+	if [[ "$use_cache" == "true" ]]; then
 		hcnews_write_cache "$cache_file" "$content"
 	fi
 
@@ -213,72 +296,7 @@ function get_menu() {
 
 # Function to display the menu
 hc_component_ru() {
-	local menu_content
-	menu_content=$(get_menu "$SELECTED_LOCATION")
-
-	# Extract header (first line)
-	# Extract header (first line)
-	local header
-	header="${menu_content%%$'\n'*}"
-	header="${header#- }"
-
-	if [[ "$SHOW_ONLY_TODAY" == "true" ]]; then
-		local today
-		today=$(get_today_weekday)
-
-		# Normalize today for comparison (lowercase)
-		local today_lower="${today,,}"
-		local today_base="${today_lower%%-*}"
-
-		local include_section=false
-		local has_content=false
-
-		echo "$header"
-		echo ""
-
-		# Process lines using while loop
-		local line
-		while IFS= read -r line; do
-			# Skip original header if repeated (though get_menu usually returns clean body)
-			# awk logic skipped NR==1, but we extracted header separately.
-
-			# Check for Day Header
-			if [[ "$line" == *"📅"* ]]; then
-				local line_lower="${line,,}"
-				if [[ "$line_lower" == *"$today_base"* ]]; then
-					include_section=true
-					echo "$line"
-				else
-					include_section=false
-				fi
-				continue
-			fi
-
-			# Check for Meal Headers
-			if [[ "$line" == *"🥪"* || "$line" == *"🍝"* || "$line" == *"🍛"* ]]; then
-				if [[ "$include_section" == "true" ]]; then
-					echo "$line"
-				fi
-				continue
-			fi
-
-			# Content lines
-			if [[ "$include_section" == "true" ]]; then
-				# Check not empty
-				if [[ -n "${line// /}" ]]; then
-					echo "$line"
-					has_content=true
-				fi
-			fi
-		done <<<"$menu_content"
-
-		if [[ "$has_content" == "false" ]]; then
-			echo "Não há cardápio disponível para hoje ($today)."
-		fi
-	else
-		# Print full menu
-		echo "$menu_content"
-	fi
+	get_menu "$SELECTED_LOCATION"
 	echo ""
 }
 

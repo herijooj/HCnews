@@ -175,8 +175,13 @@ _sports_is_today_keep() {
 
 _sports_collect_events() {
 	local json="$1"
+	local tournament_id="${2:-}"
 	jq -r '
         (.events // [])[]? | . as $e |
+        select(
+            ($tid == "") or
+            ((($e.uniqueTournament.id // $e.tournament.uniqueTournament.id // $e.tournament.id // 0) | tostring) == $tid)
+        ) |
         [
             ($e.startTimestamp // ""),
             ($e.homeTeam.name // "Time A"),
@@ -186,7 +191,7 @@ _sports_collect_events() {
             ($e.status.type // ""),
             ($e.status.description // "")
         ] | @tsv
-    ' <<<"$json"
+    ' --arg tid "$tournament_id" <<<"$json"
 }
 
 _sports_format_line() {
@@ -232,29 +237,37 @@ _sports_fetch_day() {
 	local iso_date="$1"
 	local day_type="$2" # yesterday|today
 	local output_lines=()
-	local failures=0
-
 	local -a curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" -A "$SPORTS_USER_AGENT")
+	local tmp_dir
+	tmp_dir=$(mktemp -d "/tmp/hcnews_sports_${iso_date//-/}_XXXXXX") || {
+		echo "- Nenhum jogo encontrado"
+		return 0
+	}
 
+	local -a fetch_jobs=()
+	local i=0
+	local comp tournament_id url out_file
 	for comp in "${ACTIVE_TOURNAMENT_ORDER[@]}"; do
-		local tournament_id="${SOFASCORE_TOURNAMENTS[$comp]}"
-		local url="${SOFASCORE_BASE_URL}/unique-tournament/${tournament_id}/scheduled-events/${iso_date}"
-		local json
+		tournament_id="${SOFASCORE_TOURNAMENTS[$comp]}"
+		url="${SOFASCORE_BASE_URL}/unique-tournament/${tournament_id}/scheduled-events/${iso_date}"
+		out_file="${tmp_dir}/${i}.json"
+		((i++))
 
-		json=$(curl "${curl_opts[@]}" "$url")
-		if [[ -z "$json" ]]; then
-			((failures++))
+		curl "${curl_opts[@]}" "$url" >"$out_file" &
+		fetch_jobs+=("$!|$comp|$out_file")
+	done
+
+	local job_info pid json error_code
+	for job_info in "${fetch_jobs[@]}"; do
+		IFS='|' read -r pid comp out_file <<<"$job_info"
+
+		if ! wait "$pid" 2>/dev/null || [[ ! -s "$out_file" ]]; then
 			continue
 		fi
 
-		local error_code
-		error_code=$(echo "$json" | jq -r '.error.code // empty' 2>/dev/null)
+		json=$(<"$out_file")
+		error_code=$(jq -r '.error.code // empty' <<<"$json" 2>/dev/null)
 		if [[ -n "$error_code" ]]; then
-			if [[ "$error_code" == "404" ]]; then
-				continue
-			else
-				((failures++))
-			fi
 			continue
 		fi
 
@@ -280,6 +293,8 @@ _sports_fetch_day() {
 			done
 		fi
 	done
+
+	rm -rf "$tmp_dir"
 
 	if [[ ${#output_lines[@]} -eq 0 ]]; then
 		# Fallback to TheSportsDB (public key) if SofaScore blocked
@@ -371,9 +386,24 @@ get_sports_block() {
 	local yesterday_iso
 	yesterday_iso=$(TZ="$DISPLAY_TZ" date -d "$today_iso -1 day" +%F)
 
-	local today_games yesterday_games
-	today_games=$(_sports_fetch_day "$today_iso" "today")
-	yesterday_games=$(_sports_fetch_day "$yesterday_iso" "yesterday")
+	local base_tmp_dir="${_HCNEWS_TEMP_DIR:-/tmp}"
+	[[ -d "$base_tmp_dir" ]] || base_tmp_dir="/tmp"
+	local today_tmp_file="${base_tmp_dir}/sports_today_$$.txt"
+	local yesterday_tmp_file="${base_tmp_dir}/sports_yesterday_$$.txt"
+
+	(_sports_fetch_day "$today_iso" "today") >"$today_tmp_file" &
+	local today_pid=$!
+	(_sports_fetch_day "$yesterday_iso" "yesterday") >"$yesterday_tmp_file" &
+	local yesterday_pid=$!
+
+	wait "$today_pid" 2>/dev/null || true
+	wait "$yesterday_pid" 2>/dev/null || true
+
+	local today_games=""
+	local yesterday_games=""
+	[[ -f "$today_tmp_file" ]] && today_games=$(<"$today_tmp_file")
+	[[ -f "$yesterday_tmp_file" ]] && yesterday_games=$(<"$yesterday_tmp_file")
+	rm -f "$today_tmp_file" "$yesterday_tmp_file"
 
 	local block
 	if [[ "$today_games" == *"- Nenhum jogo encontrado"* ]]; then

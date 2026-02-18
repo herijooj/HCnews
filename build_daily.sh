@@ -22,7 +22,7 @@ WEATHER_PID=$!
 
 # 2. Fetch main newspaper data (Orchestrates its own jobs)
 echo "📰 Fetching main newspaper data..." >&2
-fetch_newspaper_data
+fetch_newspaper_data true
 
 # 3. Generate News Content (RSS)
 _hc_full_url_saved="$hc_full_url"

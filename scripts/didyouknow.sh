@@ -20,42 +20,33 @@ get_didyouknow() {
 
 	local URL="https://pt.wikipedia.org/w/api.php?action=query&prop=extracts&explaintext=1&titles=Predefini%C3%A7%C3%A3o:Sabia_que&format=json"
 
-	# Use temporary file
-	local tmp_file="/tmp/didyouknow_$$.json"
+	local response
+	response=$(curl -s -H "User-Agent: HCnews/1.0 (https://github.com/herijooj/HCnews)" --compressed --connect-timeout 5 --max-time 10 "$URL") || return 1
 
-	# Simple curl with retry
-	if curl -s -H "User-Agent: HCnews/1.0 (https://github.com/herijooj/HCnews)" --compressed "$URL" >"$tmp_file"; then
+	# Process directly. Extract lines starting with … or ...
+	local items
+	items=$(jq -r '.query.pages[]?.extract' <<<"$response" | grep -E '^[….]' | sed 's/^… //;s/^\.\.\. //;s/\\n/ /g' | shuf -n 1)
 
-		# Process directly. Extract lines starting with … or ...
-		local items
-		items=$(jq -r '.query.pages[]?.extract' "$tmp_file" | grep -E '^[….]' | sed 's/^… //;s/^\.\.\. //;s/\\n/ /g' | shuf -n 1)
-
-		# Fallback if empty
-		if [[ -z "$items" ]]; then
-			rm -f "$tmp_file"
-			return 1
-		fi
-		rm -f "$tmp_file"
-
-		# Clean text
-		items=$(echo "$items" | tr -s ' ' | sed 's/^ *//;s/ *$//')
-		if type hcnews_decode_html_entities &>/dev/null; then
-			items=$(hcnews_decode_html_entities "$items")
-		fi
-
-		local output="📚 *Você sabia?*"
-		output+=$'\n'
-		output+="- ${items}"
-		output+=$'\n_Fonte: Wikipedia_'
-
-		if [[ "$use_cache" == true ]]; then
-			hcnews_write_cache "$cache_file" "$output"
-		fi
-		echo "$output"
-	else
-		rm -f "$tmp_file"
+	# Fallback if empty
+	if [[ -z "$items" ]]; then
 		return 1
 	fi
+
+	# Clean text
+	items=$(echo "$items" | tr -s ' ' | sed 's/^ *//;s/ *$//')
+	if type hcnews_decode_html_entities &>/dev/null; then
+		items=$(hcnews_decode_html_entities "$items")
+	fi
+
+	local output="📚 *Você sabia?*"
+	output+=$'\n'
+	output+="- ${items}"
+	output+=$'\n_Fonte: Wikipedia_'
+
+	if [[ "$use_cache" == true ]]; then
+		hcnews_write_cache "$cache_file" "$output"
+	fi
+	echo "$output"
 }
 
 hc_component_didyouknow() {

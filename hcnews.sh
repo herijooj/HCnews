@@ -191,7 +191,8 @@ function footer {
 # Populates global variables with content
 fetch_newspaper_data() {
 	hcnews_init_runtime
-	hc_orch_fetch_main_data "$city" "$saints_verbose" "$ru_location" "$month" "$day"
+	local fetch_ru="${1:-true}"
+	hc_orch_fetch_main_data "$city" "$saints_verbose" "$ru_location" "$month" "$day" "$fetch_ru"
 }
 
 render_output() {
@@ -283,7 +284,11 @@ function output {
 	start_background_job "all_news" "(_rss_USE_CACHE=\$_HCNEWS_USE_CACHE; _rss_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; hc_component_rss '$all_feeds' '$news_shortened' true ${hc_full_url})"
 
 	# Fetch all other data
-	fetch_newspaper_data
+	local fetch_ru=true
+	if [[ "$weekday" -lt 1 || "$weekday" -gt 5 ]]; then
+		fetch_ru=false
+	fi
+	fetch_newspaper_data "$fetch_ru"
 
 	# Wait for news content
 	news_output=$(wait_for_job "all_news")

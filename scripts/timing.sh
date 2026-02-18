@@ -118,7 +118,7 @@ print_timing_summary() {
 		elapsed=${TIMING_DATA["${func}_elapsed"]}
 		# Background jobs have specific names (no write_ prefix typically)
 		case "$func" in
-		menu | music_chart | ai_fortune | weather | all_news | saints | exchange | sanepar | did_you_know | desculpa | bicho | header_moon | header_quote)
+		menu | music_chart | ai_fortune | weather | all_news | saints | exchange | sanepar | did_you_know | desculpa | bicho | header_moon | header_quote | sports | onthisday | ru)
 			async_jobs+=("$elapsed:$func")
 			;;
 		*)
