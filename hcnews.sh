@@ -199,19 +199,19 @@ start_network_jobs() {
 
 	# Pre-calculate paths
 	# shellcheck disable=SC2034
-	local ru_cache music_cache futuro_cache weather_cache earthquake_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache
+	local ru_cache futuro_cache weather_cache saints_cache_file exchange_cache dyk_cache bicho_cache moon_cache
 
 	if [[ $weekday -lt 6 ]]; then
 		ru_cache="${HCNEWS_CACHE_DIR}/ru/${date_format}_politecnico.ru"
 	fi
-	music_cache="${HCNEWS_CACHE_DIR}/musicchart/${date_format}.musicchart"
+	# music_cache="${HCNEWS_CACHE_DIR}/musicchart/${date_format}.musicchart"
 	# futuro_cache="${HCNEWS_CACHE_DIR}/futuro/${date_format}_futuro.cache"
 
 	local city_norm="${city,,}"
 	city_norm="${city_norm// /_}"
 	weather_cache="${HCNEWS_CACHE_DIR}/weather/${date_format}_${city_norm}.weather"
 	# airquality now integrated into weather.sh
-	earthquake_cache="${HCNEWS_CACHE_DIR}/earthquake/${date_format}_earthquake.cache"
+	# earthquake_cache="${HCNEWS_CACHE_DIR}/earthquake/${date_format}_earthquake.cache"
 
 	if [[ "$saints_verbose" == "true" ]]; then
 		saints_cache_file="${HCNEWS_CACHE_DIR}/saints/${date_format}_saints-verbose.txt"
@@ -231,7 +231,7 @@ start_network_jobs() {
 	# Only if cache use is enabled and not force refresh
 	local -A CACHE_MOD_TIMES
 	if [[ "$_HCNEWS_USE_CACHE" == "true" && "$_HCNEWS_FORCE_REFRESH" != "true" ]]; then
-		local paths_to_check=("$music_cache" "$weather_cache" "$earthquake_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$onthisday_cache")
+		local paths_to_check=("$weather_cache" "$saints_cache_file" "$exchange_cache" "$dyk_cache" "$bicho_cache" "$moon_cache" "$onthisday_cache")
 		[[ -n "$ru_cache" ]] && paths_to_check+=("$ru_cache")
 
 		# Stat format: size timestamp filename
@@ -264,24 +264,21 @@ start_network_jobs() {
 	}
 
 	# 1. Menu (RU)
-	# if [[ -n "$ru_cache" ]]; then
-	#     if check_cache_inline "$ru_cache" "${HCNEWS_CACHE_TTL["ru"]:-43200}"; then
-	#         # Cache HIT: Run synchronously, skipping internal checks
-	#         menu_output=$(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=$_HCNEWS_USE_CACHE; _HCNEWS_CACHE_VERIFIED=true; write_menu)
-	#     else
-	#         start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
-	#     fi
-	# fi
-
-	# 2. Music Chart
-	if check_cache_inline "$music_cache" "${HCNEWS_CACHE_TTL["musicchart"]:-43200}"; then
-		music_chart_output=$(
-			_HCNEWS_CACHE_VERIFIED=true
-			write_music_chart
-		)
-	else
-		start_background_job "music_chart" "(_musicchart_USE_CACHE=\$_HCNEWS_USE_CACHE; _musicchart_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_music_chart)"
+	if [[ -n "$ru_cache" ]]; then
+		if check_cache_inline "$ru_cache" "${HCNEWS_CACHE_TTL["ru"]:-43200}"; then
+			# Cache HIT: Run synchronously, skipping internal checks
+			menu_output=$(
+				export SHOW_ONLY_TODAY=true
+				_ru_USE_CACHE=$_HCNEWS_USE_CACHE
+				_HCNEWS_CACHE_VERIFIED=true
+				write_menu
+			)
+		else
+			start_background_job "menu" "(export SHOW_ONLY_TODAY=true; _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_menu)"
+		fi
 	fi
+
+	# 2. Music Chart (disabled)
 
 	# 3. AI Fortune
 	# if check_cache_inline "$futuro_cache" "${HCNEWS_CACHE_TTL["futuro"]:-86400}"; then
@@ -302,15 +299,7 @@ start_network_jobs() {
 
 	# 4b. Air Quality - now integrated into weather.sh (no separate job needed)
 
-	# 4c. Earthquakes
-	if check_cache_inline "$earthquake_cache" "${HCNEWS_CACHE_TTL["earthquake"]:-7200}"; then
-		earthquake_output=$(
-			_HCNEWS_CACHE_VERIFIED=true
-			write_earthquake
-		)
-	else
-		start_background_job "earthquake" "(_earthquake_USE_CACHE=\$_HCNEWS_USE_CACHE; _earthquake_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; write_earthquake)"
-	fi
+	# 4c. Earthquakes (disabled)
 
 	# 5. Saints
 	if check_cache_inline "$saints_cache_file" "${HCNEWS_CACHE_TTL["saints"]:-82800}"; then
@@ -394,17 +383,17 @@ collect_network_data() {
 	# [[ -z "$ai_fortune_output" ]] && { ai_fortune_output=$(wait_for_job "ai_fortune") || ai_fortune_output=""; }
 	[[ -z "$exchange_output" ]] && { exchange_output=$(wait_for_job "exchange") || exchange_output=""; }
 	[[ -z "$sports_output" ]] && { sports_output=$(wait_for_job "sports") || sports_output=""; }
-	[[ -z "$music_chart_output" ]] && { music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""; }
+	# [[ -z "$music_chart_output" ]] && { music_chart_output=$(wait_for_job "music_chart") || music_chart_output=""; }
 	[[ -z "$weather_output" ]] && { weather_output=$(wait_for_job "weather") || weather_output=""; }
 	# airquality now integrated into weather output
-	[[ -z "$earthquake_output" ]] && { earthquake_output=$(wait_for_job "earthquake") || earthquake_output=""; }
+	# [[ -z "$earthquake_output" ]] && { earthquake_output=$(wait_for_job "earthquake") || earthquake_output=""; }
 	[[ -z "$didyouknow_output" ]] && { didyouknow_output=$(wait_for_job "did_you_know") || didyouknow_output=""; }
 	[[ -z "$bicho_output" ]] && { bicho_output=$(wait_for_job "bicho") || bicho_output=""; }
 	[[ -z "$onthisday_output" ]] && { onthisday_output=$(wait_for_job "onthisday") || onthisday_output=""; }
 
-	# if [[ $weekday -lt 6 ]]; then
-	#     [[ -z "$menu_output" ]] && { menu_output=$(wait_for_job "menu") || menu_output=""; }
-	# fi
+	if [[ $weekday -lt 6 ]]; then
+		[[ -z "$menu_output" ]] && { menu_output=$(wait_for_job "menu") || menu_output=""; }
+	fi
 }
 
 # Run local synchronous jobs and capture output in global variables
@@ -510,11 +499,11 @@ render_output() {
 		echo ""
 	fi
 
-	# # 13. Menu
-	# if [[ $weekday -lt 6 ]] && [[ -n "$menu_output" ]]; then
-	#     echo "$menu_output"
-	#     echo ""
-	# fi
+	# 13. Menu
+	if [[ $weekday -lt 6 ]] && [[ -n "$menu_output" ]]; then
+		echo "$menu_output"
+		echo ""
+	fi
 
 	# 14. Emoji
 	echo "$emoji_output"
@@ -597,9 +586,19 @@ calculate_reading_time() {
 # Modified function to add reading time to existing header
 function write_header_with_reading_time() {
 	local reading_time="$1"
+	local moon_line="${moon_phase_output:-}"
+
+	if [[ -z "$moon_line" ]]; then
+		moon_line=$(write_moon_phase)
+	fi
 
 	# Get the existing header output
 	write_header_core
+
+	# Add moon phase before reading time
+	if [[ -n "$moon_line" ]]; then
+		echo "$moon_line"
+	fi
 
 	# Add the reading time line after the header
 	echo "📖 Tempo total de leitura: ~${reading_time} min"
@@ -714,8 +713,8 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
 	# Output header with reading time first
 	write_header_with_reading_time "$reading_time"
 
-	# Extract and output everything after the header core (moon phase onwards)
-	echo "$content_output" | sed '1,4d' # Skip the first 4 lines (header core)
+	# Extract and output everything after header core + moon phase block
+	echo "$content_output" | sed '1,6d' # Skip header core (4), moon phase (1), blank line (1)
 
 	exit 0
 fi

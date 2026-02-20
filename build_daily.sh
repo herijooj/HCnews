@@ -81,7 +81,7 @@ mkdir -p public
 
 {
 	write_header_with_reading_time "$reading_time_tudo"
-	echo -e "$content_tudo" | sed '1,4d'
+	echo -e "$content_tudo" | sed '1,6d'
 } >public/news_tudo.out
 
 {
