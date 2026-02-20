@@ -379,14 +379,27 @@ calculate_reading_time() {
 	local content="$1"
 	local words_per_minute=220 # Average reading speed in Portuguese
 
-	# Count words (remove emojis and special characters for more accurate count)
+	# Count words (pure bash for performance)
 	local word_count
 	# Optimization: Use pure bash word counting to avoid spawning sed and wc
-	# Note: This counts emojis as words if they are space-separated, but the performance gain is worth the negligible accuracy difference
+	# Note: This counts emojis and symbols as words if they are space-separated, but the performance gain is worth the negligible accuracy difference
+
+	# Temporarily disable pathname expansion (noglob), but preserve and restore prior state
+	local had_noglob=0
+	case $- in
+	*f*) had_noglob=1 ;;
+	esac
 	set -f
+
+	# Ensure consistent splitting
+	local IFS=$' \t\n'
 	set -- $content
 	word_count=$#
-	set +f
+
+	# Only revert noglob if we changed it
+	if [[ $had_noglob -eq 0 ]]; then
+		set +f
+	fi
 
 	# Calculate reading time in minutes
 	local reading_time_minutes=$((word_count / words_per_minute))
