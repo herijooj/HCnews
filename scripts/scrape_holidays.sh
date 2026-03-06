@@ -34,7 +34,7 @@ echo "Downloading holidays data from Calendarr..."
 curl -s -A "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36" "$URL" -o "$HTML_FILE"
 
 # Create or clear output file (no header, format: month,day,emoji,description)
->"$OUTPUT_FILE"
+: >"$OUTPUT_FILE"
 
 # Line numbers for each month section
 declare -a month_lines=(324 1257 2343 3663 5001 6663 8091 9123 10434 11925 13686 14943)
