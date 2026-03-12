@@ -32,13 +32,13 @@ _saints_fetch_html() {
 
 _saints_extract_names() {
 	local html="$1"
-	echo "$html" | pup '.section__head h2 text{}' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]][[:space:]]+/ /g' | sed '/^$/d'
+	echo "$html" | pup '.section--isStatic h2 text{}' | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//; s/[[:space:]][[:space:]]+/ /g' | sed '/^$/d'
 }
 
 _saints_extract_descriptions() {
 	local html="$1"
 	local description
-	description=$(echo "$html" | pup '.section__head h2 text{}, .section__content p text{}' | sed '/^$/d' | sed '1d' | sed '/^[[:space:]]*$/d')
+	description=$(echo "$html" | pup '.section--isStatic .section__content p text{}' | sed '/^$/d' | sed '/^[[:space:]]*$/d')
 	hcnews_decode_html_entities "$description"
 }
 
