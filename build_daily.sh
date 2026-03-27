@@ -4,6 +4,9 @@
 SCRIPT_DIR=$(dirname "$(realpath "${BASH_SOURCE[0]}")")
 source "$SCRIPT_DIR/hcnews.sh"
 
+# Set HTML output mode to enable enhanced content (e.g. images in Did You Know)
+export HCNEWS_HTML_OUTPUT=true
+
 # Fetch common data once
 # Start main data fetch in background or parallel to horoscope?
 # hcnews.sh functions use global variables, so running fetch_newspaper_data in background might be tricky if we need to access them here.
