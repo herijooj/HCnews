@@ -392,30 +392,13 @@ hcnews_parse_args() {
 }
 
 # =============================================================================
-# URL Encoding - Pure Bash (avoids jq subprocess)
+# URL Encoding - Using jq for robustness and speed
 # =============================================================================
 
-# URL encode a string without spawning jq
+# URL encode a string using jq (robustly handles UTF-8)
 # Usage: encoded=$(hcnews_url_encode "$url")
 hcnews_url_encode() {
-	local string="$1"
-	local strlen=${#string}
-	local encoded=""
-	local pos c o
-
-	for ((pos = 0; pos < strlen; pos++)); do
-		c=${string:$pos:1}
-		case "$c" in
-		[-_.~a-zA-Z0-9])
-			o="$c"
-			;;
-		*)
-			printf -v o '%%%02X' "'$c"
-			;;
-		esac
-		encoded+="$o"
-	done
-	echo "$encoded"
+	printf '%s' "$1" | jq -sRr @uri
 }
 
 # =============================================================================
