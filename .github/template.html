@@ -367,6 +367,8 @@
             parsed = parsed.replace(/\*([^*\n]+)\*/g, '<strong>$1</strong>');
             parsed = parsed.replace(/_([^_]+)_/g, '<em>$1</em>');
             parsed = parsed.replace(/~([^~\n]+)~/g, '<del>$1</del>');
+            const imgRegex = /!\[([^\]]*)\]\((https?:\/\/[^\s)]+)\)/g;
+            parsed = parsed.replace(imgRegex, '<img src="$2" alt="$1" style="max-width:100%;height:auto;display:block;margin-top:10px;">');
             const titleInlineRegex = /-\s+([^\n\r]*?[a-zA-Z0-9][^\n\r]*?)\s+(https?:\/\/[^\s]+)/g;
             parsed = parsed.replace(titleInlineRegex, '- <a href="$2" target="_blank">$1</a>');
             const titlePairRegex = /^-\s+([^\n\r]+)\r?\n\s+(https?:\/\/[^\s]+)/gm;
