@@ -263,7 +263,6 @@ hc_component_weather() {
 	if ! get_weather_data "$city"; then
 		return 1
 	fi
-	echo
 }
 
 # -----------------------------------------------------------------------------

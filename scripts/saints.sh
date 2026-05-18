@@ -180,7 +180,6 @@ hc_component_saints() {
 	else
 		get_saints_of_the_day
 	fi
-	echo ""
 }
 
 # -------------------------------- Running locally --------------------------------

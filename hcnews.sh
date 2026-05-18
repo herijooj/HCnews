@@ -208,12 +208,16 @@ render_output() {
 	echo ""
 
 	# 3. Holidays
-	echo "$holidays_output"
-	echo ""
+	if [[ -n "$holidays_output" ]]; then
+		echo "$holidays_output"
+		echo ""
+	fi
 
 	# 4. States & Birthdays
-	echo "$states_output"
-	echo ""
+	if [[ -n "$states_output" ]]; then
+		echo "$states_output"
+		echo ""
+	fi
 
 	# 5. Weather
 	if [[ -n "$weather_output" ]]; then

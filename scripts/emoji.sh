@@ -37,7 +37,6 @@ hc_component_emoji() {
 	emoji=$(get_emoji)
 	echo "🎉 *Emoji do dia:*"
 	echo "- $emoji"
-	echo ""
 }
 
 # -------------------------------- Running the script --------------------------------

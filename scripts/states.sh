@@ -54,8 +54,6 @@ hc_component_states() {
 			echo "- 🏛️  $state"
 		fi
 	done
-
-	echo ""
 }
 
 # -------------------------------- Running locally --------------------------------

@@ -61,7 +61,6 @@ hc_component_holidays() {
 	echo "$holidays" | while read -r line; do
 		echo "- $line"
 	done
-	echo ""
 }
 
 # -------------------------------- Running locally --------------------------------

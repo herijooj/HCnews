@@ -297,7 +297,6 @@ function get_menu() {
 # Function to display the menu
 hc_component_ru() {
 	get_menu "$SELECTED_LOCATION"
-	echo ""
 }
 
 # Help function

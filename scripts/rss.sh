@@ -309,7 +309,6 @@ hc_component_rss() {
 			if [[ -n "$content" ]]; then
 				[[ "$show_header" == "true" ]] && echo "📰 ${portal}:"
 				echo "$content"
-				echo ""
 			fi
 		done
 		return 0
@@ -354,7 +353,6 @@ hc_component_rss() {
 			if [[ -n "$content" ]]; then
 				[[ "$show_header" == "true" ]] && echo "📰 ${portals[$i]}:"
 				echo "$content"
-				echo ""
 			fi
 		fi
 	done

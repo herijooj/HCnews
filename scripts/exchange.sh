@@ -200,7 +200,6 @@ hc_component_exchange() {
 	if ! get_exchange_data; then
 		return 1
 	fi
-	echo
 }
 
 # -----------------------------------------------------------------------------
