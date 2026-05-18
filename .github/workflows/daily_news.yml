@@ -34,7 +34,7 @@ jobs:
       TZ: America/Sao_Paulo
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Compute cache key
         id: cache-key
@@ -48,7 +48,7 @@ jobs:
         run: mkdir -p data/cache
 
       - name: Restore script caches
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             data/cache
@@ -65,7 +65,7 @@ jobs:
 
       - name: Cache pup binary
         id: cache-pup
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: /usr/local/bin/pup
           key: pup-v0.4.0-linux-amd64
@@ -108,13 +108,13 @@ jobs:
         run: bash scripts/generate_html.sh
 
       - name: Setup GitHub Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@v6
 
       - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v5
         with:
           path: ./public
 
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
