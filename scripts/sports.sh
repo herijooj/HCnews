@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Sports - Football fixtures/results focused on Brazil
+# Sports - FIFA World Cup 2026 fixtures/results
 # =============================================================================
 # Source: SofaScore public API (no token required)
-# Competitions: Brasileirão Série A, Copa do Brasil, CONMEBOL Libertadores
+# Competitions: FIFA World Cup 2026
 # Output: Yesterday's results + today's games (including live)
 # =============================================================================
 
@@ -25,49 +25,14 @@ TSDB_API_KEY="${HCNEWS_TSDB_KEY:-3}" # default public key
 
 # Competitions to display (name -> unique tournament id)
 declare -A SOFASCORE_TOURNAMENTS=(
-	["Brasileirão Série A"]="325"
-	["Brasileirão Série B"]="390"
-	["Brasileirão Série C"]="1281"
-	["Brasileirão Série D"]="10326"
-	["Copa do Brasil"]="373"
-	["Copa do Nordeste"]="1596"
-	["Copa Verde"]="10158"
-	["Libertadores"]="384"
-	["Paulista"]="372"
-	["Carioca"]="92"
-	["Mineiro"]="379"
-	["Gaúcho"]="377"
-	["Paranaense"]="382"
-	["Catarinense"]="376"
-	["Goiano"]="381"
-	["Pernambucano"]="380"
+	["FIFA World Cup"]="16"
 )
 SOFASCORE_TOURNAMENT_ORDER=(
-	"Brasileirão Série A"
-	"Brasileirão Série B"
-	"Brasileirão Série C"
-	"Brasileirão Série D"
-	"Libertadores"
-	"Copa do Brasil"
-	"Copa do Nordeste"
-	"Copa Verde"
-	"Paulista"
-	"Carioca"
-	"Mineiro"
-	"Gaúcho"
-	"Paranaense"
-	"Catarinense"
-	"Goiano"
-	"Pernambucano"
+	"FIFA World Cup"
 )
 
 SLIM_TOURNAMENTS=(
-	"Brasileirão Série A"
-	"Brasileirão Série B"
-	"Libertadores"
-	"Copa do Brasil"
-	"Copa do Nordeste"
-	"Copa Verde"
+	"FIFA World Cup"
 )
 
 # Active order (filtered per run)
@@ -174,7 +139,6 @@ _sports_is_today_keep() {
 }
 
 _sports_collect_events() {
-	local json="$1"
 	local tournament_id="${2:-}"
 	jq -r '
         (.events // [])[]? | . as $e |
@@ -189,9 +153,166 @@ _sports_collect_events() {
             ($e.homeScore.display // $e.homeScore.current // ""),
             ($e.awayScore.display // $e.awayScore.current // ""),
             ($e.status.type // ""),
-            ($e.status.description // "")
-        ] | @tsv
+            ($e.status.description // ""),
+            ($e.homeTeam.country.alpha2 // ""),
+            ($e.awayTeam.country.alpha2 // "")
+        ] | join("|")
     ' --arg tid "$tournament_id" <<<"$json"
+}
+
+# Convert ISO alpha-2 country code to flag emoji
+_sports_flag() {
+	local code="$1"
+	[[ -z "$code" ]] && return
+	# Manual overrides for SofaScore non-standard codes
+	case "$code" in
+	SX) printf '\U1f3f4\Ue0067\Ue0062\Ue0073\Ue0063\Ue0074\Ue007f ' ; return ;; # Scotland
+	esac
+	[[ ${#code} -ne 2 || "$code" != [A-Z][A-Z] ]] && return
+	local c1 c2
+	c1=$(printf '%d' "'${code:0:1}")
+	c2=$(printf '%d' "'${code:1:1}")
+	local f="\\U$(printf '%x' $((c1 + 127397)))\\U$(printf '%x' $((c2 + 127397))) "
+	printf "$f"
+}
+
+# Map country code to Portuguese name (falls back to English)
+declare -A _COUNTRY_PT=(
+	["AF"]="Afeganistão"          ["ZA"]="África do Sul"
+	["AL"]="Albânia"               ["DE"]="Alemanha"
+	["AD"]="Andorra"               ["AO"]="Angola"
+	["AI"]="Anguilla"              ["AQ"]="Antártida"
+	["AG"]="Antígua e Barbuda"     ["SA"]="Arábia Saudita"
+	["DZ"]="Argélia"               ["AR"]="Argentina"
+	["AM"]="Armênia"               ["AW"]="Aruba"
+	["AU"]="Austrália"             ["AT"]="Áustria"
+	["AZ"]="Azerbaijão"            ["BS"]="Bahamas"
+	["BH"]="Bahrein"               ["BD"]="Bangladesh"
+	["BB"]="Barbados"              ["BE"]="Bélgica"
+	["BZ"]="Belize"                ["BJ"]="Benim"
+	["BM"]="Bermudas"              ["BY"]="Bielorrússia"
+	["BO"]="Bolívia"               ["BA"]="Bósnia e Herzegovina"
+	["BW"]="Botsuana"              ["BR"]="Brasil"
+	["BN"]="Brunei"                ["BG"]="Bulgária"
+	["BF"]="Burquina Faso"         ["BI"]="Burundi"
+	["BT"]="Butão"                 ["CV"]="Cabo Verde"
+	["CM"]="Camarões"              ["KH"]="Camboja"
+	["CA"]="Canadá"                ["QA"]="Catar"
+	["KZ"]="Cazaquistão"           ["TD"]="Chade"
+	["CL"]="Chile"                 ["CN"]="China"
+	["CY"]="Chipre"                ["CO"]="Colômbia"
+	["KM"]="Comores"               ["CG"]="Congo"
+	["CD"]="Congo (RD)"            ["KR"]="Coreia do Sul"
+	["KP"]="Coreia do Norte"       ["CI"]="Costa do Marfim"
+	["CR"]="Costa Rica"            ["HR"]="Croácia"
+	["CU"]="Cuba"                  ["CW"]="Curaçau"
+	["DK"]="Dinamarca"             ["DJ"]="Djibuti"
+	["DM"]="Dominica"              ["EG"]="Egito"
+	["SV"]="El Salvador"           ["AE"]="Emirados Árabes Unidos"
+	["EC"]="Equador"               ["ER"]="Eritreia"
+	["SK"]="Eslováquia"            ["SI"]="Eslovênia"
+	["ES"]="Espanha"               ["US"]="Estados Unidos"
+	["EE"]="Estônia"               ["SZ"]="Essuatíni"
+	["ET"]="Etiópia"               ["FJ"]="Fiji"
+	["PH"]="Filipinas"             ["FI"]="Finlândia"
+	["FR"]="França"                ["GA"]="Gabão"
+	["GM"]="Gâmbia"                ["GH"]="Gana"
+	["GE"]="Geórgia"               ["GI"]="Gibraltar"
+	["GD"]="Granada"               ["GR"]="Grécia"
+	["GL"]="Groenlândia"           ["GP"]="Guadalupe"
+	["GU"]="Guam"                  ["GT"]="Guatemala"
+	["GG"]="Guernsey"              ["GY"]="Guiana"
+	["GF"]="Guiana Francesa"       ["GN"]="Guiné"
+	["GW"]="Guiné-Bissau"          ["GQ"]="Guiné Equatorial"
+	["HT"]="Haiti"                 ["HN"]="Honduras"
+	["HK"]="Hong Kong"             ["HU"]="Hungria"
+	["YE"]="Iêmen"                 ["CX"]="Ilha Christmas"
+	["IM"]="Ilha de Man"           ["NF"]="Ilha Norfolk"
+	["KY"]="Ilhas Cayman"          ["CC"]="Ilhas Cocos"
+	["CK"]="Ilhas Cook"            ["FO"]="Ilhas Faroé"
+	["GS"]="Ilhas Geórgia do Sul e Sandwich do Sul"
+	["HM"]="Ilhas Heard e McDonald"
+	["FK"]="Ilhas Malvinas"        ["MP"]="Ilhas Marianas do Norte"
+	["MH"]="Ilhas Marshall"        ["UM"]="Ilhas Menores Distantes dos EUA"
+	["PN"]="Ilhas Pitcairn"        ["SB"]="Ilhas Salomão"
+	["TC"]="Ilhas Turcas e Caicos" ["VG"]="Ilhas Virgens Britânicas"
+	["VI"]="Ilhas Virgens Americanas"
+	["IN"]="Índia"                 ["ID"]="Indonésia"
+	["IR"]="Irã"                   ["IQ"]="Iraque"
+	["IE"]="Irlanda"               ["IS"]="Islândia"
+	["IL"]="Israel"                ["IT"]="Itália"
+	["JM"]="Jamaica"               ["JP"]="Japão"
+	["JE"]="Jersey"                ["JO"]="Jordânia"
+	["KI"]="Quiribáti"             ["KW"]="Kuwait"
+	["LA"]="Laos"                  ["LS"]="Lesoto"
+	["LV"]="Letônia"               ["LB"]="Líbano"
+	["LR"]="Libéria"               ["LY"]="Líbia"
+	["LI"]="Liechtenstein"         ["LT"]="Lituânia"
+	["LU"]="Luxemburgo"            ["MO"]="Macau"
+	["MK"]="Macedônia do Norte"    ["MG"]="Madagascar"
+	["MY"]="Malásia"               ["MW"]="Malauí"
+	["MV"]="Maldivas"              ["ML"]="Mali"
+	["MT"]="Malta"                 ["MA"]="Marrocos"
+	["MQ"]="Martinica"             ["MU"]="Maurício"
+	["MR"]="Mauritânia"            ["YT"]="Mayotte"
+	["MX"]="México"                ["MM"]="Mianmar"
+	["FM"]="Micronésia"            ["MZ"]="Moçambique"
+	["MD"]="Moldávia"              ["MC"]="Mônaco"
+	["MN"]="Mongólia"              ["ME"]="Montenegro"
+	["MS"]="Montserrat"            ["NA"]="Namíbia"
+	["NR"]="Nauru"                 ["NP"]="Nepal"
+	["NI"]="Nicarágua"             ["NE"]="Níger"
+	["NG"]="Nigéria"               ["NU"]="Niue"
+	["NO"]="Noruega"               ["NC"]="Nova Caledônia"
+	["NZ"]="Nova Zelândia"         ["OM"]="Omã"
+	["NL"]="Países Baixos"         ["PW"]="Palau"
+	["PS"]="Palestina"             ["PA"]="Panamá"
+	["PG"]="Papua-Nova Guiné"      ["PK"]="Paquistão"
+	["PY"]="Paraguai"              ["PE"]="Peru"
+	["PF"]="Polinésia Francesa"    ["PL"]="Polônia"
+	["PR"]="Porto Rico"            ["PT"]="Portugal"
+	["KE"]="Quênia"                ["KG"]="Quirguistão"
+	["GB"]="Reino Unido"           ["CF"]="República Centro-Africana"
+	["CZ"]="Tchéquia"              ["DO"]="República Dominicana"
+	["RE"]="Reunião"               ["RO"]="Romênia"
+	["RW"]="Ruanda"                ["RU"]="Rússia"
+	["EH"]="Saara Ocidental"       ["WS"]="Samoa"
+	["AS"]="Samoa Americana"       ["SM"]="San Marino"
+	["SH"]="Santa Helena"          ["LC"]="Santa Lúcia"
+	["BL"]="São Bartolomeu"        ["KN"]="São Cristóvão e Neves"
+	["MF"]="São Martinho"          ["PM"]="São Pedro e Miquelão"
+	["ST"]="São Tomé e Príncipe"   ["VC"]="São Vicente e Granadinas"
+	["SC"]="Seicheles"             ["SN"]="Senegal"
+	["SL"]="Serra Leoa"            ["RS"]="Sérvia"
+	["SG"]="Singapura"             ["SX"]="Escócia"
+	["SY"]="Síria"                 ["SO"]="Somália"
+	["LK"]="Sri Lanka"             ["SD"]="Sudão"
+	["SS"]="Sudão do Sul"          ["SE"]="Suécia"
+	["CH"]="Suíça"                 ["SR"]="Suriname"
+	["SJ"]="Svalbard e Jan Mayen"  ["TJ"]="Tadjiquistão"
+	["TH"]="Tailândia"             ["TW"]="Taipé Chinês"
+	["TZ"]="Tanzânia"              ["IO"]="Território Britânico do Oceano Índico"
+	["TF"]="Territórios Austrais Franceses"
+	["TL"]="Timor-Leste"           ["TG"]="Togo"
+	["TK"]="Tokelau"               ["TO"]="Tonga"
+	["TT"]="Trinidad e Tobago"     ["TN"]="Tunísia"
+	["TM"]="Turcomenistão"         ["TR"]="Turquia"               ["TV"]="Tuvalu"
+	["UA"]="Ucrânia"               ["UG"]="Uganda"
+	["UY"]="Uruguai"               ["UZ"]="Uzbequistão"
+	["VU"]="Vanuatu"               ["VA"]="Vaticano"
+	["VE"]="Venezuela"             ["VN"]="Vietnã"
+	["WF"]="Wallis e Futuna"       ["ZM"]="Zâmbia"
+	["ZW"]="Zimbábue"
+)
+
+_sports_ptname() {
+	local code="$1"
+	local english="$2"
+	if [[ -n "${_COUNTRY_PT[$code]:-}" ]]; then
+		echo "${_COUNTRY_PT[$code]}"
+	else
+		echo "$english"
+	fi
 }
 
 _sports_format_line() {
@@ -273,7 +394,7 @@ _sports_fetch_day() {
 
 		local has_event=false
 		local -a matches=()
-		while IFS=$'\t' read -r ts home away hscore ascore status status_desc; do
+		while IFS='|' read -r ts home away hscore ascore status status_desc home_code away_code; do
 			# Filter by day type
 			if [[ "$day_type" == "yesterday" ]]; then
 				_sports_is_result_status "$status" || continue
@@ -282,6 +403,8 @@ _sports_fetch_day() {
 			fi
 
 			has_event=true
+			home="$(_sports_flag "$home_code")$(_sports_ptname "$home_code" "$home")"
+			away="$(_sports_flag "$away_code")$(_sports_ptname "$away_code" "$away")"
 			matches+=("$(_sports_format_line "$day_type" "$ts" "$home" "$away" "$hscore" "$ascore" "$status" "$status_desc")")
 		done < <(_sports_collect_events "$json")
 
@@ -314,15 +437,14 @@ _sports_fetch_day() {
 _sports_fetch_day_tsdb() {
 	local iso_date="$1"
 	local day_type="$2"
-	local url="https://www.thesportsdb.com/api/v1/json/${TSDB_API_KEY}/eventsday.php?d=${iso_date}&s=Soccer&c=Brazil"
-	local json
+	local url="https://www.thesportsdb.com/api/v1/json/${TSDB_API_KEY}/eventsday.php?d=${iso_date}&s=Soccer"
 	json=$(curl -s -L -4 --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" -A "$SPORTS_USER_AGENT" "$url")
 	[[ -z "$json" ]] && return 0
 
 	local grouped
 	grouped=$(echo "$json" | jq -r '
       (.events // [])
-      | map(select((.strCountry // "") == "Brazil"))
+      | map(select((.strLeague // "") | test("World Cup|WC|Copa do Mundo"; "i")))
       | group_by(.strLeague)[] |
       {
         league: (.[0].strLeague // "Futebol"),
@@ -407,11 +529,11 @@ get_sports_block() {
 
 	local block
 	if [[ "$today_games" == *"- Nenhum jogo encontrado"* ]]; then
-		block="⚽ *Futebol*"
+		block="🏆 *Copa do Mundo 2026*"
 		block+=$'\n'"🥅 *Ontem*"
 		block+=$'\n'"$yesterday_games"
 	else
-		block="⚽ *Futebol - Hoje*"
+		block="🏆 *Copa do Mundo 2026 - Hoje*"
 		block+=$'\n'"$today_games"
 		block+=$'\n'"🥅 *Ontem*"
 		block+=$'\n'"$yesterday_games"
@@ -429,7 +551,7 @@ hc_component_sports() {
 show_help() {
 	cat <<EOF
 Usage: ./sports.sh [--no-cache|--force]
-Fetches Brazilian football scores (yesterday) and today's fixtures from SofaScore.
+Fetches FIFA World Cup 2026 scores (yesterday) and today's fixtures from SofaScore.
 --date=YYYY-MM-DD  Override base date (mainly for debugging)
 Env:
   HCNEWS_SPORTS_FILTER=SLIM|ALL|Name1,Name2   # Limit tournaments (default: ALL)

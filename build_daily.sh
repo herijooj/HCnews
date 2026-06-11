@@ -42,7 +42,7 @@ content_tudo="${content_tudo_body}\n\n${footer_content}"
 # 5. Assemble 'Notícias' content
 content_noticias="${news_output}\n\n${footer_content}"
 
-# 5b. Assemble 'Futebol' content (sports only, full list)
+# 5b. Assemble 'Copa do Mundo' content (sports only, full list)
 content_sports="$(HCNEWS_SPORTS_FILTER=ALL hc_component_sports)\n\n${footer_content}"
 
 # 5c. Assemble 'Hacker News' content (latest 10 stories)

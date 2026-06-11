@@ -11,7 +11,7 @@ hc_orch_start_network_jobs() {
 
 	start_timing "network_parallel_start"
 
-	local sports_filter_main="${HCNEWS_SPORTS_FILTER_MAIN:-Brasileirão Série A,Libertadores,Copa do Brasil,Paranaense}"
+	local sports_filter_main="${HCNEWS_SPORTS_FILTER_MAIN:-FIFA World Cup}"
 
 	start_background_job "weather" "(_weather_USE_CACHE=\$_HCNEWS_USE_CACHE; _weather_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; hc_component_weather '$city')"
 	start_background_job "saints" "(_saints_USE_CACHE=\$_HCNEWS_USE_CACHE; _saints_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; hc_component_saints '$saints_verbose')"

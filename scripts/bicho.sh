@@ -140,7 +140,7 @@ get_bicho_data() {
 	# Fetch data from website - new structure uses <li> tags inside <ul>
 	local raw_data
 	raw_data=$(curl -s "https://www.ojogodobicho.com/palpite.htm" |
-		pup 'div.content ul.inline-list json{}' |
+		pup '#palpite-nums-grupo, #palpite-nums-dezena, #palpite-nums-centena, #palpite-nums-milhar json{}' |
 		jq -r '.[] | .children | map(.text) | join(" ")')
 
 	# Format output once and cache final rendered block

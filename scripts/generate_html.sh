@@ -18,7 +18,7 @@ pages=(
 	"news_tudo.out:index.html:Tudo"
 	"news_noticias.out:noticias.html:Noticias"
 	"news_horoscopo.out:horoscopo.html:Horoscopo"
-	"news_esportes.out:esportes.html:Futebol"
+	"news_esportes.out:esportes.html:Copa do Mundo"
 	"news_weather.out:weather.html:Previsao do Tempo"
 	"news_hackernews.out:hackernews.html:Hacker News"
 	"news_ru.out:ru.html:RU"
