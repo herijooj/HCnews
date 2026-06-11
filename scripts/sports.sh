@@ -21,6 +21,7 @@ DISPLAY_TZ="${HCNEWS_TZ:-America/Sao_Paulo}"
 SPORTS_USER_AGENT="${HCNEWS_SPORTS_UA:-Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36}"
 CURL_CONNECT_TIMEOUT="${HCNEWS_SPORTS_CONNECT_TIMEOUT:-6}"
 CURL_MAX_TIME="${HCNEWS_SPORTS_MAX_TIME:-12}"
+CURL_RETRY="${HCNEWS_SPORTS_RETRY:-5}"
 TSDB_API_KEY="${HCNEWS_TSDB_KEY:-3}" # default public key
 
 # Competitions to display (name -> unique tournament id)
@@ -164,16 +165,16 @@ _sports_collect_events() {
 _sports_flag() {
 	local code="$1"
 	[[ -z "$code" ]] && return
-	# Manual overrides for SofaScore non-standard codes
 	case "$code" in
-	SX) printf '\U1f3f4\Ue0067\Ue0062\Ue0073\Ue0063\Ue0074\Ue007f ' ; return ;; # Scotland
+	SX) printf '\U1f3f4\Ue0067\Ue0062\Ue0073\Ue0063\Ue0074\Ue007f ' ; return ;;
 	esac
 	[[ ${#code} -ne 2 || "$code" != [A-Z][A-Z] ]] && return
 	local c1 c2
 	c1=$(printf '%d' "'${code:0:1}")
 	c2=$(printf '%d' "'${code:1:1}")
-	local f="\\U$(printf '%x' $((c1 + 127397)))\\U$(printf '%x' $((c2 + 127397))) "
-	printf "$f"
+	local hex
+	hex=$(printf '\\U%x\\U%x ' "$((c1 + 127397))" "$((c2 + 127397))")
+	printf '%b' "$hex"
 }
 
 # Map country code to Portuguese name (falls back to English)
@@ -358,7 +359,7 @@ _sports_fetch_day() {
 	local iso_date="$1"
 	local day_type="$2" # yesterday|today
 	local output_lines=()
-	local -a curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" -A "$SPORTS_USER_AGENT")
+	local -a curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRY" --retry-delay 5 --retry-all-errors -A "$SPORTS_USER_AGENT")
 	local tmp_dir
 	tmp_dir=$(mktemp -d "/tmp/hcnews_sports_${iso_date//-/}_XXXXXX") || {
 		echo "- Nenhum jogo encontrado"
@@ -438,7 +439,7 @@ _sports_fetch_day_tsdb() {
 	local iso_date="$1"
 	local day_type="$2"
 	local url="https://www.thesportsdb.com/api/v1/json/${TSDB_API_KEY}/eventsday.php?d=${iso_date}&s=Soccer"
-	json=$(curl -s -L -4 --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" -A "$SPORTS_USER_AGENT" "$url")
+	json=$(curl -s -L -4 --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRY" --retry-delay 5 --retry-all-errors -A "$SPORTS_USER_AGENT" "$url")
 	[[ -z "$json" ]] && return 0
 
 	local grouped

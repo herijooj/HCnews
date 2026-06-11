@@ -31,6 +31,7 @@ echo "🗞️ Generating RSS content..." >&2
 news_output=$(
 	_rss_USE_CACHE=$_HCNEWS_USE_CACHE
 	_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	# shellcheck disable=SC2154
 	hc_component_rss "$all_feeds" true true ${hc_full_url}
 )
 
@@ -50,6 +51,7 @@ content_hackernews_body=$("$SCRIPT_DIR/scripts/hackernews.sh")
 content_hackernews="${content_hackernews_body}\n\n${footer_content}"
 
 # 5d. Assemble 'RU' content (today only)
+# shellcheck disable=SC2154
 content_ru_body="$ru_output"
 if [[ -z "$content_ru_body" ]]; then
 	content_ru_body="🍽️ *Cardápio RU*\n\nNão foi possível carregar o cardápio do RU agora."
