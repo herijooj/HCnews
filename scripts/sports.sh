@@ -102,7 +102,6 @@ _sports_fetch_day() {
 	fi
 
 	local output_lines=()
-	output_lines+=("*FIFA World Cup*")
 
 	local datetime home_code away_code home_name away_name hscore ascore status
 	local flag_home flag_away home_display away_display line
