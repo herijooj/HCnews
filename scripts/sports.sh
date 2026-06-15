@@ -40,7 +40,7 @@ _sports_is_result_status() {
 
 _sports_is_today_keep() {
 	local s="${1:-}"
-	case "$s" in FINISHED|LIVE|IN_PROGRESS|HALFTIME|"") return 0 ;; esac
+	case "$s" in FINISHED | LIVE | IN_PROGRESS | HALFTIME | "") return 0 ;; esac
 	return 1
 }
 
@@ -80,7 +80,10 @@ _sports_fetch_day() {
 	local curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRY" --retry-delay 5 --retry-all-errors)
 
 	local matches_json teams_json
-	matches_json=$(curl "${curl_opts[@]}" "${BASE_URL}/matches.json") || { echo "- Nenhum jogo encontrado"; return 0; }
+	matches_json=$(curl "${curl_opts[@]}" "${BASE_URL}/matches.json") || {
+		echo "- Nenhum jogo encontrado"
+		return 0
+	}
 	teams_json=$(curl "${curl_opts[@]}" "${BASE_URL}/teams.json")
 
 	local matches
@@ -92,7 +95,10 @@ _sports_fetch_day() {
 		@tsv
 	')
 
-	[[ -z "$matches" ]] && { echo "- Nenhum jogo encontrado"; return 0; }
+	[[ -z "$matches" ]] && {
+		echo "- Nenhum jogo encontrado"
+		return 0
+	}
 
 	declare -A flags
 	if [[ -n "$teams_json" ]]; then
