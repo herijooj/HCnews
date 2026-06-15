@@ -96,9 +96,19 @@ _sports_fetch_day() {
 
 	declare -A flags
 	if [[ -n "$teams_json" ]]; then
-		while IFS=$'\t' read -r code _ flag; do
+		local tsv
+		tsv=$(echo "$teams_json" | jq -r '.data[] | [.code, .name, .flag] | @tsv' 2>/dev/null)
+		while IFS=$'\t' read -r code name flag; do
+			[[ "$flag" == "🏳" ]] && continue
 			flags["$code"]="$flag"
-		done < <(echo "$teams_json" | jq -r '.data[] | [.code, .name, .flag] | @tsv' 2>/dev/null)
+		done <<<"$tsv"
+		# Fix codes that only had a placeholder white flag
+		while IFS=$'\t' read -r code name flag; do
+			[[ "$flag" != "🏳" || -n "${flags[$code]:-}" ]] && continue
+			local real
+			real=$(awk -F'\t' -v name="$name" '$2 == name && $3 != "🏳" {print $3; exit}' <<<"$tsv")
+			[[ -n "$real" ]] && flags["$code"]="$real"
+		done <<<"$tsv"
 	fi
 
 	local output_lines=()
