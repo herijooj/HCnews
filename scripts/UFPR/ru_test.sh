@@ -5,16 +5,16 @@
 
 # Define available RU locations
 declare -A RU_LOCATIONS=(
-	["politecnico"]="https://p4e.ufpr.br/ru/cardapio-ru-centro-politecnico/"
-	["agrarias"]="https://p4e.ufpr.br/ru/cardapio-ru-agrarias/"
-	["botanico"]="https://p4e.ufpr.br/ru/cardapio-ru-jardim-botanico/"
-	["central"]="https://p4e.ufpr.br/ru/cardapio-ru-central/"
-	["toledo"]="https://p4e.ufpr.br/ru/cardapio-ru-toledo/"
-	["mirassol"]="https://p4e.ufpr.br/ru/cardapio-ru-mirassol/"
-	["jandaia"]="https://p4e.ufpr.br/ru/cardapio-ru-jandaia-do-sul/"
-	["palotina"]="https://p4e.ufpr.br/ru/cardapio-ru-palotina/"
-	["cem"]="https://p4e.ufpr.br/ru/cardapio-ru-cem/"
-	["matinhos"]="https://p4e.ufpr.br/ru/cardapio-ru-matinhos/"
+	["politecnico"]="https://proad.ufpr.br/ru/ru-centro-politecnico/"
+	["agrarias"]="https://proad.ufpr.br/ru/cardapio-ru-agrarias/"
+	["botanico"]="https://proad.ufpr.br/ru/cardapio-ru-jardim-botanico/"
+	["central"]="https://proad.ufpr.br/ru/ru-central/"
+	["toledo"]="https://proad.ufpr.br/ru/6751-2/"
+	["mirassol"]="https://proad.ufpr.br/ru/cardapio-ru-mirassol/"
+	["jandaia"]="https://proad.ufpr.br/ru/cardapio-ru-jandaia-do-sul/"
+	["palotina"]="https://proad.ufpr.br/ru/cardapio-ru-palotina/"
+	["cem"]="https://proad.ufpr.br/ru/cardapio-ru-cem/"
+	["matinhos"]="https://proad.ufpr.br/ru/cardapio-ru-matinhos/"
 )
 
 # Friendly names for display
@@ -144,7 +144,7 @@ function get_menu() {
         /\.wp-block/ { next }
         
         # Detect day headers first - this starts the menu
-        /((Segunda|Ter[cç]a|Quarta-|Quinta-|Sexta)[-]?[Ff]eira|(S[áa]bado|Domingo)).*[0-9]/ {
+        /((Segunda|Ter[cç]a|Quarta|Quinta|Sexta)[-]?[Ff]eira|(S[áa]bado|Domingo)).*[0-9]/ {
             menu_started = 1
             if (current_line != "") {
                 if (include_section == 1) {
