@@ -33,21 +33,12 @@ _sports_format_time() {
 	TZ="$DISPLAY_TZ" date -d "$ts" +"%H:%M" 2>/dev/null || echo "${ts:11:5}"
 }
 
-_sports_is_result_status() {
-	[[ "${1:-}" == "FINISHED" ]] && return 0
-	return 1
-}
-
-_sports_is_today_keep() {
-	local s="${1:-}"
-	case "$s" in FINISHED | LIVE | IN_PROGRESS | HALFTIME | "") return 0 ;; esac
-	return 1
-}
-
 _sports_format_line() {
 	local day_type="$1" datetime="$2" home="$3" away="$4"
-	local hscore="$5" ascore="$6" status="$7"
-	if [[ "$status" == "FINISHED" ]]; then
+	local hscore="$5" ascore="$6" status="$7" label="$8"
+	if [[ -z "$home" || -z "$away" ]]; then
+		echo "${label:-TBD} ($(_sports_format_time "$datetime"))"
+	elif [[ "$status" == "FINISHED" ]]; then
 		echo "${home} \`${hscore:-0}x${ascore:-0}\` ${away}"
 	else
 		echo "${home} x ${away} ($(_sports_format_time "$datetime"))"
@@ -67,7 +58,7 @@ declare -A _SPORTS_PT=(
 	[NZL]="Nova Zelândia" [PAN]=Panamá [PAR]=Paraguai [POR]=Portugal
 	[QAT]=Catar [RSA]="África do Sul" [SCO]=Escócia [SEN]=Senegal
 	[SUI]=Suíça [SWE]=Suécia [TUN]=Tunísia [TUR]=Turquia
-	[URY]=Uruguai [URU]=Uruguai [USA]="Estados Unidos" [UZB]=Uzbequistão
+	[URU]=Uruguai [USA]="Estados Unidos" [UZB]=Uzbequistão
 )
 
 _sports_ptname() {
@@ -91,8 +82,8 @@ _sports_fetch_day() {
 		[.data[] | select(.date == $date)] |
 		sort_by(.datetime_utc // "") |
 		.[] |
-		[.datetime_utc // "", .home // "", .away // "", .home_name // "", .away_name // "", (.score_home // ""), (.score_away // ""), (.status // "")] |
-		@tsv
+		[.datetime_utc // "", .home // "", .away // "", .home_name // "", .away_name // "", (.score_home // ""), (.score_away // ""), (.status // ""), (.label // "")] |
+		join("|")
 	')
 
 	[[ -z "$matches" ]] && {
@@ -119,18 +110,22 @@ _sports_fetch_day() {
 
 	local output_lines=()
 
-	local datetime home_code away_code home_name away_name hscore ascore status
+	local datetime home_code away_code home_name away_name hscore ascore status label
 	local flag_home flag_away home_display away_display line
-	while IFS=$'\t' read -r datetime home_code away_code home_name away_name hscore ascore status; do
+	while IFS='|' read -r datetime home_code away_code home_name away_name hscore ascore status label; do
 		if [[ "$day_type" == "yesterday" ]] && [[ "$status" != "FINISHED" ]]; then continue; fi
 
-		flag_home="${flags[$home_code]:-}"
-		flag_away="${flags[$away_code]:-}"
+		if [[ -n "$home_code" && -n "$away_code" ]]; then
+			flag_home="${flags[$home_code]:-}"
+			flag_away="${flags[$away_code]:-}"
+			home_display="${flag_home}$(_sports_ptname "$home_code" "$home_name")"
+			away_display="${flag_away}$(_sports_ptname "$away_code" "$away_name")"
+		else
+			home_display=""
+			away_display=""
+		fi
 
-		home_display="${flag_home}$(_sports_ptname "$home_code" "$home_name")"
-		away_display="${flag_away}$(_sports_ptname "$away_code" "$away_name")"
-
-		line=$(_sports_format_line "$day_type" "$datetime" "$home_display" "$away_display" "$hscore" "$ascore" "$status")
+		line=$(_sports_format_line "$day_type" "$datetime" "$home_display" "$away_display" "$hscore" "$ascore" "$status" "$label")
 		output_lines+=("- ${line}")
 	done <<<"$matches"
 
