@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Sports - FIFA World Cup 2026 fixtures/results
+# Sports - Brazilian Football (Brasileirão, Copa do Brasil, Libertadores)
 # =============================================================================
-# Source: wheniskickoff.com (free public API, no auth required)
-# Output: Yesterday's results + today's games (including live)
+# Source: ESPN public API (free, no auth required)
+# Output: Yesterday's results + today's games
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -15,11 +15,18 @@
 # Configuration
 # -----------------------------------------------------------------------------
 CACHE_TTL_SECONDS="${HCNEWS_CACHE_TTL["sports"]:-1800}"
-BASE_URL="https://wheniskickoff.com/data/v1"
+BASE_URL="https://site.api.espn.com/apis/site/v2/sports/soccer"
 DISPLAY_TZ="${HCNEWS_TZ:-America/Sao_Paulo}"
 CURL_CONNECT_TIMEOUT="${HCNEWS_SPORTS_CONNECT_TIMEOUT:-6}"
 CURL_MAX_TIME="${HCNEWS_SPORTS_MAX_TIME:-12}"
 CURL_RETRY="${HCNEWS_SPORTS_RETRY:-5}"
+
+# Competition definitions: slug|display_name|emoji
+COMPETITIONS=(
+  "bra.1|Brasileirão Série A|⚽"
+  "bra.copa_do_brazil|Copa do Brasil|🏆"
+  "conmebol.libertadores|Libertadores|🏆"
+)
 
 # -----------------------------------------------------------------------------
 # Helpers
@@ -34,100 +41,50 @@ _sports_format_time() {
 }
 
 _sports_format_line() {
-	local day_type="$1" datetime="$2" home="$3" away="$4"
-	local hscore="$5" ascore="$6" status="$7" label="$8"
-	if [[ -z "$home" || -z "$away" ]]; then
-		echo "${label:-TBD} ($(_sports_format_time "$datetime"))"
-	elif [[ "$status" == "FINISHED" ]]; then
-		echo "${home} \`${hscore:-0}x${ascore:-0}\` ${away}"
-	else
+	local state="$1" home="$2" away="$3" hscore="$4" ascore="$5" datetime="$6"
+	if [[ "$state" == "pre" ]]; then
 		echo "${home} x ${away} ($(_sports_format_time "$datetime"))"
+	elif [[ "$state" == "in" ]]; then
+		echo "${home} ${hscore}x${ascore} ${away} (ao vivo)"
+	else
+		echo "${home} ${hscore}x${ascore} ${away}"
 	fi
 }
 
-declare -A _SPORTS_PT=(
-	[ARG]=Argentina [AUS]=Austrália [AUT]=Áustria
-	[BEL]=Bélgica [BIH]="Bósnia e Herzegovina" [BRA]=Brasil
-	[CAN]=Canadá [CIV]="Costa do Marfim" [COD]="Congo (RD)"
-	[COL]=Colômbia [CPV]="Cabo Verde" [CRO]=Croácia [CUW]=Curaçau
-	[CZE]=Tchéquia [DZA]=Argélia [ECU]=Equador [EGY]=Egito
-	[ENG]=Inglaterra [ESP]=Espanha [FRA]=França [GER]=Alemanha
-	[GHA]=Gana [HAI]=Haiti [IRN]=Irã [IRQ]=Iraque [JOR]=Jordânia
-	[JPN]=Japão [KOR]="Coreia do Sul" [KSA]="Arábia Saudita"
-	[MAR]=Marrocos [MEX]=México [NED]="Países Baixos" [NOR]=Noruega
-	[NZL]="Nova Zelândia" [PAN]=Panamá [PAR]=Paraguai [POR]=Portugal
-	[QAT]=Catar [RSA]="África do Sul" [SCO]=Escócia [SEN]=Senegal
-	[SUI]=Suíça [SWE]=Suécia [TUN]=Tunísia [TUR]=Turquia
-	[URU]=Uruguai [USA]="Estados Unidos" [UZB]=Uzbequistão
-)
-
-_sports_ptname() {
-	local code="$1" fallback="$2"
-	echo "${_SPORTS_PT[$code]:-$fallback}"
-}
-
-_sports_fetch_day() {
-	local iso_date="$1" day_type="$2"
+# -----------------------------------------------------------------------------
+# ESPN API - Fetch games for a specific league and date
+# -----------------------------------------------------------------------------
+_sports_fetch_league_day() {
+	local slug="$1" iso_date="$2" day_type="$3"
 	local curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRY" --retry-delay 5 --retry-all-errors)
 
-	local matches_json teams_json
-	matches_json=$(curl "${curl_opts[@]}" "${BASE_URL}/matches.json") || {
-		echo "- Nenhum jogo encontrado"
-		return 0
-	}
-	teams_json=$(curl "${curl_opts[@]}" "${BASE_URL}/teams.json")
+	local response
+	response=$(curl "${curl_opts[@]}" "${BASE_URL}/${slug}/scoreboard?dates=${iso_date//-/}") || return 0
 
-	local matches
-	matches=$(echo "$matches_json" | jq -r --arg date "$iso_date" '
-		[.data[] | select(.date == $date)] |
-		sort_by(.datetime_utc // "") |
-		.[] |
-		[.datetime_utc // "", .home // "", .away // "", .home_name // "", .away_name // "", (.score_home // ""), (.score_away // ""), (.status // ""), (.label // "")] |
-		join("|")
-	')
+	local events
+	events=$(echo "$response" | jq -r '
+		.events[] | [
+			(.competitions[0].competitors[] | select(.homeAway == "home") | .team.shortDisplayName),
+			(.competitions[0].competitors[] | select(.homeAway == "away") | .team.shortDisplayName),
+			(.competitions[0].competitors[] | select(.homeAway == "home") | .score // ""),
+			(.competitions[0].competitors[] | select(.homeAway == "away") | .score // ""),
+			.date,
+			.competitions[0].status.type.state,
+			(.competitions[0].status.type.completed | tostring)
+		] | join("|")
+	' 2>/dev/null)
 
-	[[ -z "$matches" ]] && {
-		echo "- Nenhum jogo encontrado"
-		return 0
-	}
-
-	declare -A flags
-	if [[ -n "$teams_json" ]]; then
-		local tsv
-		tsv=$(echo "$teams_json" | jq -r '.data[] | [.code, .name, .flag] | @tsv' 2>/dev/null)
-		while IFS=$'\t' read -r code name flag; do
-			[[ "$flag" == "🏳" ]] && continue
-			flags["$code"]="$flag"
-		done <<<"$tsv"
-		# Fix codes that only had a placeholder white flag
-		while IFS=$'\t' read -r code name flag; do
-			[[ "$flag" != "🏳" || -n "${flags[$code]:-}" ]] && continue
-			local real
-			real=$(awk -F'\t' -v name="$name" '$2 == name && $3 != "🏳" {print $3; exit}' <<<"$tsv")
-			[[ -n "$real" ]] && flags["$code"]="$real"
-		done <<<"$tsv"
-	fi
+	[[ -z "$events" ]] && return 0
 
 	local output_lines=()
+	local home away hscore ascore datetime state completed
+	while IFS='|' read -r home away hscore ascore datetime state completed; do
+		if [[ "$day_type" == "yesterday" ]] && [[ "$state" != "post" ]]; then continue; fi
 
-	local datetime home_code away_code home_name away_name hscore ascore status label
-	local flag_home flag_away home_display away_display line
-	while IFS='|' read -r datetime home_code away_code home_name away_name hscore ascore status label; do
-		if [[ "$day_type" == "yesterday" ]] && [[ "$status" != "FINISHED" ]]; then continue; fi
-
-		if [[ -n "$home_code" && -n "$away_code" ]]; then
-			flag_home="${flags[$home_code]:-}"
-			flag_away="${flags[$away_code]:-}"
-			home_display="${flag_home}$(_sports_ptname "$home_code" "$home_name")"
-			away_display="${flag_away}$(_sports_ptname "$away_code" "$away_name")"
-		else
-			home_display=""
-			away_display=""
-		fi
-
-		line=$(_sports_format_line "$day_type" "$datetime" "$home_display" "$away_display" "$hscore" "$ascore" "$status" "$label")
+		local line
+		line=$(_sports_format_line "$state" "$home" "$away" "$hscore" "$ascore" "$datetime")
 		output_lines+=("- ${line}")
-	done <<<"$matches"
+	done <<<"$events"
 
 	printf '%s\n' "${output_lines[@]}"
 }
@@ -165,34 +122,52 @@ get_sports_block() {
 
 	local base_tmp_dir="${_HCNEWS_TEMP_DIR:-/tmp}"
 	[[ -d "$base_tmp_dir" ]] || base_tmp_dir="/tmp"
-	local today_tmp_file="${base_tmp_dir}/sports_today_$$.txt"
-	local yesterday_tmp_file="${base_tmp_dir}/sports_yesterday_$$.txt"
 
-	(_sports_fetch_day "$today_iso" "today") >"$today_tmp_file" &
-	local today_pid=$!
-	(_sports_fetch_day "$yesterday_iso" "yesterday") >"$yesterday_tmp_file" &
-	local yesterday_pid=$!
+	local block=""
+	local has_content=false
 
-	wait "$today_pid" 2>/dev/null || true
-	wait "$yesterday_pid" 2>/dev/null || true
+	for comp in "${COMPETITIONS[@]}"; do
+		local slug="${comp%%|*}"
+		local rest="${comp#*|}"
+		local comp_name="${rest%%|*}"
+		local comp_emoji="${rest##*|}"
 
-	local today_games=""
-	local yesterday_games=""
-	[[ -f "$today_tmp_file" ]] && today_games=$(<"$today_tmp_file")
-	[[ -f "$yesterday_tmp_file" ]] && yesterday_games=$(<"$yesterday_tmp_file")
-	rm -f "$today_tmp_file" "$yesterday_tmp_file"
+		local today_file="${base_tmp_dir}/sports_${slug}_today_$$.txt"
+		local yesterday_file="${base_tmp_dir}/sports_${slug}_yesterday_$$.txt"
 
-	local block
-	if [[ "$today_games" == *"- Nenhum jogo encontrado"* ]]; then
-		block="🏆 *Copa do Mundo 2026 - Hoje*"
-		block+=$'\n'"- Nenhum jogo encontrado"
-	else
-		block="🏆 *Copa do Mundo 2026 - Hoje*"
-		block+=$'\n'"$today_games"
-	fi
-	if [[ "$yesterday_games" != *"- Nenhum jogo encontrado"* && -n "$yesterday_games" ]]; then
-		block+=$'\n'"🥅 *Ontem*"
-		block+=$'\n'"$yesterday_games"
+		(_sports_fetch_league_day "$slug" "$today_iso" "today") >"$today_file" &
+		local today_pid=$!
+		(_sports_fetch_league_day "$slug" "$yesterday_iso" "yesterday") >"$yesterday_file" &
+		local yesterday_pid=$!
+
+		wait "$today_pid" 2>/dev/null || true
+		wait "$yesterday_pid" 2>/dev/null || true
+
+		local today_games yesterday_games
+		today_games=$(<"$today_file")
+		yesterday_games=$(<"$yesterday_file")
+		rm -f "$today_file" "$yesterday_file"
+
+		[[ -z "$today_games" && -z "$yesterday_games" ]] && continue
+
+		has_content=true
+		block+="${comp_emoji} *${comp_name}*"
+
+		if [[ -n "$today_games" ]]; then
+			block+=$'\n'"📅 Hoje:"
+			block+=$'\n'"$today_games"
+		fi
+
+		if [[ -n "$yesterday_games" ]]; then
+			block+=$'\n'"🥅 Ontem:"
+			block+=$'\n'"$yesterday_games"
+		fi
+
+		block+=$'\n\n'
+	done
+
+	if [[ "$has_content" == false ]]; then
+		block="- Nenhum jogo encontrado"
 	fi
 
 	[[ "$use_cache" == true ]] && hcnews_write_cache "$cache_file" "$block"
@@ -207,7 +182,7 @@ hc_component_sports() {
 show_help() {
 	cat <<EOF
 Usage: ./sports.sh [--no-cache|--force]
-Fetches FIFA World Cup 2026 scores (yesterday) and today's fixtures from wheniskickoff.com.
+Fetches Brazilian football scores (yesterday) and today's fixtures from ESPN.
 --date=YYYY-MM-DD  Override base date (mainly for debugging)
 EOF
 }
