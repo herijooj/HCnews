@@ -77,8 +77,8 @@ _sports_fetch_league_day() {
 	[[ -z "$events" ]] && return 0
 
 	local output_lines=()
-	local home away hscore ascore datetime state completed
-	while IFS='|' read -r home away hscore ascore datetime state completed; do
+	local home away hscore ascore datetime state
+	while IFS='|' read -r home away hscore ascore datetime state _; do
 		if [[ "$day_type" == "yesterday" ]] && [[ "$state" != "post" ]]; then continue; fi
 
 		local line
