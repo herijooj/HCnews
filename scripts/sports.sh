@@ -23,9 +23,9 @@ CURL_RETRY="${HCNEWS_SPORTS_RETRY:-5}"
 
 # Competition definitions: slug|display_name|emoji
 COMPETITIONS=(
-  "bra.1|Brasileirão Série A|⚽"
-  "bra.copa_do_brazil|Copa do Brasil|🏆"
-  "conmebol.libertadores|Libertadores|🏆"
+	"bra.1|Brasileirão Série A|⚽"
+	"bra.copa_do_brazil|Copa do Brasil|🏆"
+	"conmebol.libertadores|Libertadores|🏆"
 )
 
 # -----------------------------------------------------------------------------
