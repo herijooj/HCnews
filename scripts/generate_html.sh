@@ -22,6 +22,7 @@ pages=(
 	"news_weather.out:weather.html:Previsao do Tempo"
 	"news_hackernews.out:hackernews.html:Hacker News"
 	"news_ru.out:ru.html:RU"
+	"news_musicchart.out:musicchart.html:Top 10 Músicas"
 )
 
 echo "Generating HTML files..." >&2

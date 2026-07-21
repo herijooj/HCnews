@@ -24,6 +24,7 @@ hc_orch_start_network_jobs() {
 		start_background_job "ru" "(SELECTED_LOCATION='${ru_location}' SHOW_ONLY_TODAY=true _ru_USE_CACHE=\$_HCNEWS_USE_CACHE; _ru_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; hc_component_ru)"
 	fi
 	start_background_job "header_moon" "(_moonphase_USE_CACHE=\$_HCNEWS_USE_CACHE; _moonphase_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; hc_component_moonphase)"
+	start_background_job "musicchart" "(_musicchart_USE_CACHE=\$_HCNEWS_USE_CACHE; _musicchart_FORCE_REFRESH=\$_HCNEWS_FORCE_REFRESH; hc_component_musicchart)"
 
 	end_timing "network_parallel_start"
 }
@@ -44,6 +45,7 @@ hc_orch_collect_network_data() {
 		ru_output=""
 	fi
 	[[ -z "$onthisday_output" ]] && { onthisday_output=$(wait_for_job "onthisday") || onthisday_output=""; }
+	[[ -z "$musicchart_output" ]] && { musicchart_output=$(wait_for_job "musicchart") || musicchart_output=""; }
 }
 
 hc_orch_run_local_jobs() {

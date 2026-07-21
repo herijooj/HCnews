@@ -33,7 +33,7 @@ HCNEWS_COMPONENT_REGISTRY["ru"]="hc_component_ru|ru|ru|main,refresh,daily_build|
 HCNEWS_COMPONENT_REGISTRY["emoji"]="hc_component_emoji|emoji|emoji|main,daily_build|true|false|local|5|0|130"
 
 # Currently disabled/optional components
-HCNEWS_COMPONENT_REGISTRY["musicchart"]="hc_component_musicchart|musicchart|musicchart|refresh,daily_build|false|false|network|25|1|200"
+HCNEWS_COMPONENT_REGISTRY["musicchart"]="hc_component_musicchart|musicchart|musicchart|main,refresh,daily_build|true|false|network|25|1|135"
 HCNEWS_COMPONENT_REGISTRY["earthquake"]="hc_component_earthquake|earthquake|earthquake|refresh,daily_build|false|false|network|25|1|210"
 HCNEWS_COMPONENT_REGISTRY["quote"]="hc_component_quote|quote|quote|refresh,daily_build|false|false|network|20|1|220"
 HCNEWS_COMPONENT_REGISTRY["futuro"]="hc_component_futuro|futuro|futuro|refresh,daily_build|false|false|network|40|0|230"

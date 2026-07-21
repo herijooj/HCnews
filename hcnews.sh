@@ -32,6 +32,7 @@ source "$SCRIPT_DIR/scripts/UFPR/ru.sh"
 # Source timing utilities last
 source "$SCRIPT_DIR/scripts/timing.sh"
 source "$SCRIPT_DIR/scripts/onthisday.sh"
+source "$SCRIPT_DIR/scripts/musicchart.sh"
 
 # ==================================================================================
 
@@ -52,6 +53,7 @@ bicho_output=""
 saints_output=""
 ru_output=""
 emoji_output=""
+musicchart_output=""
 
 # Runtime defaults (safe when sourced)
 saints_verbose=true
@@ -276,6 +278,12 @@ render_output() {
 	# 14. Emoji
 	echo "$emoji_output"
 	echo ""
+
+	# 15. Music Chart
+	if [[ -n "$musicchart_output" ]]; then
+		echo "$musicchart_output"
+		echo ""
+	fi
 }
 
 function output {
