@@ -24,15 +24,14 @@ WEATHER_PID=$!
 echo "📰 Fetching main newspaper data..." >&2
 fetch_newspaper_data true
 
-# 3. Generate News Content (RSS)
+# 3. Generate News Content (RSS) for Tudo (subset)
 _hc_full_url_saved="$hc_full_url"
 hc_full_url=true
-echo "🗞️ Generating RSS content..." >&2
+echo "🗞️ Generating RSS content for Tudo..." >&2
 news_output=$(
 	_rss_USE_CACHE=$_HCNEWS_USE_CACHE
 	_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
-	# shellcheck disable=SC2154
-	hc_component_rss "$all_feeds" true true ${hc_full_url}
+	hc_component_rss "$tudo_feeds" true true ${hc_full_url}
 )
 
 # 4. Assemble 'Tudo' content
@@ -40,11 +39,24 @@ content_tudo_body=$(render_output)
 footer_content=$(footer)
 content_tudo="${content_tudo_body}\n\n${footer_content}"
 
-# 5. Assemble 'Notícias' content
+# 5. Generate News Content for Notícias (all feeds)
+echo "🗞️ Generating RSS content for Notícias..." >&2
+news_output=$(
+	_rss_USE_CACHE=$_HCNEWS_USE_CACHE
+	_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	hc_component_rss "$all_feeds" true true ${hc_full_url}
+)
+
+# 5b. Assemble 'Notícias' content
 content_noticias="${news_output}\n\n${footer_content}"
 
-# 5b. Assemble 'Esportes' content (sports only, full list)
-content_sports="$(HCNEWS_SPORTS_FILTER=ALL hc_component_sports)\n\n${footer_content}"
+# 5b. Assemble 'Esportes' content (sports + F1)
+f1_output=$(
+	_rss_USE_CACHE=$_HCNEWS_USE_CACHE
+	_rss_FORCE_REFRESH=$_HCNEWS_FORCE_REFRESH
+	hc_component_rss "${HCNEWS_FEEDS[formula1]}" true true ${hc_full_url}
+)
+content_sports="$(HCNEWS_SPORTS_FILTER=ALL hc_component_sports)\n\n${f1_output}\n\n${footer_content}"
 
 # 5c. Assemble 'Hacker News' content (latest 10 stories)
 content_hackernews_body=$("$SCRIPT_DIR/scripts/hackernews.sh")

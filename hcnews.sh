@@ -380,23 +380,40 @@ hcnews_init_runtime() {
 		formula1="https://www.formula1.com/content/fom-website/en/latest/all.xml"
 	fi
 
-	# Build all_feeds from comma-separated feed keys
-	if [[ -n "${HCNEWS_FEEDS_PRIMARY:-}" ]]; then
-		local -a feed_keys
-		local key local_feed_url
-		all_feeds=""
-		IFS=',' read -ra feed_keys <<<"$HCNEWS_FEEDS_PRIMARY"
-		for key in "${feed_keys[@]}"; do
-			hc_trim_var key
-			[[ -z "$key" || "$key" == "xvcuritiba" ]] && continue
-			local_feed_url="${HCNEWS_FEEDS[$key]:-}"
-			[[ -z "$local_feed_url" ]] && continue
-			[[ -n "$all_feeds" ]] && all_feeds+=","
-			all_feeds+="$local_feed_url"
+	# Helper: build feed list from comma-separated keys
+	_build_feed_list() {
+		local -n _out="$1"
+		local _keys="$2"
+		local _key _url
+		_out=""
+		IFS=',' read -ra _keys_arr <<<"$_keys"
+		for _key in "${_keys_arr[@]}"; do
+			hc_trim_var _key
+			[[ -z "$_key" || "$_key" == "xvcuritiba" ]] && continue
+			_url="${HCNEWS_FEEDS[$_key]:-}"
+			[[ -z "$_url" ]] && continue
+			[[ -n "$_out" ]] && _out+=","
+			_out+="$_url"
 		done
-		[[ -z "$all_feeds" ]] && all_feeds="${o_popular},${plantao190}"
+	}
+
+	# Build all_feeds from ALL feeds in the array (everything available)
+	all_feeds=""
+	for _key in "${!HCNEWS_FEEDS[@]}"; do
+		[[ "$_key" == "xvcuritiba" ]] && continue
+		_url="${HCNEWS_FEEDS[$_key]}"
+		[[ -z "$_url" ]] && continue
+		[[ -n "$all_feeds" ]] && all_feeds+=","
+		all_feeds+="$_url"
+	done
+	[[ -z "$all_feeds" ]] && all_feeds="${o_popular},${plantao190}"
+
+	# Build tudo_feeds (subset for Tudo page - only most relevant local feeds)
+	if [[ -n "${HCNEWS_FEEDS_TUDO:-}" ]]; then
+		_build_feed_list tudo_feeds "$HCNEWS_FEEDS_TUDO"
+		[[ -z "$tudo_feeds" ]] && tudo_feeds="$all_feeds"
 	else
-		all_feeds="${o_popular},${plantao190}"
+		tudo_feeds="$all_feeds"
 	fi
 
 	_HCNEWS_RUNTIME_INITIALIZED=true

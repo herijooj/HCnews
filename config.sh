@@ -29,7 +29,10 @@ HCNEWS_WEATHER_CITIES=(
 # RSS Feeds Configuration
 # -----------------------------------------------------------------------------
 # Primary news feeds (comma-separated for main news)
-HCNEWS_FEEDS_PRIMARY="${HCNEWS_FEEDS_PRIMARY:-opopular,plantao190}"
+HCNEWS_FEEDS_PRIMARY="${HCNEWS_FEEDS_PRIMARY:-opopular,plantao190,tribuna,gazeta}"
+
+# Tudo page feeds (subset - only most locally relevant)
+HCNEWS_FEEDS_TUDO="${HCNEWS_FEEDS_TUDO:-opopular,plantao190,tribuna,gazeta,bandab}"
 
 # All available feeds (associative array - key: feed name, value: URL)
 # Can be used with -n flag or extended news output
@@ -38,13 +41,15 @@ declare -gA HCNEWS_FEEDS=(
 	["opopular"]="https://opopularpr.com.br/feed/"
 	["plantao190"]="https://plantao190.com.br/feed/"
 	# ["xvcuritiba"]="https://xvcuritiba.com.br/feed/"  # Disabled: DNS issues
-	["bandab"]="https://www.bandab.com.br/web-stories/feed/"
+	["bandab"]="https://www.bandab.com.br/feed/"
 	["g1_parana"]="https://g1.globo.com/rss/g1/pr/parana/"
 	["g1_cinema"]="https://g1.globo.com/rss/g1/pop-arte/cinema/"
 	["newyorker"]="https://www.newyorker.com/feed/magazine/rss"
 	["folha"]="https://feeds.folha.uol.com.br/mundo/rss091.xml"
-	["formula1"]="https://www.formula1.com/content/fom-website/en/latest/all.xml"
-	["bbc"]="http://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
+	["formula1"]="https://feeds.bbci.co.uk/sport/formula1/rss.xml"
+	["bbc"]="https://feeds.bbci.co.uk/news/world/latin_america/rss.xml"
+	["tribuna"]="https://www.tribunapr.com.br/feed/"
+	["gazeta"]="https://gazetadoparana.com.br/feed/"
 )
 
 # -----------------------------------------------------------------------------
