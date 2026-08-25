@@ -110,7 +110,7 @@ function get_menu() {
 	local content
 	content=$(
 		set -o pipefail
-		curl -fsSL -4 --compressed --connect-timeout 5 --max-time 10 "$url" |
+		curl -fsSL --compressed --connect-timeout 5 --max-time 10 "$url" |
 			perl -0777 -pe 's/<style[^>]*>.*?<\/style>//gis; s/<script[^>]*>.*?<\/script>//gis; s/<!--.*?-->//gs' |
 			LC_ALL=C sed -e 's/<[^>]*>//g' |
 			awk -v show_today="$show_today" -v today_base="$today_base" -v today_label="$today" '

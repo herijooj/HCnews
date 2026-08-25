@@ -204,7 +204,7 @@ get_rss_data() {
 
 	# Fetch feed content
 	local feed_content
-	feed_content=$(timeout 8s curl -s -4 --connect-timeout 2 --max-time 6 --retry 1 \
+	feed_content=$(timeout 8s curl -s --connect-timeout 2 --max-time 6 --retry 1 \
 		--compressed -H "User-Agent: HCNews/1.0" "$feed_url" 2>/dev/null)
 
 	# Exit if invalid content

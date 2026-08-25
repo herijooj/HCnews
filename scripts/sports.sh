@@ -56,7 +56,7 @@ _sports_format_line() {
 # -----------------------------------------------------------------------------
 _sports_fetch_league_day() {
 	local slug="$1" iso_date="$2" day_type="$3"
-	local curl_opts=(-s -L -4 --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRY" --retry-delay 5 --retry-all-errors)
+	local curl_opts=(-s -L --compressed --connect-timeout "$CURL_CONNECT_TIMEOUT" --max-time "$CURL_MAX_TIME" --retry "$CURL_RETRY" --retry-delay 5 --retry-all-errors)
 
 	local response
 	response=$(curl "${curl_opts[@]}" "${BASE_URL}/${slug}/scoreboard?dates=${iso_date//-/}") || return 0
@@ -126,27 +126,54 @@ get_sports_block() {
 	local block=""
 	local has_content=false
 
+	# Build the full task list (league × date) and fetch every one in parallel
+	# instead of one league at a time. ESPN is ~0.9s/call; 6 serial calls would be
+	# ~5s, but 6 parallel calls stay around a single call's latency.
+	local -a task_slugs=()
+	local -a task_dates=()
+	local -a task_types=()
+	local comp slug rest comp_name comp_emoji
 	for comp in "${COMPETITIONS[@]}"; do
-		local slug="${comp%%|*}"
-		local rest="${comp#*|}"
-		local comp_name="${rest%%|*}"
-		local comp_emoji="${rest##*|}"
+		slug="${comp%%|*}"
+		rest="${comp#*|}"
+		comp_name="${rest%%|*}"
+		comp_emoji="${rest##*|}"
+		task_slugs+=("$slug")
+		task_dates+=("$today_iso")
+		task_types+=("today")
+		task_slugs+=("$slug")
+		task_dates+=("$yesterday_iso")
+		task_types+=("yesterday")
+	done
 
-		local today_file="${base_tmp_dir}/sports_${slug}_today_$$.txt"
-		local yesterday_file="${base_tmp_dir}/sports_${slug}_yesterday_$$.txt"
+	local -a results=()
+	local -a pids=()
+	local i
+	for i in "${!task_slugs[@]}"; do
+		local file="${base_tmp_dir}/sports_${task_slugs[$i]}_${task_types[$i]}_${task_dates[$i]}$$.txt"
+		(_sports_fetch_league_day "${task_slugs[$i]}" "${task_dates[$i]}" "${task_types[$i]}") >"$file" &
+		pids+=("$!")
+		results+=("")
+	done
 
-		(_sports_fetch_league_day "$slug" "$today_iso" "today") >"$today_file" &
-		local today_pid=$!
-		(_sports_fetch_league_day "$slug" "$yesterday_iso" "yesterday") >"$yesterday_file" &
-		local yesterday_pid=$!
+	# Wait for all parallel fetches, then read their output
+	for i in "${!pids[@]}"; do
+		wait "${pids[$i]}" 2>/dev/null || true
+		results[$i]=$(<"${base_tmp_dir}/sports_${task_slugs[$i]}_${task_types[$i]}_${task_dates[$i]}$$.txt")
+		rm -f "${base_tmp_dir}/sports_${task_slugs[$i]}_${task_types[$i]}_${task_dates[$i]}$$.txt"
+	done
 
-		wait "$today_pid" 2>/dev/null || true
-		wait "$yesterday_pid" 2>/dev/null || true
+	# Now assemble the block league by league, in display order
+	local idx=0
+	for comp in "${COMPETITIONS[@]}"; do
+		slug="${comp%%|*}"
+		rest="${comp#*|}"
+		comp_name="${rest%%|*}"
+		comp_emoji="${rest##*|}"
 
-		local today_games yesterday_games
-		today_games=$(<"$today_file")
-		yesterday_games=$(<"$yesterday_file")
-		rm -f "$today_file" "$yesterday_file"
+		local today_games="${results[$idx]}"
+		local yesterday_games="${results[$((idx + 1))]}"
+		idx=$((idx + 2))
 
 		[[ -z "$today_games" && -z "$yesterday_games" ]] && continue
 

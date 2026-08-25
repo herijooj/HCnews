@@ -119,9 +119,9 @@ get_weather_data() {
 	local fc_file="${tmp_dir}/.weather_fc_${pid}_${city_normalized}"
 	local air_file="${tmp_dir}/.weather_air_${pid}_${city_normalized}"
 
-	curl -s -4 -A "Mozilla/5.0" --compressed --connect-timeout 5 --max-time 10 "$current_url" >"$cur_file" &
-	curl -s -4 -A "Mozilla/5.0" --compressed --connect-timeout 5 --max-time 10 "$forecast_url" >"$fc_file" &
-	curl -s -4 -A "Mozilla/5.0" --compressed --connect-timeout 5 --max-time 10 "$air_url" >"$air_file" &
+	curl -s -A "Mozilla/5.0" --compressed --connect-timeout 5 --max-time 10 "$current_url" >"$cur_file" &
+	curl -s -A "Mozilla/5.0" --compressed --connect-timeout 5 --max-time 10 "$forecast_url" >"$fc_file" &
+	curl -s -A "Mozilla/5.0" --compressed --connect-timeout 5 --max-time 10 "$air_url" >"$air_file" &
 	wait
 
 	local current_weather forecast_data air_data

@@ -34,7 +34,7 @@ function get_music_chart() {
 	# Fetch from Apple Music RSS (configurable)
 	local json
 	local chart_url="${HCNEWS_MUSIC_CHART_URL:-https://rss.applemarketingtools.com/api/v2/br/music/most-played/10/songs.json}"
-	json=$(curl -sL -4 -A "Mozilla/5.0 (Script; HCnews)" --compressed --max-time 10 --connect-timeout 5 \
+	json=$(curl -sL -A "Mozilla/5.0 (Script; HCnews)" --compressed --max-time 10 --connect-timeout 5 \
 		"$chart_url")
 
 	if [[ -z "$json" ]]; then

@@ -89,7 +89,7 @@ get_city_coords() {
 	# Use OpenWeatherMap Geocoding API
 	local geo_url="https://api.openweathermap.org/geo/1.0/direct?q=${city_query},BR&limit=1&appid=${api_key}"
 	local geo_response
-	geo_response=$(curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$geo_url")
+	geo_response=$(curl -s --compressed --connect-timeout 5 --max-time 10 "$geo_url")
 
 	local lat lon
 	lat=$(echo "$geo_response" | jq -r '.[0].lat // empty' 2>/dev/null)
@@ -159,7 +159,7 @@ get_airquality() {
 
 	local AIR_URL="https://api.openweathermap.org/data/2.5/air_pollution?lat=${lat}&lon=${lon}&appid=${api_key}"
 
-	curl -s -4 -A "Mozilla/5.0 (Script; HCnews)" --compressed --connect-timeout 5 --max-time 10 "$AIR_URL" >"$air_temp"
+	curl -s -A "Mozilla/5.0 (Script; HCnews)" --compressed --connect-timeout 5 --max-time 10 "$AIR_URL" >"$air_temp"
 
 	local AIR_DATA
 	AIR_DATA=$(<"$air_temp")

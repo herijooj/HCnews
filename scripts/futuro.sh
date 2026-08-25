@@ -134,7 +134,7 @@ function get_ai_fortune() {
 	fi
 
 	# Make API Request
-	http_response=$(curl -sf -4 --compressed -X POST "$full_api_url" \
+	http_response=$(curl -sf --compressed -X POST "$full_api_url" \
 		-H "Content-Type: application/json" \
 		--data "$json_payload")
 	curl_exit_code=$?

@@ -38,7 +38,7 @@ get_exchange_bc() {
 	local out=""
 
 	while [[ $retry_count -lt $MAX_RETRIES ]]; do
-		response=$(curl -s -4 --compressed -m 10 "$json_url")
+		response=$(curl -s --compressed -m 10 "$json_url")
 
 		out=$(echo "$response" | jq -r '
             .conteudo[]
@@ -72,7 +72,7 @@ fetch_cmc_batch() {
 	local raw_data=""
 
 	while [[ $retry_count -lt $MAX_RETRIES ]]; do
-		raw_data=$(curl -s -4 --compressed -m 15 -G \
+		raw_data=$(curl -s --compressed -m 15 -G \
 			-H "X-CMC_PRO_API_KEY: $CoinMarketCap_API_KEY" \
 			-H "Accept: application/json" \
 			--data-urlencode "id=$ids" \

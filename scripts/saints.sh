@@ -27,7 +27,7 @@ _saints_get_url() {
 
 _saints_fetch_html() {
 	local url="$1"
-	curl -s -4 --compressed --connect-timeout 5 --max-time 10 "$url"
+	curl -s --compressed --connect-timeout 5 --max-time 10 "$url"
 }
 
 _saints_extract_names() {
