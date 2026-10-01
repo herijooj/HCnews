@@ -176,6 +176,7 @@ function footer {
 	echo "🔔 *HCNews:* Seu Jornal Automático Diário"
 	echo "- 📡 Stack: RSS • Bash • Python • Nix"
 	echo "- 🔗 https://github.com/herijooj/HCnews"
+	echo "- 🌐 https://hcnews.hericws.duckdns.org"
 	echo "🙌 *Que Deus abençoe a todos!*"
 	echo ""
 	echo "🤖 ${current_time} (BRT) ⏱️ ${elapsed_f1_time} on ${HOSTNAME}"

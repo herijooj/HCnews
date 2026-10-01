@@ -1,6 +1,8 @@
 # HC News
 the HC version of JRMUNEWS.
 
+🌐 **Live:** https://hcnews.hericws.duckdns.org
+
 ![gothGirlReading](./scr/gothGirlReading.jpg)
 
 HCNEWS is a daily news update inspired by JRMUNEWS, you can find more about JRMUNEWS on https://www.instagram.com/jrmunews/

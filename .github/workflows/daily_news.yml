@@ -1,15 +1,18 @@
 name: Daily HC News
 
 on:
-  schedule:
-    # Run at reasonable hours (on the hour)
-    # BRT = UTC-3, so BRT times + 3 = UTC
-    - cron: '0 9 * * *'     # 06:00 BRT
-    - cron: '0 15 * * *'    # 12:00 BRT
-    - cron: '0 19 * * *'    # 16:00 BRT
-    - cron: '0 23 * * *'    # 20:00 BRT
-    - cron: '0 3 * * *'     # 00:00 BRT
-    - cron: '0 4 * * *'     # 01:00 BRT
+  # Scheduled builds DISABLED 2026-10-01: r-vm builds and serves the site now
+  # (hcnews-build.timer, see nixos-config/docs/r-vm-hcnews). Re-enable the
+  # block below if the VPS ever needs a fallback.
+  # schedule:
+  #   # Run at reasonable hours (on the hour)
+  #   # BRT = UTC-3, so BRT times + 3 = UTC
+  #   - cron: '0 9 * * *'     # 06:00 BRT
+  #   - cron: '0 15 * * *'    # 12:00 BRT
+  #   - cron: '0 19 * * *'    # 16:00 BRT
+  #   - cron: '0 23 * * *'    # 20:00 BRT
+  #   - cron: '0 3 * * *'     # 00:00 BRT
+  #   - cron: '0 4 * * *'     # 01:00 BRT
   workflow_dispatch:
     # Allows manual triggering with an optional `force` input to bypass cached data
     inputs:
