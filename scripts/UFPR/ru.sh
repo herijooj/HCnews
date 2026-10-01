@@ -173,7 +173,10 @@ function get_menu() {
                         print "\n📅 *" day "* " date
                     } else {
                         if (matched_day == 1) {
-                            exit
+                            # Do not exit here: keep consuming stdin to EOF so
+                            # upstream sed/curl do not get SIGPIPE
+                            # ("sed: could not flush stdout: Broken pipe").
+                            matched_day = 2
                         }
                         include_section = 0
                     }

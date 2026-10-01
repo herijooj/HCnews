@@ -38,6 +38,9 @@ start_background_job() {
 	local timing_file="${_HCNEWS_TEMP_DIR}/${job_name}.time"
 
 	# Run command in background - use subshell (inherit env) instead of new process
+	# NOTE: stderr goes to a separate .err file, NOT merged into stdout.
+	# Merging (2>&1) leaks warnings like "sed: couldn't flush stdout:
+	# Broken pipe" into the rendered newspaper/website content.
 	(
 		if [[ "${timing:-false}" == true ]]; then
 			_job_start=$(date +%s%N)
@@ -47,7 +50,7 @@ start_background_job() {
 		else
 			eval "$command"
 		fi
-	) >"$temp_file" 2>&1 &
+	) >"$temp_file" 2>"$temp_file.err" &
 
 	local pid=$!
 
@@ -109,6 +112,11 @@ wait_for_job() {
 		if [[ -f "$temp_file" ]]; then
 			cat "$temp_file"
 		fi
+		# Forward component stderr to the build log (not into the content)
+		if [[ -s "$temp_file.err" ]]; then
+			cat "$temp_file.err" >&2
+		fi
+		rm -f "$temp_file.err"
 
 		unset "background_jobs[$job_name]"
 		return 0
