@@ -9,43 +9,48 @@
     <link rel="icon"
         href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📰</text></svg>">
     <title>HCNews!</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=UnifrakturMaguntia&family=Playfair+Display:ital,wght@0,500;0,700;0,900;1,500&display=swap"
+        rel="stylesheet">
     <style>
         :root {
-            --bg-primary: #1e1e1e;
-            --bg-secondary: #2d2d2d;
-            --bg-tertiary: #3d3d3d;
+            --bg-primary: #000000;
+            --bg-secondary: #0d0d0d;
+            --bg-tertiary: #1a1a1a;
             --text-primary: #d4d4d4;
             --text-secondary: #aaa;
             --text-highlight: #fff;
-            --border-color: #333;
+            --border-color: #2a2a2a;
             --accent-color: #3794ff;
             --accent-hover: #2a75d1;
-            --code-bg: #2d2d2d;
+            --code-bg: #0d0d0d;
             --code-color: #e06c75;
             --em-color: #aaa;
             --del-color: #888;
-            --shadow-color: rgba(0, 0, 0, 0.5);
-            --scrollbar-track: #2d2d2d;
-            --scrollbar-thumb: #444;
+            --shadow-color: rgba(0, 0, 0, 0.8);
+            --scrollbar-track: #0d0d0d;
+            --scrollbar-thumb: #333;
         }
 
         [data-theme="light"] {
-            --bg-primary: #f5f5f5;
-            --bg-secondary: #ffffff;
-            --bg-tertiary: #e0e0e0;
+            --bg-primary: #faf6ea;
+            --bg-secondary: #fffdf7;
+            --bg-tertiary: #ece4d0;
             --text-primary: #333333;
             --text-secondary: #666666;
             --text-highlight: #000000;
-            --border-color: #dddddd;
+            --border-color: #d8cdb2;
             --accent-color: #0066cc;
             --accent-hover: #0052a3;
-            --code-bg: #f0f0f0;
+            --code-bg: #f0e9d6;
             --code-color: #d63384;
             --em-color: #555555;
             --del-color: #999999;
             --shadow-color: rgba(0, 0, 0, 0.15);
-            --scrollbar-track: #e8e8e8;
-            --scrollbar-thumb: #aaaaaa;
+            --scrollbar-track: #ece4d0;
+            --scrollbar-thumb: #c9bfa5;
         }
 
         body {
@@ -60,6 +65,50 @@
             transition: background-color 0.3s, color 0.3s;
         }
 
+        /* ---- Newspaper masthead (Step 1 of restyle) ---- */
+        .masthead {
+            text-align: center;
+            color: var(--text-highlight);
+            margin: 6px 0 0;
+        }
+
+        .masthead-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 8px;
+            font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            font-size: 11px;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            border-top: 3px solid var(--text-highlight);
+            border-bottom: 1px solid var(--text-highlight);
+            padding: 6px 2px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .masthead-title {
+            font-family: 'UnifrakturMaguntia', 'Old English Text MT', Georgia, serif;
+            font-size: clamp(56px, 13vw, 108px);
+            line-height: 1;
+            margin: 10px 0 12px;
+            font-weight: 400;
+        }
+
+        .masthead-rule {
+            border: none;
+            border-bottom: 3px solid var(--text-highlight);
+            margin: 0 0 16px;
+        }
+
+        @media (max-width: 600px) {
+            .masthead-top {
+                font-size: 9px;
+                letter-spacing: 0.08em;
+            }
+        }
+
         @media (max-width: 600px) {
             body {
                 padding: 10px;
@@ -67,7 +116,7 @@
             }
 
             .nav-tabs {
-                margin-bottom: 15px;
+                margin-bottom: 0;
             }
 
             .controls {
@@ -99,23 +148,21 @@
                 text-align: center;
             }
 
-            /* Icon-only buttons on mobile */
+            /* Compact buttons on mobile (labels visible, no icons) */
             .btn-icon-mobile {
                 flex: 0 0 auto;
-                /* Don't grow, just fit icon */
-                padding: 10px 15px;
-            }
-
-            .btn-icon-mobile .label {
-                display: none;
+                /* Don't grow, just fit text */
+                padding: 10px 12px;
+                font-size: 11px;
             }
         }
 
         .nav-tabs {
             display: flex;
-            border-bottom: 1px solid var(--border-color);
-            margin-bottom: 20px;
-            gap: 2px;
+            border-top: 1px solid var(--text-highlight);
+            border-bottom: none;
+            margin-bottom: 0;
+            gap: 0;
             overflow-x: auto;
             -webkit-overflow-scrolling: touch;
             flex-wrap: nowrap;
@@ -126,7 +173,7 @@
             background-color: var(--bg-primary);
             /* Ensure content doesn't show through */
             z-index: 1000;
-            padding-top: 10px;
+            padding-top: 0;
             /* Slight padding from top */
             padding-bottom: 0;
             transition: transform 0.3s ease-in-out;
@@ -150,35 +197,40 @@
         }
 
         .nav-tab {
-            background-color: var(--bg-secondary);
-            color: var(--text-secondary);
-            padding: 12px 16px;
-            /* Increased padding */
+            background: none;
+            color: var(--text-highlight);
+            padding: 10px 14px;
             text-decoration: none;
-            border-radius: 4px 4px 0 0;
-            font-weight: bold;
+            border-radius: 0;
+            font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
             transition: background-color 0.2s, color 0.2s;
-            font-size: 14px;
+            font-size: 12px;
             white-space: nowrap;
             flex: 1 0 auto;
             /* Grow to fill space, don't shrink below content */
             text-align: center;
         }
 
+        .nav-tab+.nav-tab {
+            border-left: 1px solid var(--border-color);
+        }
+
         .nav-tab:hover {
-            background-color: var(--bg-tertiary);
             color: var(--text-highlight);
         }
 
         .nav-tab.active {
-            background-color: var(--accent-color);
-            color: #fff;
+            background-color: var(--text-highlight);
+            color: var(--bg-primary);
         }
 
         .controls {
             margin-top: 20px;
             padding-top: 10px;
-            border-top: 1px solid var(--border-color);
+            border-top: 3px solid var(--text-highlight);
             display: flex;
             gap: 10px;
             position: fixed;
@@ -199,37 +251,67 @@
         }
 
         button {
-            background-color: var(--accent-color);
-            color: white;
-            border: none;
-            padding: 12px 20px;
-            /* Larger touch target */
-            border-radius: 6px;
+            background-color: var(--text-highlight);
+            color: var(--bg-primary);
+            border: 1px solid var(--text-highlight);
+            padding: 10px 18px;
+            border-radius: 0;
             cursor: pointer;
-            font-size: 16px;
-            /* Larger font */
-            font-weight: 600;
+            font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
         button:hover {
-            background-color: var(--accent-hover);
+            opacity: 0.85;
         }
 
         button.secondary {
-            background-color: var(--bg-tertiary);
+            background: none;
             color: var(--text-primary);
+            border-color: var(--border-color);
         }
 
         button.secondary:hover {
-            background-color: var(--border-color);
+            opacity: 1;
+            border-color: var(--text-highlight);
+            color: var(--text-highlight);
+        }
+
+        /* Fixed width so Copiar/Copiado! doesn't shift the layout */
+        #btn-copy .label {
+            display: inline-block;
+            min-width: calc(8ch + 1em);
+            text-align: center;
+        }
+
+        /* Same for Texto cru/Visual (9 chars incl. space) */
+        #view-label {
+            min-width: calc(9ch + 1em);
+        }
+
+        /* Links toggle: OFF state reads as "disabled" via dashed rule + strikethrough */
+        #btn-links-toggle.secondary {
+            border-style: dashed;
+        }
+
+        #btn-links-toggle.secondary .label {
+            text-decoration: line-through;
+            opacity: 0.65;
         }
 
         #theme-toggle {
             background: transparent;
             border: 1px solid var(--border-color);
             color: var(--text-primary);
-            color: var(--text-primary);
             padding: 10px 16px;
+            font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+            font-size: 13px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
         }
 
         #theme-toggle:hover {
@@ -273,25 +355,35 @@
         }
 
         a {
-            color: var(--accent-color);
-            text-decoration: none;
+            color: var(--text-highlight);
+            text-decoration: underline;
+            text-underline-offset: 2px;
         }
 
         a:hover {
-            text-decoration: underline;
+            text-decoration-thickness: 2px;
         }
 
         code {
             background-color: var(--code-bg);
             padding: 2px 4px;
-            border-radius: 3px;
+            border-radius: 4px;
             font-family: 'Courier New', monospace;
-            color: var(--code-color);
+            color: var(--text-primary);
         }
     </style>
 </head>
 
 <body>
+    <!-- Newspaper nameplate -->
+    <header class="masthead">
+        <div class="masthead-top">
+            <span>Araucária &middot; Paraná</span>
+            <span>{{DATE}}</span>
+        </div>
+        <div class="masthead-title">HCNews</div>
+    </header>
+
     <!-- Main Navigation -->
     <nav class="nav-tabs">
         <a href="index.html" class="nav-tab" id="tab-tudo">Tudo</a>
@@ -303,23 +395,23 @@
         <a href="horoscopo.html" class="nav-tab" id="tab-horoscopo">Horóscopo</a>
         <a href="weather.html" class="nav-tab" id="tab-weather">Clima</a>
     </nav>
+    <hr class="masthead-rule">
 
     <div id="rich-content"></div>
     <textarea id="raw-content" readonly></textarea>
 
     <div class="controls">
         <button onclick="toggleView()" id="btn-view-toggle" title="Ver Texto cru">
-            <span class="icon" id="view-icon">📄</span> <span class="label" id="view-label">Texto cru</span>
+            <span class="label" id="view-label">Texto cru</span>
         </button>
-        <label style="display:flex;align-items:center;gap:8px;" title="Mostrar links">
-            <input id="chk-show-links" type="checkbox" checked style="transform:scale(1.1);">
-            <span class="label" style="font-size:14px;">Links</span>
-        </label>
-        <button onclick="copyRaw()" class="secondary btn-icon-mobile" title="Copiar texto">
-            <span class="icon">📋</span> <span class="label">Copiar</span>
+        <button onclick="toggleLinks()" id="btn-links-toggle" class="btn-icon-mobile" title="Mostrar links">
+            <span class="label">Links</span>
+        </button>
+        <button onclick="copyRaw()" id="btn-copy" class="secondary btn-icon-mobile" title="Copiar texto">
+            <span class="label">Copiar</span>
         </button>
         <button onclick="toggleTheme()" id="theme-toggle" class="secondary btn-icon-mobile" title="Alternar tema">
-            <span id="theme-icon" class="icon">&#9789;</span> <span id="theme-text" class="label">Escuro</span>
+            <span id="theme-text" class="label">Escuro</span>
         </button>
     </div>
 
@@ -385,23 +477,32 @@
             return parseWhatsApp(text, showLinks);
         }
 
+        let linksVisible = true;
+
+        function toggleLinks() {
+            linksVisible = !linksVisible;
+            const btn = document.getElementById('btn-links-toggle');
+            btn.classList.toggle('secondary', !linksVisible);
+            btn.title = linksVisible ? 'Ocultar links' : 'Mostrar links';
+            const currentView = document.getElementById('rich-content').style.display !== 'none' ? 'rich' : 'raw';
+            setView(currentView);
+        }
+
         function setView(view) {
             const richDiv = document.getElementById('rich-content');
             const rawArea = document.getElementById('raw-content');
 
             // Toggle Button Elements
-            const viewIcon = document.getElementById('view-icon');
             const viewLabel = document.getElementById('view-label');
             const viewBtn = document.getElementById('btn-view-toggle');
 
-            const showLinks = document.getElementById('chk-show-links').checked;
+            const showLinks = linksVisible;
 
             if (view === 'rich') {
                 richDiv.style.display = 'block';
                 rawArea.style.display = 'none';
 
                 // Set button to show option for NEXT state (Raw)
-                viewIcon.textContent = '📄';
                 viewLabel.textContent = 'Texto cru';
                 viewBtn.title = 'Ver Texto cru';
             } else {
@@ -409,7 +510,6 @@
                 rawArea.style.display = 'block';
 
                 // Set button to show option for NEXT state (Visual)
-                viewIcon.textContent = '👁️';
                 viewLabel.textContent = 'Visual';
                 viewBtn.title = 'Ver Visual';
             }
@@ -437,7 +537,7 @@
                 rawText.style.opacity = '0';
                 rawText.style.position = 'absolute';
             }
-            const showLinks = document.getElementById('chk-show-links').checked;
+            const showLinks = linksVisible;
             const textToCopy = showLinks ? rawText.value : stripLinks(rawText.value);
             try { rawText.select(); rawText.setSelectionRange(0, 99999); } catch (e) { }
 
@@ -468,13 +568,10 @@
         }
 
         function updateThemeUI(theme) {
-            const icon = document.getElementById('theme-icon');
             const text = document.getElementById('theme-text');
             if (theme === 'light') {
-                icon.innerHTML = '&#9788;';
                 text.textContent = 'Claro';
             } else {
-                icon.innerHTML = '&#9789;';
                 text.textContent = 'Escuro';
             }
         }
@@ -527,12 +624,6 @@
 
             // Render
             setView('rich');
-
-            // Listeners
-            document.getElementById('chk-show-links').addEventListener('change', (e) => {
-                const currentView = document.getElementById('rich-content').style.display !== 'none' ? 'rich' : 'raw';
-                setView(currentView);
-            });
 
             // Scroll Logic for Bottom Bar and Navbar
             let lastScrollTop = 0;
